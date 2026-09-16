@@ -1,0 +1,1370 @@
+
+:root {
+  --plan-primary: #0f2747;
+  --plan-primary-dark: #091b33;
+  --plan-primary-light: #173b68;
+
+  --plan-blue: #2563eb;
+  --plan-blue-light: #eff6ff;
+
+  --plan-success: #059669;
+  --plan-success-light: #ecfdf5;
+
+  --plan-warning: #d97706;
+  --plan-warning-light: #fffbeb;
+
+  --plan-danger: #dc2626;
+  --plan-danger-light: #fef2f2;
+
+  --plan-text: #172033;
+  --plan-text-light: #64748b;
+  --plan-muted: #94a3b8;
+
+  --plan-border: #e2e8f0;
+  --plan-border-light: #eef2f7;
+
+  --plan-background: #f5f7fb;
+  --plan-white: #ffffff;
+
+  --plan-shadow-sm:
+    0 2px 8px rgba(15, 39, 71, 0.05);
+
+  --plan-shadow:
+    0 8px 30px rgba(15, 39, 71, 0.08);
+
+  --plan-shadow-lg:
+    0 18px 50px rgba(15, 39, 71, 0.12);
+
+  --plan-radius-sm: 8px;
+  --plan-radius: 12px;
+  --plan-radius-lg: 16px;
+}
+
+
+/* =========================================================
+   PAGE
+========================================================= */
+
+.plan-page {
+  min-height: 100vh;
+  padding: 32px;
+  background:
+    linear-gradient(
+      180deg,
+      #f8fafc 0%,
+      #f5f7fb 45%,
+      #eef3f9 100%
+    );
+
+  color: var(--plan-text);
+
+  font-family:
+    Inter,
+    "Segoe UI",
+    Tahoma,
+    Arial,
+    sans-serif;
+
+  box-sizing: border-box;
+}
+
+.plan-page *,
+.plan-page *::before,
+.plan-page *::after {
+  box-sizing: border-box;
+}
+
+
+/* =========================================================
+   MAIN TITLE
+========================================================= */
+
+.plan-page > h2 {
+  position: relative;
+
+  margin: 0 0 28px;
+
+  padding: 24px 28px;
+
+  border-radius: var(--plan-radius-lg);
+
+  background:
+    linear-gradient(
+      135deg,
+      var(--plan-primary-dark),
+      var(--plan-primary),
+      var(--plan-primary-light)
+    );
+
+  color: #ffffff;
+
+  font-size: 26px;
+  font-weight: 700;
+
+  letter-spacing: -0.3px;
+
+  box-shadow: var(--plan-shadow-lg);
+
+  overflow: hidden;
+}
+
+.plan-page > h2::after {
+  content: "";
+
+  position: absolute;
+
+  width: 220px;
+  height: 220px;
+
+  right: -80px;
+  top: -110px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(255, 255, 255, 0.08);
+}
+
+.plan-page > h2::before {
+  content: "";
+
+  position: absolute;
+
+  width: 120px;
+  height: 120px;
+
+  right: 120px;
+  bottom: -80px;
+
+  border-radius: 50%;
+
+  background:
+    rgba(59, 130, 246, 0.15);
+}
+
+
+/* =========================================================
+   SUMMARY AREA
+========================================================= */
+
+.plan-page > div:nth-of-type(1) {
+  display: flex;
+
+  gap: 12px !important;
+
+  flex-wrap: wrap;
+
+  margin-bottom: 26px !important;
+}
+
+
+/* =========================================================
+   SUMMARY ITEM
+========================================================= */
+
+.plan-page > div:nth-of-type(1) > div {
+  min-width: 150px;
+
+  padding: 16px 18px;
+
+  border:
+    1px solid var(--plan-border);
+
+  border-radius:
+    var(--plan-radius);
+
+  background:
+    rgba(255, 255, 255, 0.92);
+
+  box-shadow:
+    var(--plan-shadow-sm);
+
+  color:
+    var(--plan-text-light);
+
+  font-size: 13px;
+
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.plan-page > div:nth-of-type(1) > div:hover {
+  transform: translateY(-2px);
+
+  border-color:
+    #cbd5e1;
+
+  box-shadow:
+    var(--plan-shadow);
+}
+
+.plan-page > div:nth-of-type(1) strong {
+  display: block;
+
+  margin-bottom: 5px;
+
+  color:
+    var(--plan-text);
+
+  font-size: 12px;
+
+  font-weight: 600;
+
+  text-transform: uppercase;
+
+  letter-spacing: 0.4px;
+}
+
+
+/* =========================================================
+   SECTION HEADINGS
+========================================================= */
+
+.plan-page h3 {
+  margin: 0 0 16px;
+
+  color:
+    var(--plan-primary);
+
+  font-size: 18px;
+
+  font-weight: 700;
+
+  letter-spacing: -0.1px;
+}
+
+
+/* =========================================================
+   FILTER / COLUMN CARDS
+========================================================= */
+
+.plan-page > div[style*="background"] {
+  border:
+    1px solid var(--plan-border) !important;
+
+  border-radius:
+    var(--plan-radius-lg) !important;
+
+  background:
+    rgba(255, 255, 255, 0.95) !important;
+
+  box-shadow:
+    var(--plan-shadow) !important;
+
+  backdrop-filter:
+    blur(8px);
+
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.plan-page > div[style*="background"]:hover {
+  border-color:
+    #d5deea !important;
+}
+
+
+/* =========================================================
+   INPUTS / SELECTS
+========================================================= */
+
+.plan-page input,
+.plan-page select {
+  min-height: 40px;
+
+  border:
+    1px solid #d7dee8 !important;
+
+  border-radius:
+    8px !important;
+
+  background:
+    #ffffff;
+
+  color:
+    var(--plan-text);
+
+  font-family:
+    inherit;
+
+  font-size:
+    13px;
+
+  outline:
+    none;
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    background 0.2s ease;
+}
+
+.plan-page input {
+  padding:
+    0 12px !important;
+}
+
+.plan-page select {
+  padding:
+    0 34px 0 12px !important;
+
+  cursor:
+    pointer;
+}
+
+.plan-page input:hover,
+.plan-page select:hover {
+  border-color:
+    #aebdce !important;
+}
+
+.plan-page input:focus,
+.plan-page select:focus {
+  border-color:
+    var(--plan-blue) !important;
+
+  box-shadow:
+    0 0 0 3px
+    rgba(37, 99, 235, 0.1);
+
+  background:
+    #ffffff;
+}
+
+.plan-page input::placeholder {
+  color:
+    #9aa7b8;
+}
+
+
+/* =========================================================
+   SEARCH INPUT
+========================================================= */
+
+.plan-page input[type="text"] {
+  height: 44px;
+
+  border-radius:
+    10px !important;
+
+  background:
+    #fbfcfe;
+
+  font-size:
+    13px;
+}
+
+.plan-page input[type="text"]:focus {
+  background:
+    #ffffff;
+}
+
+
+/* =========================================================
+   DATE INPUT
+========================================================= */
+
+.plan-page input[type="date"] {
+  min-width:
+    160px;
+}
+
+
+/* =========================================================
+   CHECKBOXES
+========================================================= */
+
+.plan-page input[type="checkbox"] {
+  min-height:
+    auto;
+
+  width:
+    16px;
+
+  height:
+    16px;
+
+  margin:
+    0 7px 0 0;
+
+  padding:
+    0 !important;
+
+  accent-color:
+    var(--plan-blue);
+
+  vertical-align:
+    middle;
+
+  cursor:
+    pointer;
+}
+
+.plan-page label {
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  color:
+    #475569;
+
+  font-size:
+    13px;
+
+  font-weight:
+    500;
+
+  cursor:
+    pointer;
+}
+
+
+/* =========================================================
+   BUTTON BASE
+========================================================= */
+
+.plan-page button {
+  min-height:
+    40px;
+
+  padding:
+    0 15px;
+
+  border:
+    1px solid #d5dce7;
+
+  border-radius:
+    8px;
+
+  background:
+    #ffffff;
+
+  color:
+    #334155;
+
+  font-family:
+    inherit;
+
+  font-size:
+    13px;
+
+  font-weight:
+    600;
+
+  cursor:
+    pointer;
+
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease;
+}
+
+.plan-page button:hover:not(:disabled) {
+  transform:
+    translateY(-1px);
+
+  border-color:
+    #b9c5d5;
+
+  box-shadow:
+    0 4px 12px
+    rgba(15, 39, 71, 0.09);
+}
+
+.plan-page button:active:not(:disabled) {
+  transform:
+    translateY(0);
+}
+
+.plan-page button:disabled {
+  opacity:
+    0.55;
+
+  cursor:
+    not-allowed;
+}
+
+
+/* =========================================================
+   CLEAR FILTER BUTTON
+========================================================= */
+
+.plan-page button[type="button"] {
+  white-space:
+    nowrap;
+}
+
+
+/* =========================================================
+   MAIN TABLE WRAPPER
+========================================================= */
+
+.plan-page div[style*="overflowX"] {
+  width:
+    100%;
+
+  margin-top:
+    12px;
+
+  padding:
+    0;
+
+  overflow-x:
+    auto !important;
+
+  border:
+    1px solid var(--plan-border);
+
+  border-radius:
+    var(--plan-radius-lg);
+
+  background:
+    #ffffff;
+
+  box-shadow:
+    var(--plan-shadow);
+
+  -webkit-overflow-scrolling:
+    touch;
+}
+
+
+/* =========================================================
+   MAIN TABLE
+========================================================= */
+
+.plan-page table {
+  width:
+    100%;
+
+  min-width:
+    1050px;
+
+  border:
+    none !important;
+
+  border-collapse:
+    separate !important;
+
+  border-spacing:
+    0;
+
+  background:
+    #ffffff;
+
+  font-size:
+    13px;
+}
+
+
+/* =========================================================
+   TABLE HEADER
+========================================================= */
+
+.plan-page table thead {
+  background:
+    linear-gradient(
+      180deg,
+      #f8fafc,
+      #f1f5f9
+    );
+}
+
+.plan-page table thead th {
+  position:
+    sticky;
+
+  top:
+    0;
+
+  z-index:
+    2;
+
+  padding:
+    14px 14px;
+
+  border:
+    none !important;
+
+  border-bottom:
+    1px solid #dce4ee !important;
+
+  color:
+    #334155;
+
+  font-size:
+    11px;
+
+  font-weight:
+    700;
+
+  letter-spacing:
+    0.5px;
+
+  text-align:
+    left;
+
+  white-space:
+    nowrap;
+
+  text-transform:
+    uppercase;
+}
+
+
+/* =========================================================
+   TABLE BODY
+========================================================= */
+
+.plan-page table tbody td {
+  padding:
+    13px 14px;
+
+  border:
+    none !important;
+
+  border-bottom:
+    1px solid #edf1f5 !important;
+
+  color:
+    #334155;
+
+  vertical-align:
+    middle;
+
+  white-space:
+    nowrap;
+}
+
+.plan-page table tbody tr {
+  background:
+    #ffffff;
+
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.plan-page table tbody tr:nth-child(even) {
+  background:
+    #fbfcfe;
+}
+
+.plan-page table tbody tr:hover {
+  background:
+    #f1f6ff;
+
+  box-shadow:
+    inset 3px 0 0
+    var(--plan-blue);
+}
+
+.plan-page table tbody tr:last-child td {
+  border-bottom:
+    none !important;
+}
+
+
+/* =========================================================
+   SESSION GROUP
+========================================================= */
+
+.plan-page table tbody td:first-child {
+  color:
+    var(--plan-primary);
+
+  font-weight:
+    700;
+}
+
+
+/* =========================================================
+   CRN
+========================================================= */
+
+.plan-page table tbody td:nth-child(2) {
+  color:
+    #475569;
+
+  font-family:
+    "Consolas",
+    "Courier New",
+    monospace;
+
+  font-size:
+    12px;
+}
+
+
+/* =========================================================
+   PROFESSOR
+========================================================= */
+
+.plan-page table tbody td:nth-child(3) {
+  min-width:
+    220px;
+
+  max-width:
+    340px;
+
+  white-space:
+    normal;
+
+  line-height:
+    1.5;
+
+  font-weight:
+    500;
+}
+
+
+/* =========================================================
+   DATE
+========================================================= */
+
+.plan-page table tbody td:nth-child(4) {
+  color:
+    #475569;
+
+  font-variant-numeric:
+    tabular-nums;
+}
+
+
+/* =========================================================
+   PERIOD BADGE
+========================================================= */
+
+.plan-page table tbody td:nth-child(5) {
+  font-weight:
+    600;
+}
+
+.plan-page table tbody td:nth-child(5) {
+  color:
+    var(--plan-primary);
+}
+
+
+/* =========================================================
+   TIME BADGE
+========================================================= */
+
+.plan-page .time-badge {
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  min-width:
+    84px;
+
+  padding:
+    7px 10px;
+
+  border:
+    1px solid #dbe7f6;
+
+  border-radius:
+    7px;
+
+  background:
+    #f1f6fd;
+
+  color:
+    #174a82;
+
+  font-family:
+    "Consolas",
+    "Courier New",
+    monospace;
+
+  font-size:
+    12px;
+
+  font-weight:
+    700;
+
+  letter-spacing:
+    0.2px;
+
+  font-variant-numeric:
+    tabular-nums;
+}
+
+
+/* =========================================================
+   FROM
+========================================================= */
+
+.plan-page table tbody td:nth-child(6)
+.time-badge {
+  background:
+    #eff6ff;
+
+  border-color:
+    #dbeafe;
+
+  color:
+    #1d4ed8;
+}
+
+
+/* =========================================================
+   TO
+========================================================= */
+
+.plan-page table tbody td:nth-child(7)
+.time-badge {
+  background:
+    #f0fdf4;
+
+  border-color:
+    #dcfce7;
+
+  color:
+    #15803d;
+}
+
+
+/* =========================================================
+   SUPERVISOR CELL
+========================================================= */
+
+.plan-page table tbody td:nth-last-child(2) {
+  font-weight:
+    600;
+
+  color:
+    var(--plan-primary);
+}
+
+
+/* =========================================================
+   EDIT SELECT
+========================================================= */
+
+.plan-page table tbody td select {
+  min-width:
+    190px;
+
+  height:
+    38px;
+
+  font-size:
+    12px;
+}
+
+
+/* =========================================================
+   TABLE ACTION BUTTONS
+========================================================= */
+
+.plan-page table tbody td:last-child {
+  text-align:
+    center;
+}
+
+.plan-page table tbody td:last-child button {
+  min-height:
+    34px;
+
+  padding:
+    0 11px;
+
+  font-size:
+    12px;
+}
+
+
+/* Save button */
+
+.plan-page table tbody td:last-child button:first-child {
+  border-color:
+    #bbf7d0;
+
+  background:
+    #f0fdf4;
+
+  color:
+    #15803d;
+}
+
+.plan-page table tbody td:last-child button:first-child:hover:not(:disabled) {
+  background:
+    #dcfce7;
+
+  border-color:
+    #86efac;
+}
+
+
+/* Cancel */
+
+.plan-page table tbody td:last-child button:last-child {
+  border-color:
+    #fecaca;
+
+  background:
+    #fffafa;
+
+  color:
+    #b91c1c;
+}
+
+.plan-page table tbody td:last-child button:last-child:hover:not(:disabled) {
+  background:
+    #fef2f2;
+
+  border-color:
+    #fca5a5;
+}
+
+
+/* Edit */
+
+.plan-page table tbody td:last-child button {
+  background:
+    #f8fafc;
+}
+
+
+/* =========================================================
+   NO RESULTS
+========================================================= */
+
+.plan-page table tbody tr td[colspan] {
+  padding:
+    45px 20px !important;
+
+  color:
+    #64748b;
+
+  font-size:
+    14px;
+
+  text-align:
+    center;
+
+  background:
+    #ffffff;
+}
+
+
+/* =========================================================
+   SUPERVISOR STATISTICS
+========================================================= */
+
+.plan-page table:not(:first-of-type) {
+  margin-top:
+    12px;
+
+  min-width:
+    0;
+
+  width:
+    100%;
+}
+
+.plan-page table:not(:first-of-type) thead th {
+  position:
+    static;
+
+  background:
+    #f8fafc;
+}
+
+.plan-page table:not(:first-of-type) tbody td {
+  padding:
+    12px 14px;
+}
+
+.plan-page table:not(:first-of-type) tbody td:last-child {
+  color:
+    var(--plan-blue);
+
+  font-size:
+    14px;
+
+  font-weight:
+    800;
+}
+
+
+/* =========================================================
+   STATISTICS NUMBER
+========================================================= */
+
+.plan-page table:not(:first-of-type)
+tbody td:last-child {
+  font-variant-numeric:
+    tabular-nums;
+}
+
+
+/* =========================================================
+   CONFLICTS TABLE
+========================================================= */
+
+.plan-page table {
+  overflow:
+    hidden;
+}
+
+
+/*
+   Conflict section:
+   اللون الأحمر يظهر تلقائيًا على الجدول
+   الذي يحتوي على عمود Reason.
+*/
+
+.plan-page table th:last-child {
+  white-space:
+    nowrap;
+}
+
+.plan-page table tbody td:last-child {
+  max-width:
+    320px;
+}
+
+
+/* =========================================================
+   CONFLICT TEXT
+========================================================= */
+
+.plan-page table tbody td:last-child:not(:has(button)) {
+  white-space:
+    normal;
+
+  line-height:
+    1.5;
+}
+
+
+/* =========================================================
+   DOWNLOAD
+========================================================= */
+
+.plan-page a[download] {
+  display:
+    inline-flex;
+
+  align-items:
+    center;
+
+  justify-content:
+    center;
+
+  min-height:
+    44px;
+
+  padding:
+    0 18px;
+
+  border:
+    1px solid #bfdbfe;
+
+  border-radius:
+    9px;
+
+  background:
+    #eff6ff;
+
+  color:
+    #1d4ed8;
+
+  font-size:
+    13px;
+
+  font-weight:
+    700;
+
+  text-decoration:
+    none;
+
+  box-shadow:
+    0 3px 10px
+    rgba(37, 99, 235, 0.08);
+
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.plan-page a[download]:hover {
+  transform:
+    translateY(-2px);
+
+  background:
+    #dbeafe;
+
+  box-shadow:
+    0 6px 18px
+    rgba(37, 99, 235, 0.14);
+}
+
+
+/* =========================================================
+   LOADING
+========================================================= */
+
+.plan-page > p {
+  padding:
+    20px;
+
+  border-radius:
+    var(--plan-radius);
+
+  background:
+    #ffffff;
+
+  color:
+    var(--plan-text-light);
+
+  box-shadow:
+    var(--plan-shadow-sm);
+
+  font-size:
+    14px;
+}
+
+
+/* =========================================================
+   SCROLLBAR
+========================================================= */
+
+.plan-page ::-webkit-scrollbar {
+  width:
+    9px;
+
+  height:
+    9px;
+}
+
+.plan-page ::-webkit-scrollbar-track {
+  background:
+    #eef2f7;
+
+  border-radius:
+    10px;
+}
+
+.plan-page ::-webkit-scrollbar-thumb {
+  background:
+    #b8c5d6;
+
+  border-radius:
+    10px;
+
+  border:
+    2px solid #eef2f7;
+}
+
+.plan-page ::-webkit-scrollbar-thumb:hover {
+  background:
+    #94a3b8;
+}
+
+
+/* =========================================================
+   RESPONSIVE — TABLET
+========================================================= */
+
+@media (max-width: 1024px) {
+  .plan-page {
+    padding:
+      22px;
+  }
+
+  .plan-page > h2 {
+    font-size:
+      23px;
+
+    padding:
+      21px 22px;
+  }
+
+  .plan-page > div:nth-of-type(1) > div {
+    min-width:
+      135px;
+  }
+}
+
+
+/* =========================================================
+   RESPONSIVE — MOBILE
+========================================================= */
+
+@media (max-width: 768px) {
+  .plan-page {
+    padding:
+      14px;
+
+    background:
+      #f5f7fb;
+  }
+
+  .plan-page > h2 {
+    margin-bottom:
+      18px;
+
+    padding:
+      18px;
+
+    border-radius:
+      12px;
+
+    font-size:
+      20px;
+  }
+
+  .plan-page > div:nth-of-type(1) {
+    gap:
+      8px !important;
+  }
+
+  .plan-page > div:nth-of-type(1) > div {
+    flex:
+      1 1 calc(50% - 8px);
+
+    min-width:
+      0;
+
+    padding:
+      12px;
+
+    font-size:
+      12px;
+  }
+
+  .plan-page h3 {
+    font-size:
+      16px;
+  }
+
+  .plan-page > div[style*="background"] {
+    padding:
+      12px !important;
+
+    border-radius:
+      12px !important;
+  }
+
+  .plan-page input[type="text"] {
+    max-width:
+      100% !important;
+
+    width:
+      100% !important;
+  }
+
+  .plan-page select,
+  .plan-page input[type="date"] {
+    width:
+      100%;
+
+    min-width:
+      0 !important;
+  }
+
+  .plan-page label {
+    font-size:
+      12px;
+  }
+
+  .plan-page div[style*="overflowX"] {
+    border-radius:
+      12px;
+  }
+
+  .plan-page table {
+    min-width:
+      980px;
+  }
+}
+
+
+/* =========================================================
+   VERY SMALL SCREENS
+========================================================= */
+
+@media (max-width: 480px) {
+  .plan-page {
+    padding:
+      10px;
+  }
+
+  .plan-page > h2 {
+    font-size:
+      18px;
+
+    padding:
+      16px;
+  }
+
+  .plan-page > div:nth-of-type(1) > div {
+    flex:
+      1 1 100%;
+  }
+
+  .plan-page button {
+    width:
+      100%;
+  }
+
+  .plan-page table tbody td:last-child button {
+    width:
+      auto;
+  }
+}
+
+
+/* =========================================================
+   ACCESSIBILITY
+========================================================= */
+
+.plan-page button:focus-visible,
+.plan-page input:focus-visible,
+.plan-page select:focus-visible,
+.plan-page a:focus-visible {
+  outline:
+    3px solid
+    rgba(37, 99, 235, 0.25);
+
+  outline-offset:
+    2px;
+}
+
+
+/* =========================================================
+   REDUCED MOTION
+========================================================= */
+
+@media (prefers-reduced-motion: reduce) {
+  .plan-page *,
+  .plan-page *::before,
+  .plan-page *::after {
+    scroll-behavior:
+      auto !important;
+
+    transition:
+      none !important;
+
+    animation:
+      none !important;
+  }
+}
