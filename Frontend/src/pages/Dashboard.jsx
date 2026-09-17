@@ -691,7 +691,64 @@ export default function Dashboard() {
               </div>
 
               <div className="upload-workspace">
-                <FileUploader onUploaded={handleUploaded} />
+                <div className="upload-card">
+                  <div className="upload-card-top">
+                    <div className="upload-excel-icon">
+                      <span>XL</span>
+                    </div>
+
+                    <div className="upload-card-title">
+                      <h3>رفع ملف المحاضرات</h3>
+                      <p>
+                        ارفعي ملف Excel الذي يحتوي على المحاضرات والمواعيد
+                        والأساتذة
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="upload-dropzone">
+                    <div className="upload-cloud-icon">{Icons.upload}</div>
+
+                    <h4>اسحبي الملف هنا</h4>
+
+                    <span className="upload-or">أو</span>
+
+                    <FileUploader onUploaded={handleUploaded} />
+
+                    <p className="upload-formats">
+                      الملفات المدعومة: <strong>.xlsx</strong> و{" "}
+                      <strong>.xls</strong>
+                    </p>
+                  </div>
+
+                  {rows.length > 0 && (
+                    <div className="upload-success-card">
+                      <div className="upload-success-icon">{Icons.check}</div>
+
+                      <div className="upload-success-info">
+                        <strong>تم تحميل الملف بنجاح</strong>
+                        <span>
+                          تم العثور على {rows.length} سجل جاهز للمراجعة
+                        </span>
+                      </div>
+
+                      <div className="upload-success-status">جاهز</div>
+                    </div>
+                  )}
+
+                  {invalidRows > 0 && (
+                    <div className="upload-warning-card">
+                      <div className="upload-warning-icon">{Icons.warning}</div>
+
+                      <div>
+                        <strong>يوجد {invalidRows} سجل يحتاج إلى مراجعة</strong>
+                        <span>
+                          راجعي البيانات قبل إنشاء الخطة لضمان توزيع صحيح.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </section>
 
