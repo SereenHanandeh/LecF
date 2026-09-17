@@ -1,5 +1,7 @@
 import React, { useRef, useState } from "react";
+
 import { uploadExcel, uploadExcelFromUrl } from "../api";
+
 import "../assets/FileUplod.css";
 
 export default function FileUploader({ onUploaded }) {
@@ -7,26 +9,52 @@ export default function FileUploader({ onUploaded }) {
 
   const [file, setFile] = useState(null);
   const [url, setUrl] = useState("");
+
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState("file");
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState("");
+
+  // =====================================================
+  // اختيار ملف من الجهاز
+  // =====================================================
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files?.[0];
 
     if (!selectedFile) return;
 
+    const extension = selectedFile.name
+      .split(".")
+      .pop()
+      ?.toLowerCase();
+
+    if (!["xlsx", "xls"].includes(extension)) {
+      setError("يرجى اختيار ملف Excel بصيغة XLSX أو XLS.");
+
+      if (inputRef.current) {
+        inputRef.current.value = "";
+      }
+
+      return;
+    }
+
     setError("");
     setFile(selectedFile);
     setUrl("");
   };
+
+  // =====================================================
+  // Drag & Drop
+  // =====================================================
 
   const handleDrop = (e) => {
     e.preventDefault();
     e.stopPropagation();
 
     setDragActive(false);
+
+    if (loading) return;
 
     const droppedFile = e.dataTransfer.files?.[0];
 
@@ -63,6 +91,10 @@ export default function FileUploader({ onUploaded }) {
     setDragActive(false);
   };
 
+  // =====================================================
+  // حذف الملف
+  // =====================================================
+
   const removeFile = () => {
     if (loading) return;
 
@@ -73,6 +105,10 @@ export default function FileUploader({ onUploaded }) {
       inputRef.current.value = "";
     }
   };
+
+  // =====================================================
+  // تغيير طريقة الرفع
+  // =====================================================
 
   const switchMode = (newMode) => {
     if (loading) return;
@@ -91,13 +127,18 @@ export default function FileUploader({ onUploaded }) {
     }
   };
 
+  // =====================================================
+  // رفع الملف
+  // =====================================================
+
   const handleUpload = async () => {
-    if (!file && !url.trim()) {
-      setError(
-        mode === "file"
-          ? "اختاري ملف Excel أولاً."
-          : "أدخلي رابط ملف Excel أولاً."
-      );
+    if (mode === "file" && !file) {
+      setError("اختاري ملف Excel أولاً.");
+      return;
+    }
+
+    if (mode === "url" && !url.trim()) {
+      setError("أدخلي رابط ملف Excel أولاً.");
       return;
     }
 
@@ -107,12 +148,23 @@ export default function FileUploader({ onUploaded }) {
     try {
       let res;
 
-      if (file) {
+      // -----------------------------------------------
+      // رفع ملف من الجهاز
+      // -----------------------------------------------
+
+      if (mode === "file") {
         const formData = new FormData();
+
         formData.append("file", file);
 
         res = await uploadExcel(formData);
-      } else {
+      }
+
+      // -----------------------------------------------
+      // رفع ملف من رابط
+      // -----------------------------------------------
+
+      else {
         res = await uploadExcelFromUrl({
           url: url.trim(),
         });
@@ -128,9 +180,9 @@ export default function FileUploader({ onUploaded }) {
 
       console.log("📦 Full response data:", responseData);
 
-      // ==============================
+      // =================================================
       // Excel Batch ID
-      // ==============================
+      // =================================================
 
       const excelBatchId =
         responseData.excel_batch_id ||
@@ -145,9 +197,9 @@ export default function FileUploader({ onUploaded }) {
 
       console.log("🆔 Excel Batch ID:", excelBatchId);
 
-      // ==============================
+      // =================================================
       // Valid Rows
-      // ==============================
+      // =================================================
 
       const rows = Array.isArray(responseData.data)
         ? responseData.data
@@ -157,22 +209,25 @@ export default function FileUploader({ onUploaded }) {
         ? responseData.data.rows
         : [];
 
-      // ==============================
+      // =================================================
       // Invalid Rows
-      // ==============================
+      // =================================================
 
-      const invalidRows = Array.isArray(responseData.invalidRows)
+      const invalidRows = Array.isArray(
+        responseData.invalidRows
+      )
         ? responseData.invalidRows.map((row) => ({
             ...row,
             __invalid: true,
           }))
         : [];
 
-      const finalRows = rows.length > 0 ? rows : invalidRows;
+      const finalRows =
+        rows.length > 0 ? rows : invalidRows;
 
-      // ==============================
+      // =================================================
       // Validation
-      // ==============================
+      // =================================================
 
       if (!excelBatchId) {
         console.error(
@@ -203,9 +258,9 @@ export default function FileUploader({ onUploaded }) {
       console.log("📊 Rows:", finalRows.length);
       console.log("🆔 Batch:", excelBatchId);
 
-      // ==============================
+      // =================================================
       // Send data to Dashboard
-      // ==============================
+      // =================================================
 
       if (typeof onUploaded !== "function") {
         console.error(
@@ -224,7 +279,10 @@ export default function FileUploader({ onUploaded }) {
         excelBatchId,
       });
 
+      // =================================================
       // Reset
+      // =================================================
+
       setFile(null);
       setUrl("");
 
@@ -250,11 +308,13 @@ export default function FileUploader({ onUploaded }) {
   return (
     <div className="file-uploader">
 
-      {/* ==============================
+      {/* =================================================
           Mode Switch
-      ============================== */}
+      ================================================= */}
 
       <div className="upload-mode-switch">
+
+        {/* رفع ملف */}
 
         <button
           type="button"
@@ -279,6 +339,7 @@ export default function FileUploader({ onUploaded }) {
                 strokeWidth="1.7"
                 strokeLinejoin="round"
               />
+
               <path
                 d="M13 3V10H20"
                 stroke="currentColor"
@@ -290,6 +351,8 @@ export default function FileUploader({ onUploaded }) {
 
           <span>رفع ملف</span>
         </button>
+
+        {/* من رابط */}
 
         <button
           type="button"
@@ -335,12 +398,11 @@ export default function FileUploader({ onUploaded }) {
 
           <span>من رابط</span>
         </button>
-
       </div>
 
-      {/* ==============================
+      {/* =================================================
           File Mode
-      ============================== */}
+      ================================================= */}
 
       {mode === "file" && (
         <div
@@ -357,7 +419,6 @@ export default function FileUploader({ onUploaded }) {
             }
           }}
         >
-
           <input
             ref={inputRef}
             id="excel-file-input"
@@ -368,7 +429,6 @@ export default function FileUploader({ onUploaded }) {
           />
 
           <div className="upload-cloud">
-
             <svg
               width="30"
               height="30"
@@ -398,7 +458,6 @@ export default function FileUploader({ onUploaded }) {
                 strokeLinejoin="round"
               />
             </svg>
-
           </div>
 
           {file ? (
@@ -418,7 +477,7 @@ export default function FileUploader({ onUploaded }) {
           ) : (
             <>
               <strong className="dropzone-title">
-             اسحب ملف Excel إلى هنا
+                اسحب ملف Excel إلى هنا
               </strong>
 
               <span>
@@ -430,19 +489,17 @@ export default function FileUploader({ onUploaded }) {
               </small>
             </>
           )}
-
         </div>
       )}
 
-      {/* ==============================
+      {/* =================================================
           URL Mode
-      ============================== */}
+      ================================================= */}
 
       {mode === "url" && (
         <div className="url-upload-box">
 
           <div className="url-input-icon">
-
             <svg
               width="22"
               height="22"
@@ -460,7 +517,7 @@ export default function FileUploader({ onUploaded }) {
                 d="M7.5 17.5L6.2 18.8C4.43 20.57 1.57 20.57 -0.2 18.8C-1.97 17.03 -1.97 14.17 -0.2 12.4L4.1 8.1C5.87 6.33 8.73 6.33 10.5 8.1"
                 transform="translate(2 0)"
                 stroke="currentColor"
-                strokeWidth="1.7"
+                strokeWidth="1.8"
                 strokeLinecap="round"
               />
 
@@ -468,11 +525,10 @@ export default function FileUploader({ onUploaded }) {
                 d="M13.5 6.5L14.8 5.2C16.57 3.43 19.43 3.43 21.2 5.2C22.97 6.97 22.97 9.83 21.2 11.6L16.9 15.9C15.13 17.67 12.27 17.67 10.5 15.9"
                 transform="translate(-2 0)"
                 stroke="currentColor"
-                strokeWidth="1.7"
+                strokeWidth="1.8"
                 strokeLinecap="round"
               />
             </svg>
-
           </div>
 
           <div className="url-input-content">
@@ -492,20 +548,20 @@ export default function FileUploader({ onUploaded }) {
               }}
               placeholder="https://example.com/lectures.xlsx"
               disabled={loading}
+              autoComplete="off"
             />
 
             <small>
-              أدخلي رابطًا مباشرًا لملف Excel
+              الصقي هنا الرابط المباشر لملف Excel
             </small>
 
           </div>
-
         </div>
       )}
 
-      {/* ==============================
+      {/* =================================================
           Selected File
-      ============================== */}
+      ================================================= */}
 
       {file && mode === "file" && (
         <div className="selected-file-card">
@@ -528,7 +584,6 @@ export default function FileUploader({ onUploaded }) {
               </span>
 
             </div>
-
           </div>
 
           <button
@@ -563,9 +618,9 @@ export default function FileUploader({ onUploaded }) {
         </div>
       )}
 
-      {/* ==============================
+      {/* =================================================
           Error
-      ============================== */}
+      ================================================= */}
 
       {error && (
         <div className="file-upload-error">
@@ -581,9 +636,9 @@ export default function FileUploader({ onUploaded }) {
         </div>
       )}
 
-      {/* ==============================
+      {/* =================================================
           Upload Button
-      ============================== */}
+      ================================================= */}
 
       <button
         type="button"
@@ -595,7 +650,6 @@ export default function FileUploader({ onUploaded }) {
           (mode === "url" && !url.trim())
         }
       >
-
         {loading ? (
           <>
             جاري تحليل الملف...
@@ -603,6 +657,7 @@ export default function FileUploader({ onUploaded }) {
         ) : (
           <>
             <span className="upload-button-icon">
+
               <svg
                 width="18"
                 height="18"
@@ -631,12 +686,14 @@ export default function FileUploader({ onUploaded }) {
                   strokeLinecap="round"
                 />
               </svg>
+
             </span>
 
-            رفع الملف والمتابعة
+            {mode === "url"
+              ? "تحميل الملف من الرابط"
+              : "رفع الملف والمتابعة"}
           </>
         )}
-
       </button>
 
     </div>
