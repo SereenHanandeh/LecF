@@ -452,15 +452,28 @@ export default function Dashboard() {
       return;
     }
 
-    if (!Number.isFinite(supervisorId)) {
+    if (!Number.isInteger(supervisorId)) {
       setErrorMessage("اختر المشرف المرتبط بالأستاذ.");
       return;
     }
 
-    const newItems = selectedProfessors.map((professorName) => ({
-      professorName,
-      supervisorId,
-    }));
+    const newItems = selectedProfessors.map((professorName) => {
+      // 🔎 نبحث عن أول Row لهذا الأستاذ
+      const professorRow = rows.find(
+        (row) => getProfessorName(row) === professorName,
+      );
+
+      const professorId =
+        professorRow?.professor_id ?? professorRow?.professorId ?? null;
+
+      return {
+        professorId,
+        professorName,
+        supervisorId,
+      };
+    });
+
+    console.log("🔗 AFFINITIES TO SAVE:", newItems);
 
     setAffinitiesState((current) => {
       const filtered = current.filter(
@@ -474,7 +487,6 @@ export default function Dashboard() {
     setAffinitySupervisor("");
     setErrorMessage("");
   };
-
   const removeAffinity = (professorName) => {
     setAffinitiesState((current) =>
       current.filter((item) => item.professorName !== professorName),
@@ -536,6 +548,29 @@ export default function Dashboard() {
       }
 
       /* Affinities */
+
+      // ==============================
+// 🔗 Affinities
+// ==============================
+if (affinities.length) {
+  console.log(
+    "🔗 SENDING AFFINITIES TO BACKEND:",
+    {
+      planId,
+      affinities,
+    }
+  );
+
+  const affinityResult = await setAffinities(
+    planId,
+    affinities
+  );
+
+  console.log(
+    "✅ AFFINITIES RESPONSE:",
+    affinityResult
+  );
+}
 
       if (affinities.length) {
         await setAffinities(planId, affinities);
@@ -1076,7 +1111,7 @@ export default function Dashboard() {
                   {affinities.map((item) => (
                     <div
                       className="affinity-row"
-                      key={`${item.professorName}-${item.supervisorId}`}
+                      key={`${item.professorId ?? item.professorName}-${item.supervisorId}`}
                     >
                       <div>
                         <strong>{item.professorName}</strong>
