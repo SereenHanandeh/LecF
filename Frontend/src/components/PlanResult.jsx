@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation } from "react-router-dom";
-import "../assets/PlanResult.css";
+import "../assets/planResult.css";
 
 import { getPlan, listSupervisors, moveAssignment } from "../api.js";
 
