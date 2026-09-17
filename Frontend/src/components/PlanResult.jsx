@@ -221,6 +221,13 @@ const getProfessorName = (assignment) =>
 const getPeriod = (assignment) =>
   assignment.period_label ?? assignment.period ?? "-";
 
+const normalizeProfessorName = (value) => {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+};
+
 // =====================================================
 // Component
 // =====================================================
@@ -242,6 +249,7 @@ export default function PlanResult() {
   const [planData, setPlanData] = useState([]);
   const [conflicts, setConflicts] = useState([]);
   const [supervisors, setSupervisors] = useState([]);
+  const [affinities, setAffinities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -296,328 +304,290 @@ export default function PlanResult() {
   // Load Plan
   // =====================================================
 
- // =====================================================
-// Load Plan
-// =====================================================
+  // =====================================================
+  // Load Plan
+  // =====================================================
 
-useEffect(() => {
-  if (!planId) {
-    setLoading(false);
-    setError("لم يتم العثور على رقم الخطة.");
-    return;
-  }
+  useEffect(() => {
+    if (!planId) {
+      setLoading(false);
+      setError("لم يتم العثور على رقم الخطة.");
+      return;
+    }
 
-  let cancelled = false;
+    let cancelled = false;
 
-  const fetchData = async () => {
-    try {
-      setLoading(true);
-      setError("");
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-      console.log("=================================");
-      console.log("📥 FETCHING PLAN");
-      console.log("📌 planId:", planId);
-      console.log("📌 API:", `/plan/${planId}`);
-      console.log("=================================");
+        console.log("=================================");
+        console.log("📥 FETCHING PLAN");
+        console.log("📌 planId:", planId);
+        console.log("📌 API:", `/plan/${planId}`);
+        console.log("=================================");
 
-      const res = await getPlan(planId);
+        const res = await getPlan(planId);
 
-      console.log("=================================");
-      console.log("📦 PLAN RESPONSE:");
-      console.log(res);
-      console.log("=================================");
+        console.log("=================================");
+        console.log("📦 PLAN RESPONSE:");
+        console.log(res);
+        console.log("=================================");
 
-      if (!res?.success) {
-        throw new Error(
-          res?.message ||
-            res?.error ||
-            "Failed to load plan"
-        );
-      }
-
-      const data = res.data || {};
-
-      // =================================================
-      // Assignments
-      // =================================================
-
-      let assignments = [];
-
-      if (Array.isArray(data)) {
-        assignments = data;
-      } else if (Array.isArray(data.assignments)) {
-        assignments = data.assignments;
-      } else if (Array.isArray(data.result)) {
-        assignments = data.result;
-      } else if (Array.isArray(data.data)) {
-        assignments = data.data;
-      }
-
-      console.log(
-        "📋 Assignments before enrichment:",
-        assignments.length
-      );
-
-      // =================================================
-      // Groups
-      // =================================================
-
-      const groups = Array.isArray(data.groups)
-        ? data.groups
-        : [];
-
-      const groupsMap = new Map();
-
-      groups.forEach((group) => {
-        const groupId =
-          group.id ??
-          group.session_group_id ??
-          group.sessionGroupId;
-
-        if (
-          groupId !== null &&
-          groupId !== undefined
-        ) {
-          groupsMap.set(String(groupId), group);
-        }
-      });
-
-      // =================================================
-      // Enrich Assignments
-      // =================================================
-
-      assignments = assignments.map((assignment) => {
-        const groupId =
-          assignment.session_group_id ??
-          assignment.sessionGroupId ??
-          null;
-
-        const group = groupsMap.get(String(groupId));
-
-        if (!group) {
-          return assignment;
+        if (!res?.success) {
+          throw new Error(res?.message || res?.error || "Failed to load plan");
         }
 
-        return {
-          ...group,
-          ...assignment,
+        const data = res.data || {};
 
-          time_from:
-            assignment.time_from ??
-            assignment.timeFrom ??
-            group.time_from ??
-            group.timeFrom ??
-            null,
+        const planAffinities = Array.isArray(data.affinities)
+          ? data.affinities
+          : [];
 
-          time_to:
-            assignment.time_to ??
-            assignment.timeTo ??
-            group.time_to ??
-            group.timeTo ??
-            null,
+        console.log("🔗 PLAN AFFINITIES:", planAffinities);
 
-          period_label:
-            assignment.period_label ??
-            assignment.period ??
-            group.period_label ??
-            group.period ??
-            null,
+        if (!cancelled) {
+          setAffinities(planAffinities);
+        }
 
-          date:
-            assignment.date ??
-            group.date ??
-            null,
+        // =================================================
+        // Assignments
+        // =================================================
 
-          crn:
-            assignment.crn ??
-            group.crn ??
-            null,
+        let assignments = [];
 
-          professor_name:
-            assignment.professor_name ??
-            assignment.professor ??
-            group.professor_name ??
-            group.professor ??
-            null,
-        };
-      });
+        if (Array.isArray(data)) {
+          assignments = data;
+        } else if (Array.isArray(data.assignments)) {
+          assignments = data.assignments;
+        } else if (Array.isArray(data.result)) {
+          assignments = data.result;
+        } else if (Array.isArray(data.data)) {
+          assignments = data.data;
+        }
 
-      // =================================================
-      // Remove duplicate assignment IDs
-      // =================================================
+        console.log("📋 Assignments before enrichment:", assignments.length);
 
-      const uniqueAssignments = [];
-      const seenAssignmentIds = new Set();
+        // =================================================
+        // Groups
+        // =================================================
 
-      assignments.forEach((assignment) => {
-        const assignmentId = assignment.id;
+        const groups = Array.isArray(data.groups) ? data.groups : [];
 
-        if (
-          assignmentId !== null &&
-          assignmentId !== undefined &&
-          assignmentId !== ""
-        ) {
-          const key = String(assignmentId);
+        const groupsMap = new Map();
 
-          if (seenAssignmentIds.has(key)) {
-            return;
+        groups.forEach((group) => {
+          const groupId =
+            group.id ?? group.session_group_id ?? group.sessionGroupId;
+
+          if (groupId !== null && groupId !== undefined) {
+            groupsMap.set(String(groupId), group);
+          }
+        });
+
+        // =================================================
+        // Enrich Assignments
+        // =================================================
+
+        assignments = assignments.map((assignment) => {
+          const groupId =
+            assignment.session_group_id ?? assignment.sessionGroupId ?? null;
+
+          const group = groupsMap.get(String(groupId));
+
+          if (!group) {
+            return assignment;
           }
 
-          seenAssignmentIds.add(key);
+          return {
+            ...group,
+            ...assignment,
+
+            time_from:
+              assignment.time_from ??
+              assignment.timeFrom ??
+              group.time_from ??
+              group.timeFrom ??
+              null,
+
+            time_to:
+              assignment.time_to ??
+              assignment.timeTo ??
+              group.time_to ??
+              group.timeTo ??
+              null,
+
+            period_label:
+              assignment.period_label ??
+              assignment.period ??
+              group.period_label ??
+              group.period ??
+              null,
+
+            date: assignment.date ?? group.date ?? null,
+
+            crn: assignment.crn ?? group.crn ?? null,
+
+            professor_name:
+              assignment.professor_name ??
+              assignment.professor ??
+              group.professor_name ??
+              group.professor ??
+              null,
+          };
+        });
+
+        // =================================================
+        // Remove duplicate assignment IDs
+        // =================================================
+
+        const uniqueAssignments = [];
+        const seenAssignmentIds = new Set();
+
+        assignments.forEach((assignment) => {
+          const assignmentId = assignment.id;
+
+          if (
+            assignmentId !== null &&
+            assignmentId !== undefined &&
+            assignmentId !== ""
+          ) {
+            const key = String(assignmentId);
+
+            if (seenAssignmentIds.has(key)) {
+              return;
+            }
+
+            seenAssignmentIds.add(key);
+          }
+
+          uniqueAssignments.push(assignment);
+        });
+
+        assignments = uniqueAssignments;
+
+        // =================================================
+        // Conflicts
+        // =================================================
+
+        const planConflicts = Array.isArray(data.conflicts)
+          ? data.conflicts
+          : [];
+
+        // =================================================
+        // Save plan data
+        // =================================================
+
+        if (!cancelled) {
+          setPlanData(assignments);
+          setConflicts(planConflicts);
         }
 
-        uniqueAssignments.push(assignment);
-      });
+        console.log("✅ TOTAL ASSIGNMENTS:", assignments.length);
 
-      assignments = uniqueAssignments;
-
-      // =================================================
-      // Conflicts
-      // =================================================
-
-      const planConflicts = Array.isArray(data.conflicts)
-        ? data.conflicts
-        : [];
-
-      // =================================================
-      // Save plan data
-      // =================================================
-
-      if (!cancelled) {
-        setPlanData(assignments);
-        setConflicts(planConflicts);
-      }
-
-      console.log(
-        "✅ TOTAL ASSIGNMENTS:",
-        assignments.length
-      );
-
-      console.table(
-        assignments.map((x) => ({
-          assignmentId: x.id,
-          sessionGroupId: x.session_group_id,
-          crn: x.crn,
-          date: x.date,
-          period: x.period_label,
-          professor: x.professor_name,
-          supervisor: x.supervisor_name,
-        }))
-      );
-
-      // =================================================
-      // Supervisors
-      // =================================================
-
-      let planSupervisors = [];
-
-      // 1. Supervisors returned directly with plan
-      if (Array.isArray(data.supervisors)) {
-        planSupervisors = data.supervisors;
-      }
-
-      // 2. Duty pool
-      if (
-        !planSupervisors.length &&
-        Array.isArray(data.dutyPool)
-      ) {
-        planSupervisors = data.dutyPool;
-      }
-
-      // 3. Snake case
-      if (
-        !planSupervisors.length &&
-        Array.isArray(data.duty_pool)
-      ) {
-        planSupervisors = data.duty_pool;
-      }
-
-      // =================================================
-      // Load ALL supervisors once
-      // =================================================
-
-      try {
-        const supervisorsRes =
-          await listSupervisors();
-
-        console.log(
-          "👥 ALL SUPERVISORS:",
-          supervisorsRes
+        console.table(
+          assignments.map((x) => ({
+            assignmentId: x.id,
+            sessionGroupId: x.session_group_id,
+            crn: x.crn,
+            date: x.date,
+            period: x.period_label,
+            professor: x.professor_name,
+            supervisor: x.supervisor_name,
+          })),
         );
 
-        let allSupervisors = [];
+        // =================================================
+        // Supervisors
+        // =================================================
 
-        if (
-          Array.isArray(
-            supervisorsRes?.supervisors
-          )
-        ) {
-          allSupervisors =
-            supervisorsRes.supervisors;
-        } else if (
-          Array.isArray(
-            supervisorsRes?.data
-          )
-        ) {
-          allSupervisors =
-            supervisorsRes.data;
-        } else if (
-          Array.isArray(
-            supervisorsRes?.data?.supervisors
-          )
-        ) {
-          allSupervisors =
-            supervisorsRes.data.supervisors;
-        } else if (
-          Array.isArray(
-            supervisorsRes?.data?.data
-          )
-        ) {
-          allSupervisors =
-            supervisorsRes.data.data;
+        let planSupervisors = [];
+
+        // =================================================
+        // Selected Supervisors / Duty Pool
+        // =================================================
+        // مهم جدًا:
+        // نريد فقط المشرفين الذين تم اختيارهم لهذه الخطة.
+        // لا نريد جميع مشرفي النظام.
+
+        // 1. Duty Pool - الأفضلية الأولى
+        if (Array.isArray(data.dutyPool)) {
+          planSupervisors = data.dutyPool;
         }
 
+        // 2. snake_case
+        if (!planSupervisors.length && Array.isArray(data.duty_pool)) {
+          planSupervisors = data.duty_pool;
+        }
+
+        // 3. إذا الـ backend رجع supervisors وفيهم فقط المختارين
+        if (!planSupervisors.length && Array.isArray(data.supervisors)) {
+          planSupervisors = data.supervisors;
+        }
+
+        console.log("🎯 SELECTED SUPERVISORS FROM PLAN:", planSupervisors);
+
         // =================================================
-        // Convert IDs -> supervisor objects
+        // Load ALL supervisors once
         // =================================================
 
-        if (
-          planSupervisors.length &&
-          !planSupervisors.every(
-            (item) =>
-              item &&
-              typeof item === "object"
-          )
-        ) {
-          planSupervisors =
-            planSupervisors
-              .map((id) =>
-                allSupervisors.find(
-                  (sup) =>
-                    String(sup.id) ===
-                    String(id)
-                )
-              )
+        try {
+          const supervisorsRes = await listSupervisors();
+
+          console.log("👥 ALL SUPERVISORS:", supervisorsRes);
+
+          let allSupervisors = [];
+
+          if (Array.isArray(supervisorsRes?.supervisors)) {
+            allSupervisors = supervisorsRes.supervisors;
+          } else if (Array.isArray(supervisorsRes?.data)) {
+            allSupervisors = supervisorsRes.data;
+          } else if (Array.isArray(supervisorsRes?.data?.supervisors)) {
+            allSupervisors = supervisorsRes.data.supervisors;
+          } else if (Array.isArray(supervisorsRes?.data?.data)) {
+            allSupervisors = supervisorsRes.data.data;
+          }
+
+          // =================================================
+          // Convert IDs -> supervisor objects
+          // =================================================
+
+          // =================================================
+          // Convert Duty Pool IDs -> Supervisor Objects
+          // =================================================
+          // إذا الـ duty pool رجع IDs فقط، نحولهم إلى objects
+          // باستخدام قائمة جميع المشرفين كمصدر أسماء فقط.
+
+          if (
+            planSupervisors.length &&
+            !planSupervisors.every((item) => item && typeof item === "object")
+          ) {
+            planSupervisors = planSupervisors
+              .map((item) => {
+                const id =
+                  typeof item === "object"
+                    ? (item.id ?? item.supervisor_id ?? item.supervisorId)
+                    : item;
+
+                return allSupervisors.find(
+                  (sup) => String(sup.id) === String(id),
+                );
+              })
               .filter(Boolean);
-        }
+          }
 
-        // =================================================
-        // Remove duplicates
-        // =================================================
+          // =================================================
+          // Remove duplicates
+          // =================================================
 
-        const uniqueSupervisors = [];
-        const seenIds = new Set();
+          const uniqueSupervisors = [];
+          const seenIds = new Set();
 
-        planSupervisors.forEach(
-          (supervisor) => {
-            const id =
-              supervisor?.id ??
-              supervisor?.supervisor_id;
+          planSupervisors.forEach((supervisor) => {
+            const id = supervisor?.id ?? supervisor?.supervisor_id;
 
-            if (
-              id === null ||
-              id === undefined
-            ) {
+            if (id === null || id === undefined) {
               return;
             }
 
@@ -628,140 +598,105 @@ useEffect(() => {
             }
 
             seenIds.add(key);
-            uniqueSupervisors.push(
-              supervisor
-            );
-          }
-        );
+            uniqueSupervisors.push(supervisor);
+          });
 
-        // =================================================
-        // Fallback:
-        // supervisors actually used in assignments
-        // =================================================
+          // =================================================
+          // Fallback:
+          // supervisors actually used in assignments
+          // =================================================
 
-        if (!uniqueSupervisors.length) {
-          const usedIds = new Set();
+          if (!uniqueSupervisors.length) {
+            const usedIds = new Set();
 
-          assignments.forEach(
-            (assignment) => {
-              const id =
-                assignment.supervisor_id ??
-                assignment.supervisorId;
+            assignments.forEach((assignment) => {
+              const id = assignment.supervisor_id ?? assignment.supervisorId;
 
-              if (
-                id !== null &&
-                id !== undefined
-              ) {
+              if (id !== null && id !== undefined) {
                 usedIds.add(String(id));
               }
-            }
-          );
+            });
 
-          planSupervisors =
-            allSupervisors.filter((sup) =>
-              usedIds.has(String(sup.id))
+            planSupervisors = allSupervisors.filter((sup) =>
+              usedIds.has(String(sup.id)),
             );
-        } else {
-          planSupervisors =
-            uniqueSupervisors;
-        }
+          } else {
+            planSupervisors = uniqueSupervisors;
+          }
 
-        console.log(
-          "🎯 PLAN SUPERVISORS ONLY:",
-          planSupervisors
-        );
+          console.log("🎯 PLAN SUPERVISORS ONLY:", planSupervisors);
 
-        if (!cancelled) {
-          setSupervisors(
-            Array.isArray(planSupervisors)
-              ? planSupervisors
-              : []
-          );
-        }
-      } catch (supervisorError) {
-        console.warn(
-          "⚠️ Could not load supervisors list:",
-          supervisorError
-        );
+          if (!cancelled) {
+            setSupervisors(
+              Array.isArray(planSupervisors) ? planSupervisors : [],
+            );
+          }
+        } catch (supervisorError) {
+          console.warn("⚠️ Could not load supervisors list:", supervisorError);
 
-        // =================================================
-        // Fallback from assignments
-        // =================================================
+          // =================================================
+          // Fallback from assignments
+          // =================================================
 
-        const map = new Map();
+          const map = new Map();
 
-        assignments.forEach(
-          (assignment) => {
-            const id =
-              assignment.supervisor_id ??
-              assignment.supervisorId;
+          assignments.forEach((assignment) => {
+            const id = assignment.supervisor_id ?? assignment.supervisorId;
 
             const name =
               assignment.supervisor_name ??
               assignment.supervisorName ??
               assignment.supervisor;
 
-            if (
-              id !== null &&
-              id !== undefined &&
-              name
-            ) {
+            if (id !== null && id !== undefined && name) {
               map.set(String(id), {
                 id,
                 name,
               });
             }
+          });
+
+          if (!cancelled) {
+            setSupervisors(Array.from(map.values()));
           }
-        );
+        }
+
+        console.log("✅ PLAN LOADED SUCCESSFULLY");
+      } catch (err) {
+        console.error("❌ Error fetching plan:", err?.response?.data || err);
 
         if (!cancelled) {
-          setSupervisors(
-            Array.from(map.values())
+          setError(
+            err?.response?.data?.error ||
+              err?.response?.data?.message ||
+              err?.message ||
+              "Error loading plan",
           );
+
+          setPlanData([]);
+          setConflicts([]);
+          setSupervisors([]);
+        }
+      } finally {
+        // =================================================
+        // IMPORTANT
+        // بدون هذا السطر الصفحة تظل Loading للأبد
+        // =================================================
+
+        if (!cancelled) {
+          setLoading(false);
+
+          console.log("🏁 PLAN LOADING FINISHED");
         }
       }
+    };
 
-      console.log("✅ PLAN LOADED SUCCESSFULLY");
-    } catch (err) {
-      console.error(
-        "❌ Error fetching plan:",
-        err?.response?.data || err
-      );
+    fetchData();
 
-      if (!cancelled) {
-        setError(
-          err?.response?.data?.error ||
-            err?.response?.data?.message ||
-            err?.message ||
-            "Error loading plan"
-        );
-
-        setPlanData([]);
-        setConflicts([]);
-        setSupervisors([]);
-      }
-    } finally {
-      // =================================================
-      // IMPORTANT
-      // بدون هذا السطر الصفحة تظل Loading للأبد
-      // =================================================
-
-      if (!cancelled) {
-        setLoading(false);
-
-        console.log(
-          "🏁 PLAN LOADING FINISHED"
-        );
-      }
-    }
-  };
-
-  fetchData();
-
-  return () => {
-    cancelled = true;
-  };
-}, [planId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [planId]);
 
   // =====================================================
   // Professor Options
@@ -1089,9 +1024,13 @@ useEffect(() => {
   const startEditing = (assignment) => {
     const id = getSessionGroupId(assignment);
 
+    const affinitySupervisorId = getProfessorAffinitySupervisorId(assignment);
+
     setEditingId(id);
 
-    setEditingSupervisor(String(getSupervisorId(assignment) ?? ""));
+    setEditingSupervisor(
+      String(affinitySupervisorId ?? getSupervisorId(assignment) ?? ""),
+    );
   };
 
   // =====================================================
@@ -1101,6 +1040,41 @@ useEffect(() => {
   const cancelEditing = () => {
     setEditingId(null);
     setEditingSupervisor("");
+  };
+
+  // =====================================================
+  // Get Affinity Supervisor
+  // =====================================================
+  // إذا الأستاذ مربوط بمشرف معين من الـ Dashboard
+  // بنرجع المشرف المرتبط فيه.
+
+  const getProfessorAffinitySupervisorId = (assignment) => {
+    const professorName = normalizeProfessorName(getProfessorName(assignment));
+
+    if (!professorName) {
+      return null;
+    }
+
+    const affinity = affinities.find((item) => {
+      const affinityProfessor =
+        item.professor_name ??
+        item.professorName ??
+        item.professor ??
+        item.name;
+
+      return normalizeProfessorName(affinityProfessor) === professorName;
+    });
+
+    if (!affinity) {
+      return null;
+    }
+
+    return (
+      affinity.supervisor_id ??
+      affinity.supervisorId ??
+      affinity.supervisor ??
+      null
+    );
   };
 
   // =====================================================
@@ -1125,6 +1099,26 @@ useEffect(() => {
     }
 
     const currentSupervisorId = getSupervisorId(assignment);
+
+    const affinitySupervisorId =
+  getProfessorAffinitySupervisorId(assignment);
+
+if (
+  affinitySupervisorId !== null &&
+  affinitySupervisorId !== undefined &&
+  String(editingSupervisor) !==
+    String(affinitySupervisorId)
+) {
+  alert(
+    "⚠️ هذا الأستاذ مرتبط بمشرف محدد ولا يمكن تغييره إلى مشرف آخر."
+  );
+
+  setEditingSupervisor(
+    String(affinitySupervisorId)
+  );
+
+  return;
+}
 
     if (String(currentSupervisorId ?? "") === String(editingSupervisor)) {
       cancelEditing();
@@ -1693,6 +1687,9 @@ useEffect(() => {
 
                       const isSaving = String(savingId) === String(rowId);
 
+                      const affinitySupervisorId =
+                        getProfessorAffinitySupervisorId(assignment);
+
                       return (
                         <tr key={`${rowId}-${index}`}>
                           {/* Session Group */}
@@ -1764,29 +1761,44 @@ useEffect(() => {
                           {visibleColumns.supervisor && (
                             <td>
                               {isEditing ? (
-                                <select
-                                  className="edit-supervisor-select"
-                                  value={editingSupervisor}
-                                  onChange={(e) =>
-                                    setEditingSupervisor(e.target.value)
-                                  }
-                                  disabled={isSaving}
-                                >
-                                  <option value="">
-                                    -- Select Supervisor --
-                                  </option>
-
-                                  {supervisors.map((supervisor) => (
-                                    <option
-                                      key={supervisor.id}
-                                      value={supervisor.id}
-                                    >
-                                      {supervisor.name ??
-                                        supervisor.supervisor_name ??
-                                        "-"}
+                                <div>
+                                  <select
+                                    className="edit-supervisor-select"
+                                    value={editingSupervisor}
+                                    onChange={(e) =>
+                                      setEditingSupervisor(e.target.value)
+                                    }
+                                    disabled={
+                                      isSaving || affinitySupervisorId !== null
+                                    }
+                                  >
+                                    <option value="">
+                                      -- Select Supervisor --
                                     </option>
-                                  ))}
-                                </select>
+
+                                    {supervisors.map((supervisor) => (
+                                      <option
+                                        key={supervisor.id}
+                                        value={supervisor.id}
+                                      >
+                                        {supervisor.name ??
+                                          supervisor.supervisor_name ??
+                                          "-"}
+
+                                        {String(supervisor.id) ===
+                                        String(affinitySupervisorId)
+                                          ? " 🔗"
+                                          : ""}
+                                      </option>
+                                    ))}
+                                  </select>
+
+                                  {affinitySupervisorId !== null && (
+                                    <small className="affinity-note">
+                                      🔗 هذا الأستاذ مرتبط بهذا المشرف
+                                    </small>
+                                  )}
+                                </div>
                               ) : (
                                 <div className="supervisor-cell">
                                   <span className="supervisor-avatar">

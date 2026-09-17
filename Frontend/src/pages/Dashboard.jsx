@@ -1,10 +1,11 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   createPlan,
   setDutyPool,
   setAffinities,
   setPeriodQuotas as savePeriodQuotas,
   generatePlan,
+  listSupervisors,
 } from "../api.js";
 
 import PreviewTable from "../components/PreviewTable.jsx";
@@ -223,6 +224,7 @@ export default function Dashboard() {
   const [uploadMessage, setUploadMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  const [supervisorNames, setSupervisorNames] = useState({});
   /* =========================================================
      Derived data
   ========================================================= */
@@ -288,6 +290,46 @@ export default function Dashboard() {
     selectedDateRows.length > 0 &&
     !isGenerating;
 
+  useEffect(() => {
+    const loadSupervisors = async () => {
+      try {
+        const response = await listSupervisors();
+
+        const list = response?.data ?? response?.supervisors ?? response ?? [];
+
+        const map = {};
+
+        if (Array.isArray(list)) {
+          list.forEach((supervisor) => {
+            const id = Number(
+              supervisor?.id ??
+                supervisor?.supervisor_id ??
+                supervisor?.supervisorId,
+            );
+
+            const name =
+              supervisor?.name ??
+              supervisor?.supervisor_name ??
+              supervisor?.supervisorName ??
+              supervisor?.full_name ??
+              supervisor?.fullName ??
+              "";
+
+            if (Number.isFinite(id)) {
+              map[id] = String(name).trim() || `مشرف #${id}`;
+            }
+          });
+        }
+
+        setSupervisorNames(map);
+      } catch (error) {
+        console.error("❌ Failed to load supervisors:", error);
+        setSupervisorNames({});
+      }
+    };
+
+    loadSupervisors();
+  }, []);
   /* =========================================================
      Upload
   ========================================================= */
@@ -723,8 +765,6 @@ export default function Dashboard() {
 
                   {rows.length > 0 && (
                     <div className="upload-success-card">
-                      <div className="upload-success-icon">{Icons.check}</div>
-
                       <div className="upload-success-info">
                         <strong>تم تحميل الملف بنجاح</strong>
                         <span>
@@ -997,7 +1037,7 @@ export default function Dashboard() {
 
                 {normalizedSupervisorIds.map((id) => (
                   <option key={id} value={id}>
-                    مشرف #{id}
+                    {supervisorNames[id] || `مشرف #${id}`}
                   </option>
                 ))}
               </select>
@@ -1040,8 +1080,11 @@ export default function Dashboard() {
                     >
                       <div>
                         <strong>{item.professorName}</strong>
-
-                        <span>← مشرف #{item.supervisorId}</span>
+                        <span>
+                          ←{" "}
+                          {supervisorNames[item.supervisorId] ||
+                            `مشرف #${item.supervisorId}`}
+                        </span>{" "}
                       </div>
 
                       <button
