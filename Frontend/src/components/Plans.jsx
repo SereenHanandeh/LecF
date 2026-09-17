@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar.jsx";
 import { getPlans } from "../api.js";
 
-import "../assets/plan.css";
+import "../assets/Plan.css";
 
 const API_BASE_URL = "http://localhost:5000";
 
