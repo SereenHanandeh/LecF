@@ -1341,107 +1341,264 @@
    PRINT ONLY - PRINT PLAN TABLE
    ===================================================== */
 
+/* =====================================================
+   PRINT TABLE
+   ===================================================== */
+
+.print-only-table {
+  display: none;
+}
+
 @media print {
-  /* إخفاء كل الصفحة */
+
+  /* إخفاء كل شيء */
   body * {
     visibility: hidden !important;
   }
 
-  /* إظهار قسم جدول الخطة فقط */
+  /* إظهار منطقة الطباعة */
   .print-plan-table,
-  .print-plan-table * {
+  .print-plan-table .print-only-table,
+  .print-plan-table .print-only-table * {
     visibility: visible !important;
   }
 
-  /* وضع الجدول في أعلى الصفحة */
+  /* منطقة الطباعة */
   .print-plan-table {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
+
     width: 100% !important;
+
     margin: 0 !important;
     padding: 0 !important;
+
     border: none !important;
     box-shadow: none !important;
-    background: white !important;
+
+    background: #ffffff !important;
   }
 
-  /* إخفاء عنوان Assignments والعدد */
+  /* إخفاء عنوان Assignments */
   .print-plan-table .panel-heading {
     display: none !important;
   }
 
-  /* إخفاء أي شيء غير الجدول */
-  .print-plan-table .table-container {
+  /* إخفاء جدول الشاشة */
+  .print-plan-table .screen-plan-table {
+    display: none !important;
+  }
+
+  /* إظهار جدول الطباعة */
+  .print-plan-table .print-only-table {
+    display: block !important;
+
     width: 100% !important;
+
+    margin: 0 !important;
+    padding: 0 !important;
+
     overflow: visible !important;
-    border: none !important;
   }
 
-  /* الجدول */
-  .print-plan-table .assignments-table {
+  /* =====================================================
+     Print Table
+     ===================================================== */
+
+  .print-plan-table .print-table {
+    display: table !important;
+
     width: 100% !important;
+
+    table-layout: fixed !important;
+
     border-collapse: collapse !important;
-    font-size: 11px !important;
-    color: #000 !important;
+    border-spacing: 0 !important;
+
+    font-family:
+      Arial,
+      "Segoe UI",
+      sans-serif !important;
+
+    font-size: 10pt !important;
+
+    line-height: 1.25 !important;
+
+    color: #000000 !important;
+
+    background: #ffffff !important;
+
+    margin: 0 !important;
   }
 
-  /* الخلايا */
-  .print-plan-table .assignments-table th,
-  .print-plan-table .assignments-table td {
-    border: 1px solid #000 !important;
-    padding: 6px 8px !important;
-    color: #000 !important;
-    background: #fff !important;
+  /* =====================================================
+     Column Widths
+     ===================================================== */
+
+  .print-table .print-col-group {
+    width: 10% !important;
   }
 
-  /* رأس الجدول */
-  .print-plan-table .assignments-table th {
-    font-weight: bold !important;
-    background: #eee !important;
+  .print-table .print-col-crn {
+    width: 9% !important;
+  }
+
+  .print-table .print-col-professor {
+    width: 23% !important;
+  }
+
+  .print-table .print-col-date {
+    width: 11% !important;
+  }
+
+  .print-table .print-col-period {
+    width: 9% !important;
+  }
+
+  .print-table .print-col-time {
+    width: 9% !important;
+  }
+
+  .print-table .print-col-supervisor {
+    width: 20% !important;
+  }
+
+  /* =====================================================
+     Header
+     ===================================================== */
+
+  .print-plan-table .print-table thead {
+    display: table-header-group !important;
+  }
+
+  .print-plan-table .print-table th {
+    border: 1px solid #000000 !important;
+
+    padding: 7px 6px !important;
+
+    background: #eeeeee !important;
+
+    color: #000000 !important;
+
+    font-weight: 700 !important;
+
     text-align: center !important;
-  }
 
-  /* محتوى الخلايا */
-  .print-plan-table .assignments-table td {
-    text-align: center !important;
     vertical-align: middle !important;
+
+    white-space: normal !important;
+
+    word-break: break-word !important;
+
+    overflow-wrap: anywhere !important;
+
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
 
-  /* إخفاء زر Action بالكامل */
-  .print-plan-table .action-column {
-    display: none !important;
+  /* =====================================================
+     Body
+     ===================================================== */
+
+  .print-plan-table .print-table tbody {
+    display: table-row-group !important;
   }
 
-  /* إخفاء أي أزرار داخل الجدول */
-  .print-plan-table button,
-  .print-plan-table select {
-    display: none !important;
+  .print-plan-table .print-table td {
+    border: 1px solid #000000 !important;
+
+    padding: 6px 6px !important;
+
+    color: #000000 !important;
+
+    background: #ffffff !important;
+
+    text-align: center !important;
+
+    vertical-align: middle !important;
+
+    white-space: normal !important;
+
+    word-break: break-word !important;
+
+    overflow-wrap: anywhere !important;
+
+    font-size: 9.5pt !important;
   }
 
-  /* إخفاء البادجات والتنسيقات الخاصة بالشاشة */
-  .print-plan-table .session-group-badge,
-  .print-plan-table .crn-text,
-  .print-plan-table .date-badge,
-  .print-plan-table .period-badge,
-  .print-plan-table .time-badge,
-  .print-plan-table .supervisor-cell,
-  .print-plan-table .professor-cell {
-    color: #000 !important;
-    background: transparent !important;
-    box-shadow: none !important;
+  /* =====================================================
+     Professor / Supervisor
+     ===================================================== */
+
+  .print-plan-table .print-professor,
+  .print-plan-table .print-supervisor {
+    text-align: start !important;
+
+    font-weight: 600 !important;
+
+    white-space: normal !important;
+
+    word-break: break-word !important;
+
+    overflow-wrap: anywhere !important;
   }
 
-  /* عدم قطع الصفوف بين الصفحات */
-  .print-plan-table tr {
+  /* =====================================================
+     Prevent row splitting
+     ===================================================== */
+
+  .print-plan-table .print-table tr {
     page-break-inside: avoid !important;
+
     break-inside: avoid !important;
   }
 
-  /* إعدادات الصفحة */
+  /* =====================================================
+     No Results
+     ===================================================== */
+
+  .print-plan-table .print-no-results {
+    text-align: center !important;
+
+    font-weight: 600 !important;
+
+    padding: 15px !important;
+  }
+
+  /* =====================================================
+     Remove screen styling
+     ===================================================== */
+
+  .print-plan-table .print-table span,
+  .print-plan-table .print-table div {
+    color: #000000 !important;
+
+    background: transparent !important;
+
+    box-shadow: none !important;
+
+    border: none !important;
+  }
+
+  /* =====================================================
+     Hide buttons / controls
+     ===================================================== */
+
+  .print-plan-table button,
+  .print-plan-table select,
+  .print-plan-table input {
+    display: none !important;
+  }
+
+  /* =====================================================
+     A4 Landscape
+     ===================================================== */
+
   @page {
     size: A4 landscape;
-    margin: 10mm;
+
+    margin: 8mm;
   }
 }
 

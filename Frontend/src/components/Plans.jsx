@@ -8,7 +8,6 @@ import "../assets/Plan.css";
 
 const API_BASE_URL = "http://localhost:5000";
 
-
 // =====================================================
 // Icons
 // =====================================================
@@ -79,7 +78,6 @@ const Icons = {
   ),
 };
 
-
 // =====================================================
 // Helpers
 // =====================================================
@@ -100,7 +98,6 @@ function formatDate(dateValue) {
   }).format(date);
 }
 
-
 function formatDateRange(from, to) {
   if (!from || !to) {
     return "-";
@@ -109,9 +106,13 @@ function formatDateRange(from, to) {
   return `${formatDate(from)} — ${formatDate(to)}`;
 }
 
-
 function getStatus(plan) {
-  const assignments = Number(plan.assignment_count || 0);
+  const assignments = Number(
+    plan.assignment_count ??
+      plan.assignments_count ??
+      plan.assignmentCount ??
+      0
+  );
 
   if (assignments > 0) {
     return {
@@ -126,13 +127,11 @@ function getStatus(plan) {
   };
 }
 
-
 // =====================================================
 // Plans Page
 // =====================================================
 
 export default function Plans() {
-
   const navigate = useNavigate();
 
   const [plans, setPlans] = useState([]);
@@ -147,14 +146,16 @@ export default function Plans() {
 
   const [statusFilter, setStatusFilter] = useState("all");
 
-
   // ===================================================
   // Load Plans
   // ===================================================
 
   async function loadPlans(showRefresh = false) {
-    try {
+    console.log("====================================");
+    console.log("🔵 Loading plans...");
+    console.log("====================================");
 
+    try {
       if (showRefresh) {
         setRefreshing(true);
       } else {
@@ -163,81 +164,155 @@ export default function Plans() {
 
       setError("");
 
+      // -------------------------------------------------
+      // جلب الخطط
+      // -------------------------------------------------
+
       const response = await getPlans();
 
-      const receivedPlans =
-        response?.data ||
-        response?.plans ||
-        [];
+      console.log("🟢 getPlans response:");
+      console.log(response);
 
-      setPlans(
-        Array.isArray(receivedPlans)
-          ? receivedPlans
-          : []
-      );
+      // -------------------------------------------------
+      // Backend عندك يرجع:
+      //
+      // {
+      //   success: true,
+      //   message: "...",
+      //   data: [...]
+      // }
+      // -------------------------------------------------
 
+      let receivedPlans = [];
+
+      if (Array.isArray(response)) {
+        // احتياط إذا الـ backend رجع Array مباشرة
+        receivedPlans = response;
+      } else if (Array.isArray(response?.data)) {
+        // الشكل الصحيح الحالي
+        receivedPlans = response.data;
+      } else if (Array.isArray(response?.plans)) {
+        // احتياط لو غيرنا شكل الـ API لاحقًا
+        receivedPlans = response.plans;
+      }
+
+      console.log("📋 Received plans:", receivedPlans);
+
+      setPlans(receivedPlans);
     } catch (err) {
+      console.error("====================================");
+      console.error("🔴 ERROR LOADING PLANS");
+      console.error("====================================");
 
-      console.error("❌ Error loading plans:", err);
+      console.error("Full error:", err);
 
-      setError(
-        err?.response?.data?.error ||
-        "تعذر تحميل الخطط السابقة."
+      console.error(
+        "Response:",
+        err?.response
       );
 
+      console.error(
+        "Response data:",
+        err?.response?.data
+      );
+
+      console.error(
+        "Status:",
+        err?.response?.status
+      );
+
+      console.error(
+        "Message:",
+        err?.message
+      );
+
+      // -------------------------------------------------
+      // رسالة الخطأ
+      // -------------------------------------------------
+
+      let errorMessage =
+        "تعذر تحميل الخطط السابقة.";
+
+      if (err?.code === "ECONNABORTED") {
+        errorMessage =
+          "الخادم لم يستجب خلال الوقت المحدد.";
+      } else if (err?.response?.data?.error) {
+        errorMessage =
+          err.response.data.error;
+      } else if (err?.response?.data?.message) {
+        errorMessage =
+          err.response.data.message;
+      } else if (err?.message) {
+        errorMessage =
+          err.message;
+      }
+
+      setError(errorMessage);
+
+      // مهم:
+      // حتى لو صار Error لا نبقى على Loading
+      setPlans([]);
     } finally {
+      console.log("⚪ Finished loading plans");
 
       setLoading(false);
       setRefreshing(false);
-
     }
   }
 
+  // ===================================================
+  // Initial Load
+  // ===================================================
 
   useEffect(() => {
     loadPlans();
   }, []);
-
 
   // ===================================================
   // Filter
   // ===================================================
 
   const filteredPlans = useMemo(() => {
-
-    const query = search
-      .trim()
-      .toLowerCase();
+    const query = search.trim().toLowerCase();
 
     return plans.filter((plan) => {
+      const name = String(
+        plan.name || ""
+      ).toLowerCase();
 
-      const name =
-        String(plan.name || "").toLowerCase();
-
-      const id =
-        String(plan.id || "").toLowerCase();
+      const id = String(
+        plan.id || ""
+      ).toLowerCase();
 
       const matchesSearch =
         !query ||
         name.includes(query) ||
         id.includes(query);
 
-      const assignments =
-        Number(plan.assignment_count || 0);
+      const assignments = Number(
+        plan.assignment_count ??
+          plan.assignments_count ??
+          plan.assignmentCount ??
+          0
+      );
 
       const matchesStatus =
         statusFilter === "all" ||
-        (statusFilter === "complete" && assignments > 0) ||
-        (statusFilter === "pending" && assignments === 0);
+        (statusFilter === "complete" &&
+          assignments > 0) ||
+        (statusFilter === "pending" &&
+          assignments === 0);
 
       return (
         matchesSearch &&
         matchesStatus
       );
     });
-
-  }, [plans, search, statusFilter]);
-
+  }, [
+    plans,
+    search,
+    statusFilter,
+  ]);
 
   // ===================================================
   // Stats
@@ -247,43 +322,62 @@ export default function Plans() {
 
   const generatedPlans = plans.filter(
     (plan) =>
-      Number(plan.assignment_count || 0) > 0
+      Number(
+        plan.assignment_count ??
+          plan.assignments_count ??
+          plan.assignmentCount ??
+          0
+      ) > 0
   ).length;
 
-  const pendingPlans = totalPlans - generatedPlans;
-
+  const pendingPlans =
+    totalPlans - generatedPlans;
 
   // ===================================================
   // Excel
   // ===================================================
 
   function downloadExcel(planId) {
-
     const url =
       `${API_BASE_URL}/exports/plan_${planId}.xlsx`;
 
+    console.log(
+      "📥 Download Excel:",
+      url
+    );
+
     window.open(url, "_blank");
   }
-
 
   // ===================================================
   // Open Plan
   // ===================================================
 
   function openPlan(planId) {
-    navigate(`/plan-result/${planId}`);
+    console.log(
+      "👁 Opening plan:",
+      planId
+    );
+
+    navigate(
+      `/plan-result/${planId}`
+    );
   }
 
+  // ===================================================
+  // Render
+  // ===================================================
 
   return (
-    <div className="plans-layout" dir="rtl">
-
+    <div
+      className="plans-layout"
+      dir="rtl"
+    >
       {/* =================================================
           Sidebar
       ================================================= */}
 
       <Sidebar />
-
 
       {/* =================================================
           Main
@@ -301,7 +395,9 @@ export default function Plans() {
 
             <div className="plans-breadcrumb">
               LectureFlow
+
               <span>/</span>
+
               الخطط السابقة
             </div>
 
@@ -310,15 +406,17 @@ export default function Plans() {
             </h1>
 
             <p>
-              عرض وإدارة جميع خطط توزيع المشرفين التي تم إنشاؤها.
+              عرض وإدارة جميع خطط توزيع
+              المشرفين التي تم إنشاؤها.
             </p>
 
           </div>
 
-
           <button
             className="new-plan-button"
-            onClick={() => navigate("/")}
+            onClick={() =>
+              navigate("/")
+            }
           >
             <span className="button-icon">
               {Icons.plus}
@@ -328,7 +426,6 @@ export default function Plans() {
           </button>
 
         </header>
-
 
         {/* =================================================
             Statistics
@@ -343,6 +440,7 @@ export default function Plans() {
             </div>
 
             <div>
+
               <span>
                 إجمالي الخطط
               </span>
@@ -350,10 +448,10 @@ export default function Plans() {
               <strong>
                 {totalPlans}
               </strong>
+
             </div>
 
           </div>
-
 
           <div className="plan-stat-card">
 
@@ -362,6 +460,7 @@ export default function Plans() {
             </div>
 
             <div>
+
               <span>
                 خطط مولدة
               </span>
@@ -369,10 +468,10 @@ export default function Plans() {
               <strong>
                 {generatedPlans}
               </strong>
+
             </div>
 
           </div>
-
 
           <div className="plan-stat-card">
 
@@ -381,6 +480,7 @@ export default function Plans() {
             </div>
 
             <div>
+
               <span>
                 بانتظار التوليد
               </span>
@@ -388,12 +488,12 @@ export default function Plans() {
               <strong>
                 {pendingPlans}
               </strong>
+
             </div>
 
           </div>
 
         </section>
-
 
         {/* =================================================
             Toolbar
@@ -412,12 +512,13 @@ export default function Plans() {
               placeholder="ابحث باسم الخطة أو رقمها..."
               value={search}
               onChange={(e) =>
-                setSearch(e.target.value)
+                setSearch(
+                  e.target.value
+                )
               }
             />
 
           </div>
-
 
           <div className="plans-filters">
 
@@ -441,7 +542,9 @@ export default function Plans() {
                   : "filter-button"
               }
               onClick={() =>
-                setStatusFilter("complete")
+                setStatusFilter(
+                  "complete"
+                )
               }
             >
               مكتملة
@@ -454,7 +557,9 @@ export default function Plans() {
                   : "filter-button"
               }
               onClick={() =>
-                setStatusFilter("pending")
+                setStatusFilter(
+                  "pending"
+                )
               }
             >
               غير مولدة
@@ -462,7 +567,9 @@ export default function Plans() {
 
             <button
               className="refresh-button"
-              onClick={() => loadPlans(true)}
+              onClick={() =>
+                loadPlans(true)
+              }
               disabled={refreshing}
               title="تحديث"
             >
@@ -481,14 +588,15 @@ export default function Plans() {
 
         </section>
 
-
         {/* =================================================
             Content
         ================================================= */}
 
         <section className="plans-table-card">
 
-          {/* Loading */}
+          {/* =================================================
+              Loading
+          ================================================= */}
 
           {loading && (
 
@@ -504,8 +612,9 @@ export default function Plans() {
 
           )}
 
-
-          {/* Error */}
+          {/* =================================================
+              Error
+          ================================================= */}
 
           {!loading && error && (
 
@@ -528,7 +637,9 @@ export default function Plans() {
               </div>
 
               <button
-                onClick={() => loadPlans()}
+                onClick={() =>
+                  loadPlans()
+                }
               >
                 إعادة المحاولة
               </button>
@@ -537,8 +648,9 @@ export default function Plans() {
 
           )}
 
-
-          {/* Empty */}
+          {/* =================================================
+              Empty
+          ================================================= */}
 
           {!loading &&
             !error &&
@@ -553,15 +665,13 @@ export default function Plans() {
                 <h2>
                   {plans.length === 0
                     ? "لا توجد خطط حتى الآن"
-                    : "لا توجد نتائج مطابقة"
-                  }
+                    : "لا توجد نتائج مطابقة"}
                 </h2>
 
                 <p>
                   {plans.length === 0
                     ? "أنشئي أول خطة توزيع للمشرفين وستظهر هنا."
-                    : "جربي تغيير كلمة البحث أو الفلتر."
-                  }
+                    : "جربي تغيير كلمة البحث أو الفلتر."}
                 </p>
 
                 {plans.length === 0 && (
@@ -580,8 +690,9 @@ export default function Plans() {
 
             )}
 
-
-          {/* Table */}
+          {/* =================================================
+              Table
+          ================================================= */}
 
           {!loading &&
             !error &&
@@ -592,6 +703,7 @@ export default function Plans() {
                 <table className="plans-table">
 
                   <thead>
+
                     <tr>
 
                       <th>
@@ -623,183 +735,197 @@ export default function Plans() {
                       </th>
 
                     </tr>
-                  </thead>
 
+                  </thead>
 
                   <tbody>
 
-                    {filteredPlans.map((plan) => {
+                    {filteredPlans.map(
+                      (plan) => {
 
-                      const status =
-                        getStatus(plan);
+                        const status =
+                          getStatus(plan);
 
-                      return (
+                        const supervisorCount =
+                          Number(
+                            plan.supervisor_count ??
+                              plan.supervisors_count ??
+                              plan.selected_supervisors ??
+                              0
+                          );
 
-                        <tr key={plan.id}>
+                        const assignmentCount =
+                          Number(
+                            plan.assignment_count ??
+                              plan.assignments_count ??
+                              plan.assignmentCount ??
+                              0
+                          );
 
-                          {/* Plan */}
+                        return (
 
-                          <td>
+                          <tr
+                            key={plan.id}
+                          >
 
-                            <div className="plan-name-cell">
+                            {/* Plan */}
 
-                              <div className="plan-mini-icon">
-                                {Icons.assignments}
+                            <td>
+
+                              <div className="plan-name-cell">
+
+                                <div className="plan-mini-icon">
+                                  {Icons.assignments}
+                                </div>
+
+                                <div>
+
+                                  <strong>
+                                    {plan.name ||
+                                      `Plan ${plan.id}`}
+                                  </strong>
+
+                                  <span>
+                                    #{plan.id}
+                                  </span>
+
+                                </div>
+
                               </div>
 
-                              <div>
+                            </td>
+
+                            {/* Date */}
+
+                            <td>
+
+                              <div className="date-cell">
+
+                                <span className="date-icon">
+                                  {Icons.calendar}
+                                </span>
+
+                                <span>
+                                  {formatDateRange(
+                                    plan.date_from,
+                                    plan.date_to
+                                  )}
+                                </span>
+
+                              </div>
+
+                            </td>
+
+                            {/* Supervisors */}
+
+                            <td>
+
+                              <div className="number-cell">
+
+                                <span className="number-icon">
+                                  {Icons.users}
+                                </span>
 
                                 <strong>
-                                  {plan.name ||
-                                    `Plan ${plan.id}`}
+                                  {supervisorCount}
                                 </strong>
 
                                 <span>
-                                  #{plan.id}
+                                  مشرف
                                 </span>
 
                               </div>
 
-                            </div>
+                            </td>
 
-                          </td>
+                            {/* Assignments */}
 
+                            <td>
 
-                          {/* Date */}
+                              <div className="assignment-count">
+                                {assignmentCount}
+                              </div>
 
-                          <td>
+                            </td>
 
-                            <div className="date-cell">
+                            {/* Status */}
 
-                              <span className="date-icon">
-                                {Icons.calendar}
+                            <td>
+
+                              <span
+                                className={
+                                  `plan-status ${status.className}`
+                                }
+                              >
+
+                                <i />
+
+                                {status.label}
+
                               </span>
 
-                              <span>
-                                {formatDateRange(
-                                  plan.date_from,
-                                  plan.date_to
+                            </td>
+
+                            {/* Created */}
+
+                            <td>
+
+                              <span className="created-date">
+                                {formatDate(
+                                  plan.created_at
                                 )}
                               </span>
 
-                            </div>
+                            </td>
 
-                          </td>
+                            {/* Actions */}
 
+                            <td>
 
-                          {/* Supervisors */}
+                              <div className="plan-actions">
 
-                          <td>
+                                <button
+                                  className="action-view"
+                                  onClick={() =>
+                                    openPlan(
+                                      plan.id
+                                    )
+                                  }
+                                  title="فتح الخطة"
+                                >
 
-                            <div className="number-cell">
+                                  {Icons.eye}
 
-                              <span className="number-icon">
-                                {Icons.users}
-                              </span>
+                                  <span>
+                                    فتح
+                                  </span>
 
-                              <strong>
-                                {Number(
-                                  plan.supervisor_count || 0
-                                )}
-                              </strong>
+                                </button>
 
-                              <span>
-                                مشرف
-                              </span>
+                                <button
+                                  className="action-excel"
+                                  onClick={() =>
+                                    downloadExcel(
+                                      plan.id
+                                    )
+                                  }
+                                  disabled={
+                                    assignmentCount === 0
+                                  }
+                                  title="تحميل Excel"
+                                >
+                                  {Icons.excel}
+                                </button>
 
-                            </div>
+                              </div>
 
-                          </td>
+                            </td>
 
+                          </tr>
 
-                          {/* Assignments */}
-
-                          <td>
-
-                            <div className="assignment-count">
-
-                              {Number(
-                                plan.assignment_count || 0
-                              )}
-
-                            </div>
-
-                          </td>
-
-
-                          {/* Status */}
-
-                          <td>
-
-                            <span
-                              className={`plan-status ${status.className}`}
-                            >
-                              <i />
-                              {status.label}
-                            </span>
-
-                          </td>
-
-
-                          {/* Created */}
-
-                          <td>
-
-                            <span className="created-date">
-                              {formatDate(
-                                plan.created_at
-                              )}
-                            </span>
-
-                          </td>
-
-
-                          {/* Actions */}
-
-                          <td>
-
-                            <div className="plan-actions">
-
-                              <button
-                                className="action-view"
-                                onClick={() =>
-                                  openPlan(plan.id)
-                                }
-                                title="فتح الخطة"
-                              >
-                                {Icons.eye}
-                                <span>
-                                  فتح
-                                </span>
-                              </button>
-
-
-                              <button
-                                className="action-excel"
-                                onClick={() =>
-                                  downloadExcel(
-                                    plan.id
-                                  )
-                                }
-                                disabled={
-                                  Number(
-                                    plan.assignment_count || 0
-                                  ) === 0
-                                }
-                                title="تحميل Excel"
-                              >
-                                {Icons.excel}
-                              </button>
-
-                            </div>
-
-                          </td>
-
-                        </tr>
-
-                      );
-
-                    })}
+                        );
+                      }
+                    )}
 
                   </tbody>
 
@@ -810,7 +936,6 @@ export default function Plans() {
             )}
 
         </section>
-
 
         {/* =================================================
             Footer
