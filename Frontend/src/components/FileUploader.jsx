@@ -418,11 +418,11 @@ export default function FileUploader({ onUploaded }) {
           ) : (
             <>
               <strong className="dropzone-title">
-                اسحبي ملف Excel إلى هنا
+             اسحب ملف Excel إلى هنا
               </strong>
 
               <span>
-                أو اضغطي لاختيار الملف من جهازك
+                أو اضغط لاختيار الملف من جهازك
               </span>
 
               <small>

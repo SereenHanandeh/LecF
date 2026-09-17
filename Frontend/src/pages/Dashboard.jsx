@@ -709,7 +709,7 @@ export default function Dashboard() {
                   <div className="upload-dropzone">
                     <div className="upload-cloud-icon">{Icons.upload}</div>
 
-                    <h4>اسحبي الملف هنا</h4>
+                    <h4>اسحب الملف هنا</h4>
 
                     <span className="upload-or">أو</span>
 
