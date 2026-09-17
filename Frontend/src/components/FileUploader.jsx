@@ -598,7 +598,6 @@ export default function FileUploader({ onUploaded }) {
 
         {loading ? (
           <>
-            <span className="button-spinner" />
             جاري تحليل الملف...
           </>
         ) : (

@@ -17,8 +17,33 @@ export const generatePlan = (planId, variant = 1) =>
     .post(`/plan/${planId}/generate`, { variant })
     .then((res) => res.data);
 
-export const getPlan = (planId) =>
-  api.get(`/plan/${planId}`).then((res) => res.data);
+export const getPlan = async (planId) => {
+  console.log("🔎 getPlan planId:", planId);
+  console.log(
+    "🔎 getPlan URL:",
+    `/plan/${planId}`
+  );
+
+  try {
+    const res = await api.get(
+      `/plan/${planId}`
+    );
+
+    console.log(
+      "✅ getPlan response:",
+      res.data
+    );
+
+    return res.data;
+  } catch (error) {
+    console.error(
+      "❌ getPlan API error:",
+      error.response?.data || error
+    );
+
+    throw error;
+  }
+};
 
 export const getPlans = () =>
   api.get("/plan").then((res) => res.data);
@@ -76,8 +101,14 @@ export const uploadExcelFromUrl = (body) =>
 export const listSupervisors = () =>
   api.get("/supervisors").then((res) => res.data);
 
-export const createSupervisor = (name) =>
-  api.post("/supervisors", { name }).then((res) => res.data);
+export const getSupervisors = () =>
+  api.get("/supervisors").then((res) => res.data);
+
+export const createSupervisor = (payload) =>
+  api.post("/supervisors", payload).then((res) => res.data);
+
+export const updateSupervisor = (id, payload) =>
+  api.patch(`/supervisors/${id}`, payload).then((res) => res.data);
 
 // ==============================
 // Assignments

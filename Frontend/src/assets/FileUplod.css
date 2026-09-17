@@ -493,28 +493,6 @@
 }
 
 
-/* =========================================================
-   SPINNER
-   ========================================================= */
-
-.button-spinner {
-  width: 17px;
-  height: 17px;
-
-  border: 2px solid rgba(255, 255, 255, 0.35);
-  border-top-color: #ffffff;
-
-  border-radius: 50%;
-
-  animation: upload-spin 0.7s linear infinite;
-}
-
-@keyframes upload-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 
 /* =========================================================
    RESPONSIVE

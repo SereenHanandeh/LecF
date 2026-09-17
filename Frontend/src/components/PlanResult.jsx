@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import "../assets/planResult.css";
 import { getPlan, listSupervisors, moveAssignment } from "../api.js";
+
 
 // =====================================================
 // Date Helper
@@ -266,9 +267,18 @@ const getPeriod = (assignment) =>
 // =====================================================
 
 export default function PlanResult() {
-  const location = useLocation();
+const location = useLocation();
+const { planId: routePlanId } = useParams();
 
-  const { planId, downloadUrl } = location.state || {};
+const statePlanId =
+  location.state?.planId;
+
+const planId =
+  routePlanId ||
+  statePlanId;
+
+const downloadUrl =
+  location.state?.downloadUrl;
 
   // =====================================================
   // State
@@ -319,6 +329,16 @@ export default function PlanResult() {
   const [editingId, setEditingId] = useState(null);
   const [editingSupervisor, setEditingSupervisor] = useState("");
   const [savingId, setSavingId] = useState(null);
+
+
+  console.log("=================================");
+console.log("🔎 PLAN RESULT DEBUG");
+console.log("🔎 routePlanId:", routePlanId);
+console.log("🔎 statePlanId:", statePlanId);
+console.log("🔎 final planId:", planId);
+console.log("🔎 API URL:", `/plan/${planId}`);
+console.log("=================================");
+
 
   // =====================================================
   // Load Plan
@@ -654,21 +674,22 @@ export default function PlanResult() {
             Array.from(map.values())
           );
         }
-      } catch (err) {
-        console.error(
-          "❌ Error fetching plan:",
-          err
-        );
+      }  catch (err) {
+  console.error(
+    "❌ Error fetching plan:",
+    err.response?.data || err
+  );
 
-        setError(
-          err.message || "Error loading plan"
-        );
+  setError(
+    err.response?.data?.error ||
+      err.response?.data?.message ||
+      err.message ||
+      "Error loading plan"
+  );
 
-        setPlanData([]);
-        setConflicts([]);
-      } finally {
-        setLoading(false);
-      }
+  setPlanData([]);
+  setConflicts([]);
+}
     };
 
     fetchData();
