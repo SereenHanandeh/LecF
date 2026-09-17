@@ -221,12 +221,6 @@ const getProfessorName = (assignment) =>
 const getPeriod = (assignment) =>
   assignment.period_label ?? assignment.period ?? "-";
 
-const normalizeProfessorName = (value) => {
-  return String(value ?? "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .toLowerCase();
-};
 
 // =====================================================
 // Component
@@ -1044,38 +1038,38 @@ export default function PlanResult() {
 
   // =====================================================
   // Get Affinity Supervisor
-  // =====================================================
-  // إذا الأستاذ مربوط بمشرف معين من الـ Dashboard
-  // بنرجع المشرف المرتبط فيه.
-
   const getProfessorAffinitySupervisorId = (assignment) => {
-    const professorName = normalizeProfessorName(getProfessorName(assignment));
+  const professorId =
+    assignment.professor_id ??
+    assignment.professorId;
 
-    if (!professorName) {
-      return null;
-    }
+  if (
+    professorId === null ||
+    professorId === undefined ||
+    professorId === ""
+  ) {
+    return null;
+  }
 
-    const affinity = affinities.find((item) => {
-      const affinityProfessor =
-        item.professor_name ??
-        item.professorName ??
-        item.professor ??
-        item.name;
-
-      return normalizeProfessorName(affinityProfessor) === professorName;
-    });
-
-    if (!affinity) {
-      return null;
-    }
+  const affinity = affinities.find((item) => {
+    const affinityProfessorId =
+      item.professor_id ??
+      item.professorId;
 
     return (
-      affinity.supervisor_id ??
-      affinity.supervisorId ??
-      affinity.supervisor ??
-      null
+      String(affinityProfessorId) ===
+      String(professorId)
     );
-  };
+  });
+
+  if (!affinity) return null;
+
+  return (
+    affinity.supervisor_id ??
+    affinity.supervisorId ??
+    null
+  );
+};
 
   // =====================================================
   // Save Assignment
