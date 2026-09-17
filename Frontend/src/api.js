@@ -3,10 +3,11 @@ import axios from "axios";
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000",
 });
-
 // ==============================
 // Plans
 // ==============================
+
+
 
 export const createPlan = (payload) =>
   api.post("/plan", payload).then((res) => res.data);
@@ -18,6 +19,9 @@ export const generatePlan = (planId, variant = 1) =>
 
 export const getPlan = (planId) =>
   api.get(`/plan/${planId}`).then((res) => res.data);
+
+export const getPlans = () =>
+  api.get("/plan").then((res) => res.data);
 
 export const getStats = (planId) =>
   api.get(`/plan/${planId}/stats`).then((res) => res.data);

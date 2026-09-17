@@ -1,0 +1,394 @@
+/* =========================================================
+   LectureFlow Sidebar
+========================================================= */
+
+.app-sidebar {
+  width: 248px;
+  min-width: 248px;
+
+  height: 100vh;
+
+  position: sticky;
+  top: 0;
+
+  background: #111827;
+
+  color: #fff;
+
+  padding: 22px 15px;
+
+  display: flex;
+  flex-direction: column;
+
+  direction: rtl;
+
+  z-index: 100;
+}
+
+/* =========================================================
+   Brand
+========================================================= */
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+
+  gap: 10px;
+
+  padding: 4px 7px 27px;
+}
+
+.sidebar-brand-icon {
+  width: 39px;
+  height: 39px;
+
+  flex-shrink: 0;
+
+  border-radius: 10px;
+
+  background: #fff;
+
+  color: #3157d5;
+
+  display: grid;
+  place-items: center;
+}
+
+.sidebar-brand-icon svg {
+  width: 19px;
+  height: 19px;
+
+  fill: none;
+
+  stroke: currentColor;
+
+  stroke-width: 1.8;
+}
+
+.sidebar-brand-text strong {
+  display: block;
+
+  font-size: 15px;
+
+  font-weight: 800;
+
+  letter-spacing: -0.3px;
+}
+
+.sidebar-brand-text span {
+  display: block;
+
+  margin-top: 3px;
+
+  color: #7f8ba0;
+
+  font-size: 9px;
+
+  direction: ltr;
+
+  text-align: right;
+}
+
+/* =========================================================
+   Section title
+========================================================= */
+
+.sidebar-section-title {
+  padding: 0 9px;
+
+  margin-bottom: 8px;
+
+  color: #667287;
+
+  font-size: 9px;
+
+  font-weight: 800;
+}
+
+/* =========================================================
+   Navigation
+========================================================= */
+
+.sidebar-navigation {
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+}
+
+.sidebar-link {
+  height: 45px;
+
+  position: relative;
+
+  display: flex;
+  align-items: center;
+
+  gap: 11px;
+
+  padding: 0 11px;
+
+  border-radius: 9px;
+
+  color: #9da8ba;
+
+  text-decoration: none;
+
+  font-size: 11px;
+
+  font-weight: 600;
+
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
+}
+
+.sidebar-link:hover {
+  background: #19243a;
+
+  color: #e8ecf4;
+}
+
+.sidebar-link.active {
+  background: #26324a;
+
+  color: #fff;
+}
+
+.sidebar-link-icon {
+  width: 20px;
+  height: 20px;
+
+  display: grid;
+  place-items: center;
+
+  flex-shrink: 0;
+}
+
+.sidebar-link-icon svg {
+  width: 17px;
+  height: 17px;
+
+  fill: none;
+
+  stroke: currentColor;
+
+  stroke-width: 1.7;
+}
+
+.sidebar-link-text {
+  flex: 1;
+}
+
+/* الخط الأزرق الصغير بجانب الصفحة الحالية */
+
+.sidebar-active-indicator {
+  position: absolute;
+
+  right: 0;
+
+  width: 3px;
+  height: 19px;
+
+  border-radius: 10px;
+
+  background: #6e87ef;
+
+  opacity: 0;
+
+  transition: opacity 0.18s ease;
+}
+
+.sidebar-link.active .sidebar-active-indicator {
+  opacity: 1;
+}
+
+/* =========================================================
+   Bottom
+========================================================= */
+
+.sidebar-bottom {
+  margin-top: auto;
+}
+
+.sidebar-help {
+  display: flex;
+
+  align-items: flex-start;
+
+  gap: 9px;
+
+  padding: 12px;
+
+  background: #19243a;
+
+  border: 1px solid #263149;
+
+  border-radius: 10px;
+
+  margin-bottom: 17px;
+}
+
+.sidebar-help-icon {
+  width: 25px;
+  height: 25px;
+
+  flex: 0 0 25px;
+
+  border-radius: 7px;
+
+  background: #293751;
+
+  color: #aebdff;
+
+  display: grid;
+  place-items: center;
+
+  font-size: 11px;
+
+  font-weight: 800;
+}
+
+.sidebar-help strong {
+  display: block;
+
+  font-size: 9px;
+
+  color: #fff;
+}
+
+.sidebar-help span {
+  display: block;
+
+  margin-top: 4px;
+
+  color: #758198;
+
+  font-size: 8px;
+
+  line-height: 1.6;
+}
+
+.sidebar-version {
+  padding: 0 8px;
+
+  color: #566276;
+
+  font-size: 8px;
+
+  direction: ltr;
+
+  text-align: right;
+}
+
+/* =========================================================
+   Tablet
+========================================================= */
+
+@media (max-width: 1050px) {
+  .app-sidebar {
+    width: 210px;
+    min-width: 210px;
+  }
+}
+
+/* =========================================================
+   Mobile
+========================================================= */
+
+@media (max-width: 760px) {
+  .app-sidebar {
+    width: 100%;
+    min-width: 0;
+
+    height: auto;
+
+    position: relative;
+
+    padding: 10px 12px;
+
+    flex-direction: row;
+
+    align-items: center;
+
+    gap: 10px;
+  }
+
+  .sidebar-brand {
+    padding: 0;
+
+    flex: 1;
+
+    min-width: 0;
+  }
+
+  .sidebar-brand-icon {
+    width: 35px;
+    height: 35px;
+  }
+
+  .sidebar-brand-text strong {
+    font-size: 13px;
+  }
+
+  .sidebar-brand-text span {
+    display: none;
+  }
+
+  .sidebar-section-title,
+  .sidebar-bottom {
+    display: none;
+  }
+
+  .sidebar-navigation {
+    flex-direction: row;
+
+    gap: 4px;
+  }
+
+  .sidebar-link {
+    width: 40px;
+    height: 40px;
+
+    padding: 0;
+
+    justify-content: center;
+  }
+
+  .sidebar-link-text {
+    display: none;
+  }
+
+  .sidebar-active-indicator {
+    right: 50%;
+
+    transform: translateX(50%);
+
+    bottom: 2px;
+
+    width: 17px;
+    height: 2px;
+  }
+}
+
+/* =========================================================
+   Small mobile
+========================================================= */
+
+@media (max-width: 430px) {
+  .sidebar-brand-text {
+    display: none;
+  }
+
+  .sidebar-navigation {
+    width: 100%;
+
+    justify-content: flex-end;
+  }
+
+  .sidebar-link {
+    width: 38px;
+    height: 38px;
+  }
+}

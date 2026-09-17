@@ -1,0 +1,396 @@
+/* ============================================================
+   COMPACT PREVIEW TABLE
+   ============================================================ */
+
+.preview-card {
+  overflow: hidden;
+}
+
+.preview-body {
+  padding: 0 !important;
+}
+
+/* Top bar */
+
+.preview-table-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  padding: 12px 16px;
+
+  border-bottom: 1px solid #e9edf5;
+
+  background: #fbfcfe;
+}
+
+.preview-table-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.preview-table-icon {
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 9px;
+
+  background: #eef2ff;
+
+  font-size: 16px;
+}
+
+.preview-table-info > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.preview-table-info strong {
+  font-size: 13px;
+  font-weight: 800;
+  color: #172033;
+}
+
+.preview-table-info span {
+  font-size: 11px;
+  color: #8b95a7;
+}
+
+.preview-table-count {
+  min-width: 32px;
+  height: 28px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0 9px;
+
+  border-radius: 8px;
+
+  background: #172033;
+  color: white;
+
+  font-size: 12px;
+  font-weight: 800;
+}
+
+/* ============================================================
+   SCROLL AREA
+   ============================================================ */
+
+.compact-scroll {
+  max-height: 330px;
+  overflow: auto;
+
+  scrollbar-width: thin;
+  scrollbar-color: #cbd3df transparent;
+}
+
+/* Chrome scrollbar */
+
+.compact-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.compact-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.compact-scroll::-webkit-scrollbar-thumb {
+  background: #cbd3df;
+  border-radius: 20px;
+}
+
+/* ============================================================
+   TABLE
+   ============================================================ */
+
+.compact-preview-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+
+  table-layout: fixed;
+
+  font-size: 11px;
+}
+
+/* Header */
+
+.compact-preview-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+
+  height: 38px;
+
+  padding: 7px 9px;
+
+  background: #f7f9fc;
+
+  border-bottom: 1px solid #e1e6ee;
+
+  color: #697386;
+
+  font-size: 10px;
+  font-weight: 800;
+
+  white-space: nowrap;
+
+  text-align: right;
+}
+
+/* First column */
+
+.compact-preview-table .row-number-header {
+  width: 42px;
+  text-align: center;
+}
+
+/* Action column */
+
+.compact-preview-table .action-header {
+  width: 82px;
+  text-align: center;
+}
+
+/* Body */
+
+.compact-preview-table tbody td {
+  height: 38px;
+
+  padding: 5px 9px;
+
+  border-bottom: 1px solid #edf0f4;
+
+  color: #273244;
+
+  background: white;
+
+  vertical-align: middle;
+}
+
+/* Hover */
+
+.compact-preview-table tbody tr:hover td {
+  background: #fafbff;
+}
+
+/* Row number */
+
+.compact-preview-table .row-number {
+  text-align: center;
+
+  color: #9aa3b2;
+
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Cell */
+
+.compact-preview-table .cell-content {
+  overflow: hidden;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  line-height: 1.4;
+}
+
+/* Long text */
+
+.compact-preview-table td {
+  overflow: hidden;
+}
+
+/* ============================================================
+   ACTION BUTTON
+   ============================================================ */
+
+.compact-preview-table .row-actions {
+  width: 82px;
+
+  text-align: center;
+
+  white-space: nowrap;
+}
+
+.compact-preview-table .table-action {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  gap: 4px;
+
+  min-height: 27px;
+
+  padding: 4px 8px;
+
+  border: 0;
+  border-radius: 7px;
+
+  cursor: pointer;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  transition:
+    transform 0.15s ease,
+    background 0.15s ease;
+}
+
+.compact-preview-table .table-action:hover {
+  transform: translateY(-1px);
+}
+
+.compact-preview-table .table-action.edit {
+  background: #eef2ff;
+  color: #4f46e5;
+}
+
+.compact-preview-table .table-action.save {
+  background: #eaf8ef;
+  color: #16834b;
+}
+
+.compact-preview-table .table-action.cancel {
+  margin-right: 3px;
+
+  background: #fff0f0;
+  color: #d14343;
+}
+
+/* ============================================================
+   EDITING
+   ============================================================ */
+
+.compact-preview-table .editing-cell {
+  background: #fafbff;
+}
+
+.compact-preview-table .editing-cell input {
+  width: 100%;
+
+  height: 28px;
+
+  padding: 4px 7px;
+
+  border: 1px solid #cfd6e2;
+
+  border-radius: 6px;
+
+  outline: none;
+
+  background: white;
+
+  color: #1f2937;
+
+  font-size: 11px;
+}
+
+.compact-preview-table .editing-cell input:focus {
+  border-color: #6366f1;
+
+  box-shadow:
+    0 0 0 2px rgba(99, 102, 241, 0.1);
+}
+
+/* ============================================================
+   INVALID ROW
+   ============================================================ */
+
+.compact-preview-table tbody tr.invalid-row td {
+  background: #fff9f9;
+}
+
+.compact-preview-table tbody tr.invalid-row:hover td {
+  background: #fff5f5;
+}
+
+.invalid-label {
+  display: inline-flex;
+
+  align-items: center;
+  justify-content: center;
+
+  padding: 4px 7px;
+
+  border-radius: 6px;
+
+  background: #fff0f0;
+
+  color: #d14343;
+
+  font-size: 9px;
+  font-weight: 800;
+}
+
+/* ============================================================
+   WARNING
+   ============================================================ */
+
+.compact-warning {
+  margin: 0 !important;
+
+  padding: 10px 14px !important;
+
+  border-top: 1px solid #f1dfb0 !important;
+
+  border-radius: 0 !important;
+
+  background: #fffaf0 !important;
+}
+
+.compact-warning span {
+  font-size: 10px;
+}
+
+/* ============================================================
+   EMPTY
+   ============================================================ */
+
+.compact-empty {
+  min-height: 150px !important;
+
+  padding: 25px !important;
+}
+
+.compact-empty .table-empty-icon {
+  font-size: 25px !important;
+}
+
+.compact-empty strong {
+  font-size: 13px !important;
+}
+
+.compact-empty span {
+  font-size: 11px !important;
+}
+
+/* ============================================================
+   MOBILE
+   ============================================================ */
+
+@media (max-width: 768px) {
+  .compact-scroll {
+    max-height: 280px;
+  }
+
+  .compact-preview-table {
+    min-width: 700px;
+  }
+
+  .preview-table-topbar {
+    padding: 10px 12px;
+  }
+}

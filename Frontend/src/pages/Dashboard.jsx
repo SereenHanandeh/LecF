@@ -1,5 +1,4 @@
 import React, { useMemo, useState } from "react";
-
 import {
   createPlan,
   setDutyPool,
@@ -10,189 +9,118 @@ import {
 
 import PreviewTable from "../components/PreviewTable.jsx";
 import SupervisorSelector from "../components/SupervisorSelector.jsx";
-import FileUpload from "../components/FileUploader.jsx";
-import { useNavigate } from "react-router-dom";
+import FileUploader from "../components/FileUploader.jsx";
+import Sidebar from "../components/Sidebar.jsx";
 
+import { useNavigate } from "react-router-dom";
 import "./dashboard.css";
 
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
+/* =========================================================
+   Helpers
+========================================================= */
 
-function getProfessorName(row) {
-  return (
+const getProfessorName = (row) =>
+  String(
     row?.professor_name ??
-    row?.professorName ??
-    row?.["Professor Name"] ??
-    row?.professor ??
-    row?.["Professor"] ??
-    row?.name ??
-    ""
-  );
-}
+      row?.professorName ??
+      row?.["Professor Name"] ??
+      row?.professor ??
+      row?.Professor ??
+      row?.name ??
+      "",
+  ).trim();
 
-function getRowDate(row) {
-  return (
-    row?.date ??
-    row?.Date ??
-    row?.["DATE"] ??
-    row?.day ??
-    row?.["Day"] ??
-    null
-  );
-}
+const getDateValue = (row) =>
+  row?.date ?? row?.Date ?? row?.DATE ?? row?.day ?? row?.Day ?? "";
 
-/**
- * مهم جدًا:
- * التاريخ هنا تاريخ تقويمي فقط وليس Timestamp.
- *
- * لا نستخدم:
- *   toISOString()
- *
- * لأن:
- * 2025-11-05 في السعودية
- * قد يصبح:
- * 2025-11-04T21:00:00.000Z
- *
- * وبالتالي يظهر اليوم السابق.
- */
-function normalizeDate(value) {
-  if (value === null || value === undefined || value === "") {
-    return null;
+const normalizeDate = (value) => {
+  if (!value) return "";
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value.toISOString().slice(0, 10);
   }
 
-  // إذا كان التاريخ String
-  if (typeof value === "string") {
-    const cleanValue = value.trim();
+  const text = String(value).trim();
 
-    if (!cleanValue) {
-      return null;
-    }
+  if (!text) return "";
 
-    // YYYY-MM-DD أو ISO
-    const match = cleanValue.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  // 2025-01-30
+  const iso = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
 
-    if (match) {
-      return `${match[1]}-${match[2]}-${match[3]}`;
-    }
-
-    // بعض الحالات قد تأتي بصيغة DD/MM/YYYY
-    const slashMatch = cleanValue.match(
-      /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
-    );
-
-    if (slashMatch) {
-      const day = String(slashMatch[1]).padStart(2, "0");
-      const month = String(slashMatch[2]).padStart(2, "0");
-      const year = slashMatch[3];
-
-      return `${year}-${month}-${day}`;
-    }
-
-    return null;
+  if (iso) {
+    return `${iso[1]}-${String(iso[2]).padStart(2, "0")}-${String(
+      iso[3],
+    ).padStart(2, "0")}`;
   }
 
-  // إذا كان Date object
-  if (value instanceof Date) {
-    if (Number.isNaN(value.getTime())) {
-      return null;
-    }
+  // 30/01/2025
+  const slash = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
 
-    // مهم:
-    // نستخدم التاريخ المحلي وليس UTC.
-    const year = value.getFullYear();
-    const month = String(value.getMonth() + 1).padStart(2, "0");
-    const day = String(value.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
+  if (slash) {
+    return `${slash[3]}-${String(slash[2]).padStart(2, "0")}-${String(
+      slash[1],
+    ).padStart(2, "0")}`;
   }
 
-  // إذا كان رقم Excel serial أو رقم آخر، لا نحاول
-  // تخمين التاريخ هنا.
-  return null;
-}
+  // 30-01-2025
+  const dash = text.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
 
-/**
- * عرض التاريخ للمستخدم باللغة العربية
- * بدون أي مشكلة timezone.
- */
-function formatArabicDate(dateString) {
-  if (!dateString) {
-    return "";
+  if (dash) {
+    return `${dash[3]}-${String(dash[2]).padStart(2, "0")}-${String(
+      dash[1],
+    ).padStart(2, "0")}`;
   }
 
-  const match = String(dateString).match(
-    /^(\d{4})-(\d{2})-(\d{2})$/
-  );
+  const parsed = new Date(text);
 
-  if (!match) {
-    return dateString;
+  if (!Number.isNaN(parsed.getTime())) {
+    return parsed.toISOString().slice(0, 10);
   }
 
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
+  return text;
+};
 
-  // نستخدم noon بدل منتصف الليل لتجنب أي مشاكل DST/timezone.
-  const date = new Date(year, month - 1, day, 12, 0, 0);
+const formatDate = (date) => {
+  if (!date) return "—";
 
-  if (Number.isNaN(date.getTime())) {
-    return dateString;
-  }
+  const normalized = normalizeDate(date);
 
-  return date.toLocaleDateString("ar-SA", {
-    weekday: "long",
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
-}
+  if (!normalized) return "—";
 
-function normalizeSupervisorIds(list) {
-  if (!Array.isArray(list)) {
-    return [];
-  }
+  const [year, month, day] = normalized.split("-");
 
-  return [
-    ...new Set(
-      list
-        .map((item) => {
-          if (item && typeof item === "object") {
-            return Number(item.id);
-          }
+  if (!year || !month || !day) return date;
 
-          return Number(item);
-        })
-        .filter((id) => Number.isInteger(id))
-    ),
-  ];
-}
+  return `${day}/${month}/${year}`;
+};
 
-// ─────────────────────────────────────────────
-// Icons
-// ─────────────────────────────────────────────
+const normalizeSupervisorIds = (items = []) =>
+  items
+    .map((item) => Number(item?.id ?? item))
+    .filter((id) => Number.isFinite(id));
+
+/* =========================================================
+   Icons
+========================================================= */
 
 const Icons = {
-  dashboard: (
-    <svg viewBox="0 0 24 24">
-      <rect x="3" y="3" width="7" height="7" rx="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" />
-      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+  upload: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 16V4" />
+      <path d="m7 9 5-5 5 5" />
+      <path d="M5 20h14" />
     </svg>
   ),
 
-  file: (
-    <svg viewBox="0 0 24 24">
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <path d="M14 2v6h6" />
-      <path d="M8 13h8" />
-      <path d="M8 17h5" />
+  calendar: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M16 3v4M8 3v4M3 10h18" />
     </svg>
   ),
 
   users: (
-    <svg viewBox="0 0 24 24">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
       <circle cx="9" cy="7" r="4" />
       <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
@@ -200,51 +128,50 @@ const Icons = {
     </svg>
   ),
 
-  target: (
-    <svg viewBox="0 0 24 24">
-      <circle cx="12" cy="12" r="9" />
-      <circle cx="12" cy="12" r="5" />
-      <circle cx="12" cy="12" r="1.5" />
+  file: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+      <path d="M14 2v6h6" />
+      <path d="M8 13h8M8 17h6" />
     </svg>
   ),
 
   link: (
-    <svg viewBox="0 0 24 24">
-      <path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.14 1.14" />
-      <path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 7 20l1.14-1.14" />
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M10 13a5 5 0 0 0 7.07.07l2-2a5 5 0 0 0-7.07-7.07l-1.15 1.15" />
+      <path d="M14 11a5 5 0 0 0-7.07-.07l-2 2A5 5 0 0 0 7 20l1.15-1.15" />
     </svg>
   ),
 
-  eye: (
-    <svg viewBox="0 0 24 24">
-      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
-      <circle cx="12" cy="12" r="3" />
+  settings: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20H11v-.2a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 6.73 15 1.7 1.7 0 0 0 5.2 14H5v-3h.2a1.7 1.7 0 0 0 1.56-1.03 1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 11 5.2V5h3v.2a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 19.8 11H20v3h-.2A1.7 1.7 0 0 0 19.4 15Z" />
     </svg>
   ),
 
-  calendar: (
-    <svg viewBox="0 0 24 24">
-      <rect x="3" y="4" width="18" height="17" rx="2" />
-      <path d="M16 2v4M8 2v4M3 9h18" />
+  check: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m5 12 4 4L19 6" />
     </svg>
   ),
 
-  layers: (
-    <svg viewBox="0 0 24 24">
-      <path d="m12 2 9 5-9 5-9-5 9-5Z" />
-      <path d="m3 12 9 5 9-5" />
-      <path d="m3 17 9 5 9-5" />
+  arrow: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M5 12h14" />
+      <path d="m13 6 6 6-6 6" />
     </svg>
   ),
 
-  plus: (
-    <svg viewBox="0 0 24 24">
-      <path d="M12 5v14M5 12h14" />
+  spark: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8Z" />
+      <path d="m19 16 .8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8Z" />
     </svg>
   ),
 
   trash: (
-    <svg viewBox="0 0 24 24">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M4 7h16" />
       <path d="M10 11v6M14 11v6" />
       <path d="M6 7l1 14h10l1-14" />
@@ -252,2000 +179,860 @@ const Icons = {
     </svg>
   ),
 
-  spark: (
-    <svg viewBox="0 0 24 24">
-      <path d="m12 3 1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3Z" />
-      <path d="m19 16 .8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16Z" />
+  warning: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 3 2.5 20h19L12 3Z" />
+      <path d="M12 9v5M12 17h.01" />
     </svg>
   ),
 
-  check: (
-    <svg viewBox="0 0 24 24">
-      <path d="m5 12 4 4L19 6" />
-    </svg>
-  ),
-
-  arrow: (
-    <svg viewBox="0 0 24 24">
-      <path d="M5 12h14" />
-      <path d="m13 6 6 6-6 6" />
+  dashboard: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
     </svg>
   ),
 };
 
-// ─────────────────────────────────────────────
-// Dashboard
-// ─────────────────────────────────────────────
+/* =========================================================
+   Dashboard
+========================================================= */
 
 export default function Dashboard() {
   const navigate = useNavigate();
 
-  // ─────────────────────────────────────────
-  // Main state
-  // ─────────────────────────────────────────
-
   const [rows, setRows] = useState([]);
   const [excelBatchId, setExcelBatchId] = useState(null);
 
-  // اليوم الذي سيتم توزيعه
   const [selectedDate, setSelectedDate] = useState("");
 
   const [selectedSupervisors, setSelectedSupervisors] = useState([]);
-
-  // ─────────────────────────────────────────
-  // Professor affinities
-  // ─────────────────────────────────────────
-
   const [selectedProfessors, setSelectedProfessors] = useState([]);
+
   const [affinitySupervisor, setAffinitySupervisor] = useState("");
   const [affinities, setAffinitiesState] = useState([]);
-
-  // ─────────────────────────────────────────
-  // Period quotas
-  // ─────────────────────────────────────────
 
   const [periodQuotaMode, setPeriodQuotaMode] = useState("all");
   const [globalPeriodQuota, setGlobalPeriodQuota] = useState("");
   const [quotaSupervisors, setQuotaSupervisors] = useState([]);
   const [periodQuotas, setPeriodQuotas] = useState({});
 
-  // ─────────────────────────────────────────
-  // UI state
-  // ─────────────────────────────────────────
-
   const [isGenerating, setIsGenerating] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
-  // ─────────────────────────────────────────
-  // Derived data
-  // ─────────────────────────────────────────
+  /* =========================================================
+     Derived data
+  ========================================================= */
+
+  const normalizedSupervisorIds = useMemo(
+    () => normalizeSupervisorIds(selectedSupervisors),
+    [selectedSupervisors],
+  );
 
   const professors = useMemo(() => {
-    const map = new Map();
+    const names = rows.map(getProfessorName).filter(Boolean);
 
-    rows.forEach((row) => {
-      const name = String(getProfessorName(row) || "").trim();
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b, "ar"));
+  }, [rows]);
 
-      if (!name) {
-        return;
-      }
+  const dates = useMemo(() => {
+    const values = rows
+      .map((row) => normalizeDate(getDateValue(row)))
+      .filter(Boolean);
 
-      const key = name.toLowerCase();
+    return [...new Set(values)].sort();
+  }, [rows]);
 
-      if (!map.has(key)) {
-        map.set(key, name);
-      }
-    });
+  const selectedDateRows = useMemo(() => {
+    if (!selectedDate) return [];
 
-    return [...map.values()].sort((a, b) =>
-      a.localeCompare(b, "ar")
+    return rows.filter(
+      (row) => normalizeDate(getDateValue(row)) === selectedDate,
     );
-  }, [rows]);
-
-  // ─────────────────────────────────────────
-  // Unique dates
-  // ─────────────────────────────────────────
-
-  const uniqueDates = useMemo(() => {
-    const dates = new Set();
-
-    rows.forEach((row) => {
-      const value = getRowDate(row);
-      const date = normalizeDate(value);
-
-      if (date) {
-        dates.add(date);
-      }
-    });
-
-    return [...dates].sort();
-  }, [rows]);
-
-  // ─────────────────────────────────────────
-  // Selected date statistics
-  // ─────────────────────────────────────────
-
-  const selectedDateStats = useMemo(() => {
-    if (!selectedDate) {
-      return {
-        rows: 0,
-        professors: 0,
-      };
-    }
-
-    const selectedRows = rows.filter((row) => {
-      const date = normalizeDate(getRowDate(row));
-
-      if (!date) {
-        return false;
-      }
-
-      return date === selectedDate;
-    });
-
-    const professorSet = new Set();
-
-    selectedRows.forEach((row) => {
-      const professor = String(
-        getProfessorName(row) || ""
-      ).trim();
-
-      if (professor) {
-        professorSet.add(professor.toLowerCase());
-      }
-    });
-
-    return {
-      rows: selectedRows.length,
-      professors: professorSet.size,
-    };
   }, [rows, selectedDate]);
 
-  // ─────────────────────────────────────────
-  // Stats
-  // ─────────────────────────────────────────
+  const selectedDateProfessors = useMemo(() => {
+    return new Set(selectedDateRows.map(getProfessorName).filter(Boolean)).size;
+  }, [selectedDateRows]);
 
-  const stats = {
-    rows: rows.length,
-    professors: professors.length,
-    supervisors: normalizeSupervisorIds(selectedSupervisors).length,
-    dates: uniqueDates.length,
-  };
+  const invalidRows = useMemo(
+    () => rows.filter((row) => row?.__invalid).length,
+    [rows],
+  );
 
-  // ─────────────────────────────────────────
-  // Progress
-  // ─────────────────────────────────────────
+  const readiness = useMemo(() => {
+    let score = 0;
 
-  const progress = useMemo(() => {
-    let completed = 0;
+    if (rows.length > 0) score += 25;
+    if (selectedDate) score += 20;
+    if (selectedSupervisors.length > 0) score += 25;
+    if (selectedDateRows.length > 0) score += 15;
+    if (invalidRows === 0 && rows.length > 0) score += 15;
 
-    if (rows.length > 0) {
-      completed += 1;
-    }
-
-    if (selectedDate) {
-      completed += 1;
-    }
-
-    if (selectedSupervisors.length > 0) {
-      completed += 1;
-    }
-
-    if (Object.keys(periodQuotas).length > 0) {
-      completed += 1;
-    }
-
-    if (affinities.length > 0) {
-      completed += 1;
-    }
-
-    return Math.round((completed / 5) * 100);
+    return Math.min(score, 100);
   }, [
-    rows,
+    rows.length,
     selectedDate,
-    selectedSupervisors,
-    periodQuotas,
-    affinities,
+    selectedSupervisors.length,
+    selectedDateRows.length,
+    invalidRows,
   ]);
 
-  // ─────────────────────────────────────────
-  // Upload
-  // ─────────────────────────────────────────
+  const canGenerate =
+    rows.length > 0 &&
+    selectedDate &&
+    normalizedSupervisorIds.length > 0 &&
+    selectedDateRows.length > 0 &&
+    !isGenerating;
 
-  const handleUploadSuccess = (response) => {
-    setErrorMessage("");
+  /* =========================================================
+     Upload
+  ========================================================= */
 
-    const uploadedRows =
-      response?.rows ??
-      response?.data?.rows ??
-      response?.data ??
-      [];
+  const handleUploaded = (response) => {
+    try {
+      const data = response?.data ?? response ?? {};
 
-    const batchId =
-      response?.excelBatchId ??
-      response?.excel_batch_id ??
-      response?.batchId ??
-      response?.batch_id ??
-      response?.data?.excelBatchId ??
-      response?.data?.excel_batch_id ??
-      response?.data?.batchId ??
-      response?.data?.batch_id ??
-      null;
+      const uploadedRows =
+        data?.rows ?? data?.data?.rows ?? data?.preview ?? data?.data ?? [];
 
-    setRows(
-      Array.isArray(uploadedRows)
-        ? uploadedRows
-        : []
-    );
+      const batchId =
+        data?.excelBatchId ??
+        data?.excel_batch_id ??
+        data?.batchId ??
+        data?.data?.excelBatchId ??
+        data?.data?.excel_batch_id ??
+        data?.data?.batchId ??
+        null;
 
-    setExcelBatchId(batchId);
+      const safeRows = Array.isArray(uploadedRows) ? uploadedRows : [];
 
-    // Reset selected date
-    setSelectedDate("");
+      setRows(safeRows);
+      setExcelBatchId(batchId);
 
-    // Reset affinities
-    setSelectedProfessors([]);
-    setAffinitiesState([]);
+      setSelectedDate("");
+      setSelectedProfessors([]);
 
-    // Reset quotas
-    setPeriodQuotas({});
-    setQuotaSupervisors([]);
-    setGlobalPeriodQuota("");
+      setAffinitiesState([]);
+      setAffinitySupervisor("");
 
-    setUploadMessage(
-      Array.isArray(uploadedRows) &&
-      uploadedRows.length
-        ? `تم تحميل ${uploadedRows.length.toLocaleString()} سجل بنجاح`
-        : "تم تحميل الملف بنجاح"
-    );
-  };
+      setPeriodQuotas({});
+      setQuotaSupervisors([]);
+      setGlobalPeriodQuota("");
 
-  // ─────────────────────────────────────────
-  // Professor affinity
-  // ─────────────────────────────────────────
-
-  const toggleProfessor = (name) => {
-    setSelectedProfessors((current) =>
-      current.includes(name)
-        ? current.filter((item) => item !== name)
-        : [...current, name]
-    );
-  };
-
-  const addAffinity = () => {
-    if (
-      !affinitySupervisor ||
-      selectedProfessors.length === 0
-    ) {
-      return;
-    }
-
-    const newItems = selectedProfessors
-      .filter(
-        (professorName) =>
-          !affinities.some(
-            (item) =>
-              item.professorName === professorName &&
-              String(item.supervisorId) ===
-                String(affinitySupervisor)
-          )
-      )
-      .map((professorName) => ({
-        professorName,
-        supervisorId: Number(affinitySupervisor),
-      }));
-
-    setAffinitiesState((current) => [
-      ...current,
-      ...newItems,
-    ]);
-
-    setSelectedProfessors([]);
-    setAffinitySupervisor("");
-  };
-
-  const removeAffinity = (
-    professorName,
-    supervisorId
-  ) => {
-    setAffinitiesState((current) =>
-      current.filter(
-        (item) =>
-          !(
-            item.professorName === professorName &&
-            String(item.supervisorId) ===
-              String(supervisorId)
-          )
-      )
-    );
-  };
-
-  // ─────────────────────────────────────────────
-  // Quotas
-  // ─────────────────────────────────────────────
-
-  /**
-   * وضع "التوزيع للكل"
-   *
-   * الوضع الطبيعي:
-   * لا يوجد quota.
-   *
-   * الـ backend سيتولى:
-   * 1. إعطاء كل مشرف دكتورًا واحدًا أولًا.
-   * 2. ثم توزيع باقي الدكاترة بعدالة.
-   */
-  const switchToAllSupervisors = () => {
-    setPeriodQuotaMode("all");
-    setQuotaSupervisors([]);
-    setPeriodQuotas({});
-    setGlobalPeriodQuota("");
-    setErrorMessage("");
-
-    console.log("🎯 MODE: NORMAL DISTRIBUTION");
-  };
-
-  /**
-   * وضع "تحديد عدد الفترات"
-   */
-  const switchToSpecificSupervisors = () => {
-    setPeriodQuotaMode("specific");
-    setQuotaSupervisors([]);
-    setPeriodQuotas({});
-    setErrorMessage("");
-
-    console.log("🎯 MODE: PERIOD QUOTA");
-  };
-
-  /**
-   * إنشاء quotas من قائمة مشرفين + قيمة واحدة.
-   */
-  const buildQuotaPayload = (
-    supervisorIds,
-    value
-  ) => {
-    const numericValue = Number(value);
-
-    if (
-      !Number.isInteger(numericValue) ||
-      numericValue <= 0
-    ) {
-      return {};
-    }
-
-    const payload = {};
-
-    normalizeSupervisorIds(supervisorIds).forEach(
-      (supervisorId) => {
-        payload[supervisorId] = numericValue;
-      }
-    );
-
-    return payload;
-  };
-
-  /**
-   * تطبيق عدد الفترات على جميع المشرفين.
-   */
-  const applyGlobalQuota = () => {
-    if (selectedSupervisors.length === 0) {
-      setErrorMessage(
-        "اختاري المشرفين المناوبين أولًا."
+      setUploadMessage(
+        safeRows.length
+          ? `تم تحميل ${safeRows.length} سجل بنجاح`
+          : "تم رفع الملف ولكن لم يتم العثور على سجلات",
       );
-      return;
-    }
 
-    const next = buildQuotaPayload(
-      selectedSupervisors,
-      globalPeriodQuota
+      setErrorMessage("");
+    } catch (error) {
+      console.error(error);
+
+      setRows([]);
+      setExcelBatchId(null);
+
+      setUploadMessage("");
+      setErrorMessage("حدث خطأ أثناء قراءة بيانات الملف.");
+    }
+  };
+
+  /* =========================================================
+     Edit preview
+  ========================================================= */
+
+  const handleEditRow = (index, updatedRow) => {
+    setRows((current) =>
+      current.map((row, rowIndex) =>
+        rowIndex === index
+          ? {
+              ...updatedRow,
+              __invalid: false,
+            }
+          : row,
+      ),
     );
+  };
 
-    if (Object.keys(next).length === 0) {
-      setErrorMessage(
-        "أدخلي عدد فترات صحيح أكبر من صفر."
-      );
+  /* =========================================================
+     Quotas
+  ========================================================= */
+
+  const applyPeriodQuota = () => {
+    const quota = Number(globalPeriodQuota);
+
+    if (!Number.isFinite(quota) || quota <= 0) {
+      setErrorMessage("أدخل رقمًا صحيحًا للحصة.");
       return;
     }
+
+    const targetIds =
+      periodQuotaMode === "all"
+        ? normalizedSupervisorIds
+        : normalizeSupervisorIds(quotaSupervisors);
+
+    if (!targetIds.length) {
+      setErrorMessage("اختر مشرفًا واحدًا على الأقل.");
+      return;
+    }
+
+    const next = { ...periodQuotas };
+
+    targetIds.forEach((id) => {
+      next[id] = quota;
+    });
 
     setPeriodQuotas(next);
     setErrorMessage("");
-
-    console.log(
-      "🎯 GLOBAL PERIOD QUOTAS CREATED:",
-      next
-    );
   };
 
-  /**
-   * تطبيق عدد الفترات على مشرفين محددين.
-   */
-  const applySelectedQuota = () => {
-    if (quotaSupervisors.length === 0) {
-      setErrorMessage(
-        "اختاري مشرفًا واحدًا على الأقل."
-      );
-      return;
-    }
-
-    const next = buildQuotaPayload(
-      quotaSupervisors,
-      globalPeriodQuota
-    );
-
-    if (Object.keys(next).length === 0) {
-      setErrorMessage(
-        "أدخلي عدد فترات صحيح أكبر من صفر."
-      );
-      return;
-    }
-
-    setPeriodQuotas((current) => ({
-      ...current,
-      ...next,
-    }));
-
-    setErrorMessage("");
-
-    console.log(
-      "🎯 SELECTED PERIOD QUOTAS CREATED:",
-      next
-    );
-  };
-
-  /**
-   * حذف quota لمشرف واحد.
-   */
   const removeQuota = (id) => {
     setPeriodQuotas((current) => {
-      const next = {
-        ...current,
-      };
-
-      delete next[Number(id)];
-
-      console.log(
-        "🗑️ QUOTA REMOVED:",
-        id,
-        next
-      );
-
+      const next = { ...current };
+      delete next[id];
       return next;
     });
   };
 
-  // ─────────────────────────────────────────
-  // Generate
-  // ─────────────────────────────────────────
+  /* =========================================================
+     Affinities
+  ========================================================= */
 
-  const handleGeneratePlan = async () => {
+  const addAffinity = () => {
+    const supervisorId = Number(affinitySupervisor);
+
+    if (!selectedProfessors.length) {
+      setErrorMessage("اختر أستاذًا واحدًا على الأقل.");
+      return;
+    }
+
+    if (!Number.isFinite(supervisorId)) {
+      setErrorMessage("اختر المشرف المرتبط بالأستاذ.");
+      return;
+    }
+
+    const newItems = selectedProfessors.map((professorName) => ({
+      professorName,
+      supervisorId,
+    }));
+
+    setAffinitiesState((current) => {
+      const filtered = current.filter(
+        (item) => !selectedProfessors.includes(item.professorName),
+      );
+
+      return [...filtered, ...newItems];
+    });
+
+    setSelectedProfessors([]);
+    setAffinitySupervisor("");
     setErrorMessage("");
+  };
 
-    if (!rows.length) {
-      setErrorMessage(
-        "يرجى رفع ملف المحاضرات أولًا."
-      );
-      return;
-    }
+  const removeAffinity = (professorName) => {
+    setAffinitiesState((current) =>
+      current.filter((item) => item.professorName !== professorName),
+    );
+  };
 
-    if (!excelBatchId) {
-      setErrorMessage(
-        "تعذر تحديد رقم دفعة الملف."
-      );
-      return;
-    }
+  /* =========================================================
+     Generate
+  ========================================================= */
 
-    if (!selectedDate) {
-      setErrorMessage(
-        "يرجى اختيار اليوم الذي تريد توزيعه."
-      );
-      return;
-    }
-
-    if (!selectedSupervisors.length) {
-      setErrorMessage(
-        "يرجى اختيار المشرفين المناوبين."
-      );
-      return;
-    }
-
-    if (!uniqueDates.length) {
-      setErrorMessage(
-        "لم يتم العثور على تواريخ صالحة في الملف."
-      );
-      return;
-    }
-
-    // تأكد أن اليوم المختار موجود فعليًا في الملف
-    if (!uniqueDates.includes(selectedDate)) {
-      setErrorMessage(
-        "اليوم المحدد غير موجود في ملف المحاضرات."
-      );
-      return;
-    }
-
-    // تأكد أن اليوم يحتوي على محاضرات
-    if (selectedDateStats.rows === 0) {
-      setErrorMessage(
-        "لا توجد محاضرات في اليوم المحدد."
-      );
-      return;
-    }
+  const handleGenerate = async () => {
+    if (!canGenerate) return;
 
     try {
       setIsGenerating(true);
+      setErrorMessage("");
 
-      // Convert selected supervisors to IDs
-      const supervisorIds =
-        normalizeSupervisorIds(
-          selectedSupervisors
-        );
+      const planName = `Plan ${Date.now()}`;
 
-      if (
-        supervisorIds.some(
-          (id) => !Number.isInteger(id)
-        )
-      ) {
-        throw new Error(
-          "يوجد مشرف غير صالح ضمن المشرفين المختارين."
-        );
-      }
-
-      console.log(
-        "👥 SELECTED SUPERVISOR IDS:",
-        supervisorIds
-      );
-
-      // ─────────────────────────────
-      // IMPORTANT:
-      // Only the selected date will be included.
-      // ─────────────────────────────
-
-      const dateFrom = selectedDate;
-      const dateTo = selectedDate;
-
-      console.log(
-        "📅 SELECTED DISTRIBUTION DATE:",
-        selectedDate
-      );
-
-      console.log(
-        "📅 PLAN DATE RANGE:",
-        {
-          dateFrom,
-          dateTo,
-        }
-      );
-
-      // ─────────────────────────────
-      // DATE DEBUG
-      // ─────────────────────────────
-
-      console.log(
-        "========== DATE DEBUG =========="
-      );
-
-      console.log(
-        "Selected date:",
-        selectedDate
-      );
-
-      console.log(
-        "Rows matching selected date:",
-        rows.filter(
-          (row) =>
-            normalizeDate(
-              getRowDate(row)
-            ) === selectedDate
-        ).length
-      );
-
-      console.log(
-        "First 10 row dates:",
-        rows.slice(0, 10).map((row) => ({
-          raw: getRowDate(row),
-          normalized: normalizeDate(
-            getRowDate(row)
-          ),
-        }))
-      );
-
-      console.log(
-        "================================"
-      );
-
-      // ─────────────────────────────
-      // 1. Create plan
-      // ─────────────────────────────
-
-      const plan = await createPlan({
-        name: `Plan ${Date.now()}`,
+      const createPayload = {
+        name: planName,
         excelBatchId,
-        dateFrom,
-        dateTo,
-      });
-
-      console.log(
-        "CREATE PLAN RESPONSE:",
-        plan
-      );
-
-      const planId = plan?.data?.id;
-
-      if (!planId) {
-        throw new Error(
-          "تعذر إنشاء الخطة."
-        );
-      }
-
-      // ─────────────────────────────
-      // 2. Save duty pool
-      // ─────────────────────────────
-
-      await setDutyPool(
-        planId,
-        supervisorIds
-      );
-
-      console.log(
-        "👥 DUTY POOL SAVED:",
-        supervisorIds
-      );
-
-      // ─────────────────────────────
-      // 3. Distribution mode
-      // ─────────────────────────────
-
-      const quotaPayload = {
-        ...periodQuotas,
+        excel_batch_id: excelBatchId,
+        dateFrom: selectedDate,
+        dateTo: selectedDate,
+        date_from: selectedDate,
+        date_to: selectedDate,
       };
 
-      console.log(
-        "🎯 PERIOD QUOTA PAYLOAD:",
-        quotaPayload
-      );
+      const created = await createPlan(createPayload);
 
-      console.log(
-        "🎯 QUOTA COUNT:",
-        Object.keys(
-          quotaPayload
-        ).length
-      );
+      const planId =
+        created?.id ??
+        created?.planId ??
+        created?.plan_id ??
+        created?.data?.id ??
+        created?.data?.planId ??
+        created?.data?.plan_id;
 
-      console.log(
-        "🎯 DISTRIBUTION MODE:",
-        periodQuotaMode
-      );
-
-      if (
-        periodQuotaMode ===
-          "specific" &&
-        Object.keys(
-          quotaPayload
-        ).length === 0
-      ) {
-        throw new Error(
-          "اختر المشرفين وحدد عدد الفترات ثم اضغط «تطبيق الهدف» قبل إنشاء الخطة."
-        );
+      if (!planId) {
+        throw new Error("لم يتم إرجاع رقم الخطة من السيرفر.");
       }
 
-      // ─────────────────────────────
-      // 4. Save period quotas
-      // ─────────────────────────────
+      /* Duty pool */
 
-      const quotaResponse =
-        await savePeriodQuotas(
-          planId,
-          quotaPayload
-        );
+      await setDutyPool(planId, normalizedSupervisorIds);
 
-      console.log(
-        "🎯 PERIOD QUOTAS SAVE RESPONSE:",
-        quotaResponse
+      /* Period quotas */
+
+      const quotaPayload = Object.entries(periodQuotas).map(
+        ([supervisorId, quota]) => ({
+          supervisorId: Number(supervisorId),
+          quota: Number(quota),
+        }),
       );
 
-      // ─────────────────────────────
-      // 5. Save professor affinities
-      // ─────────────────────────────
-
-      if (affinities.length > 0) {
-        const affinityPayload =
-          affinities.map((item) => ({
-            professorName:
-              item.professorName,
-            supervisorId: Number(
-              item.supervisorId
-            ),
-          }));
-
-        await setAffinities(
-          planId,
-          affinityPayload
-        );
-
-        console.log(
-          "🔗 AFFINITIES SAVED:",
-          affinityPayload
-        );
+      if (quotaPayload.length) {
+        await savePeriodQuotas(planId, quotaPayload);
       }
 
-      // ─────────────────────────────
-      // 6. Generate plan
-      // ─────────────────────────────
+      /* Affinities */
 
-      console.log(
-        "🚀 GENERATING PLAN:",
-        {
+      if (affinities.length) {
+        await setAffinities(planId, affinities);
+      }
+
+      /* Generate */
+
+      const generated = await generatePlan(planId, 1);
+
+      navigate(`/plan-result/${planId}`, {
+        state: {
           planId,
+          generated,
+          rows,
           selectedDate,
-          dateFrom,
-          dateTo,
-          selectedSupervisors,
-          supervisorIds,
-          periodQuotas:
-            quotaPayload,
-          quotaMode:
-            periodQuotaMode,
-        }
-      );
-
-      const generated =
-        await generatePlan(
-          planId,
-          1
-        );
-
-      console.log(
-        "✅ GENERATED PLAN:",
-        generated
-      );
-
-      // ─────────────────────────────
-      // 7. Navigate to result
-      // ─────────────────────────────
-
-      navigate(
-        `/plan-result/${planId}`,
-        {
-          state: {
-            planId,
-            generated,
-            rows,
-            selectedDate,
-            periodQuotas:
-              quotaPayload,
-            affinities,
-          },
-        }
-      );
+          periodQuotas,
+          affinities,
+          selectedSupervisors: normalizedSupervisorIds,
+        },
+      });
     } catch (error) {
-      console.error(
-        "❌ Generate plan error:",
-        error
-      );
+      console.error(error);
 
-      setErrorMessage(
-        error?.response?.data?.message ??
-          error?.response?.data?.error ??
-          error?.message ??
-          "حدث خطأ أثناء إنشاء الخطة."
-      );
+      const message =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.message ||
+        "حدث خطأ أثناء إنشاء الخطة.";
+
+      setErrorMessage(message);
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // ─────────────────────────────────────────
-  // Render
-  // ─────────────────────────────────────────
+  /* =========================================================
+     UI
+  ========================================================= */
 
   return (
-    <div
-      className="dashboard-page"
-      dir="rtl"
-    >
-      {/* Header */}
+    <div className="dashboard-page" dir="rtl">
+      <Sidebar />
 
-      <header className="app-header">
-        <div className="header-brand">
-          <div className="brand-mark">
-            {Icons.layers}
-          </div>
+      {/* ================= Main ================= */}
 
+      <main className="dashboard-main">
+        {/* Header */}
+
+        <header className="dashboard-header">
           <div>
-            <div className="brand-name">
-              LectureFlow
+            <div className="breadcrumb">
+              لوحة التحكم
+              <span>/</span>
+              إنشاء خطة
             </div>
 
-            <div className="brand-caption">
-              نظام إدارة وتوزيع المحاضرات
-            </div>
-          </div>
-        </div>
+            <h1>إنشاء خطة توزيع المشرفين</h1>
 
-        <div className="header-status">
-          <span className="status-dot" />
-          جاهز لإنشاء خطة
-        </div>
-      </header>
-
-      {/* Main */}
-
-      <main className="dashboard-container">
-
-        {/* Intro */}
-
-        <section className="welcome-section">
-          <div className="welcome-copy">
-            <div className="page-kicker">
-              <span className="kicker-line" />
-              إنشاء خطة جديدة
-            </div>
-
-            <h1>
-              وزّع المحاضرات
-              <br />
-              <strong>
-                بذكاء وعدالة.
-              </strong>
-            </h1>
-
-            <p>
-              ارفع ملف المحاضرات، حدد اليوم
-              والمشرفين، ثم دع النظام يبني لك
-              خطة توزيع متوازنة وقابلة للتعديل.
-            </p>
+            <p>جهّز البيانات، حدد المشرفين، ثم أنشئ جدول التوزيع تلقائيًا.</p>
           </div>
 
-          <div className="progress-card">
-            <div className="progress-top">
-              <span>
-                جاهزية الخطة
-              </span>
-
-              <strong>
-                {progress}%
-              </strong>
-            </div>
-
-            <div className="progress-track">
-              <div
-                className="progress-value"
-                style={{
-                  width: `${progress}%`,
-                }}
-              />
-            </div>
-
-            <div className="progress-caption">
-              {progress === 100
-                ? "كل الإعدادات الأساسية مكتملة"
-                : "أكمل الإعدادات لإنشاء الخطة"}
-            </div>
+          <div className="header-status">
+            <span className="status-dot" />
+            النظام جاهز
           </div>
-        </section>
+        </header>
 
-        {/* Stats */}
+        {/* Progress */}
 
-        <section className="metrics-grid">
+        <section className="workflow-progress">
+          <div className="progress-info">
+            <div>
+              <span className="progress-label">جاهزية الخطة</span>
 
-          <div className="metric-card">
-            <div className="metric-icon">
-              {Icons.file}
+              <strong>{readiness}%</strong>
             </div>
 
-            <div className="metric-content">
-              <span>السجلات</span>
-
-              <strong>
-                {stats.rows.toLocaleString()}
-              </strong>
-
-              <small>
-                جلسة في الملف
-              </small>
-            </div>
+            <span className="progress-note">
+              {readiness === 100 ? "كل شيء جاهز" : "أكمل الخطوات المطلوبة"}
+            </span>
           </div>
 
-          <div className="metric-card">
-            <div className="metric-icon">
-              {Icons.users}
-            </div>
-
-            <div className="metric-content">
-              <span>المشرفون</span>
-
-              <strong>
-                {stats.supervisors}
-              </strong>
-
-              <small>
-                مشرف محدد
-              </small>
-            </div>
+          <div className="progress-track">
+            <div
+              className="progress-value"
+              style={{ width: `${readiness}%` }}
+            />
           </div>
-
-          <div className="metric-card">
-            <div className="metric-icon">
-              {Icons.calendar}
-            </div>
-
-            <div className="metric-content">
-              <span>الأيام</span>
-
-              <strong>
-                {stats.dates}
-              </strong>
-
-              <small>
-                يوم في الملف
-              </small>
-            </div>
-          </div>
-
-          <div className="metric-card">
-            <div className="metric-icon">
-              {Icons.link}
-            </div>
-
-            <div className="metric-content">
-              <span>الأساتذة</span>
-
-              <strong>
-                {stats.professors}
-              </strong>
-
-              <small>
-                أستاذ في الملف
-              </small>
-            </div>
-          </div>
-
         </section>
 
         {/* Alerts */}
 
         {errorMessage && (
-          <div className="modern-alert error">
-            <div className="alert-symbol">
-              !
-            </div>
+          <div className="alert alert-error">
+            <span className="alert-icon">{Icons.warning}</span>
 
             <div>
-              <strong>
-                تعذر إكمال العملية
-              </strong>
-
-              <span>
-                {errorMessage}
-              </span>
+              <strong>تعذر إكمال العملية</strong>
+              <p>{errorMessage}</p>
             </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                setErrorMessage("")
-              }
-            >
+            <button type="button" onClick={() => setErrorMessage("")}>
               ×
             </button>
           </div>
         )}
 
         {uploadMessage && (
-          <div className="modern-alert success">
-            <div className="alert-symbol">
-              {Icons.check}
-            </div>
+          <div className="alert alert-success">
+            <span className="alert-icon">{Icons.check}</span>
 
             <div>
-              <strong>
-                تم تحميل الملف
-              </strong>
-
-              <span>
-                {uploadMessage}
-              </span>
+              <strong>تم رفع الملف</strong>
+              <p>{uploadMessage}</p>
             </div>
 
-            <button
-              type="button"
-              onClick={() =>
-                setUploadMessage("")
-              }
-            >
+            <button type="button" onClick={() => setUploadMessage("")}>
               ×
             </button>
           </div>
         )}
 
-        {/* Step 01 - Excel */}
+        {/* ================= Stats ================= */}
 
-        <section className="workspace-card">
-          <div className="section-heading">
+        <section className="stats-strip">
+          <div className="stat-item">
+            <span className="stat-icon blue">{Icons.file}</span>
 
-            <div className="section-number">
-              01
+            <div>
+              <span>السجلات</span>
+              <strong>{rows.length}</strong>
             </div>
-
-            <div className="section-heading-text">
-              <div className="section-label">
-                مصدر البيانات
-              </div>
-
-              <h2>
-                ملف المحاضرات
-              </h2>
-
-              <p>
-                ارفع ملف Excel الذي يحتوي على
-                المحاضرات والجلسات المطلوب توزيعها.
-              </p>
-            </div>
-
-            {rows.length > 0 && (
-              <div className="completed-badge">
-                {Icons.check}
-                مكتمل
-              </div>
-            )}
-
           </div>
 
-          <div className="section-body">
-            <FileUpload
-              onUploaded={handleUploadSuccess}
-            />
+          <div className="stat-item">
+            <span className="stat-icon violet">{Icons.calendar}</span>
+
+            <div>
+              <span>التواريخ</span>
+              <strong>{dates.length}</strong>
+            </div>
+          </div>
+
+          <div className="stat-item">
+            <span className="stat-icon green">{Icons.users}</span>
+
+            <div>
+              <span>المشرفون</span>
+              <strong>{selectedSupervisors.length}</strong>
+            </div>
+          </div>
+
+          <div className="stat-item">
+            <span className="stat-icon orange">{Icons.users}</span>
+
+            <div>
+              <span>الأساتذة</span>
+              <strong>{professors.length}</strong>
+            </div>
+          </div>
+
+          <div className="stat-item">
+            <span className="stat-icon red">{Icons.warning}</span>
+
+            <div>
+              <span>سجلات تحتاج مراجعة</span>
+              <strong>{invalidRows}</strong>
+            </div>
           </div>
         </section>
 
-        {/* Step 02 - Distribution Date */}
+        {/* ================= Workspace ================= */}
 
-        <section className="workspace-card">
+        <section className="workspace">
+          {/* Main column */}
 
-          <div className="section-heading">
+          <div className="workspace-main">
+            {/* Upload */}
 
-            <div className="section-number">
-              02
-            </div>
+            <section className="workspace-section">
+              <div className="section-heading">
+                <div className="section-number">01</div>
 
-            <div className="section-heading-text">
-
-              <div className="section-label">
-                نطاق التوزيع
-              </div>
-
-              <h2>
-                اختر يوم التوزيع
-              </h2>
-
-              <p>
-                حدد اليوم الذي تريد إنشاء خطة
-                التوزيع له. سيتم توزيع محاضرات
-                هذا اليوم فقط.
-              </p>
-
-            </div>
-
-            {selectedDate && (
-              <div className="completed-badge">
-                {Icons.check}
-                تم اختيار اليوم
-              </div>
-            )}
-
-          </div>
-
-          <div className="section-body">
-
-            {uniqueDates.length === 0 ? (
-
-              <div className="empty-preview">
-
-                <div className="empty-preview-icon">
-                  {Icons.calendar}
+                <div>
+                  <h2>مصدر البيانات</h2>
+                  <p>ارفع ملف Excel أو استخدم مصدر البيانات المتاح.</p>
                 </div>
 
-                <h3>
-                  ارفع ملف المحاضرات أولًا
-                </h3>
-
-                <p>
-                  ستظهر هنا الأيام الموجودة
-                  في ملف Excel.
-                </p>
-
+                {rows.length > 0 && (
+                  <span className="section-complete">
+                    {Icons.check}
+                    مكتمل
+                  </span>
+                )}
               </div>
 
-            ) : (
+              <div className="upload-workspace">
+                <FileUploader onUploaded={handleUploaded} />
+              </div>
+            </section>
 
-              <>
-                <div className="field-title">
-                  اليوم المطلوب توزيعه
-                </div>
+            {/* Date */}
 
-                <div className="date-selection-wrapper">
+            <section className="workspace-section">
+              <div className="section-heading">
+                <div className="section-number">02</div>
 
-                  <select
-                    className="modern-select date-select"
-                    value={selectedDate}
-                    onChange={(e) => {
-                      setSelectedDate(
-                        e.target.value
-                      );
-
-                      setErrorMessage("");
-                    }}
-                  >
-
-                    <option value="">
-                      اختر اليوم...
-                    </option>
-
-                    {uniqueDates.map(
-                      (date) => (
-                        <option
-                          key={date}
-                          value={date}
-                        >
-                          {formatArabicDate(
-                            date
-                          )}
-                        </option>
-                      )
-                    )}
-
-                  </select>
-
+                <div>
+                  <h2>يوم الخطة</h2>
+                  <p>حدد التاريخ الذي تريد إنشاء جدول المشرفين له.</p>
                 </div>
 
                 {selectedDate && (
+                  <span className="section-complete">
+                    {Icons.check}
+                    محدد
+                  </span>
+                )}
+              </div>
 
-                  <div className="selected-date-summary">
+              <div className="date-selector">
+                <div className="date-select-wrap">
+                  <span className="select-icon">{Icons.calendar}</span>
 
-                    <div className="selected-date-icon">
-                      {Icons.calendar}
+                  <select
+                    value={selectedDate}
+                    onChange={(e) => {
+                      setSelectedDate(e.target.value);
+                      setErrorMessage("");
+                    }}
+                  >
+                    <option value="">اختر تاريخ الخطة</option>
+
+                    {dates.map((date) => (
+                      <option key={date} value={date}>
+                        {formatDate(date)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {selectedDate && (
+                  <div className="date-summary">
+                    <div>
+                      <span>التاريخ</span>
+                      <strong>{formatDate(selectedDate)}</strong>
                     </div>
 
-                    <div className="selected-date-info">
-
-                      <span>
-                        سيتم توزيع محاضرات
-                      </span>
-
-                      <strong>
-                        {formatArabicDate(
-                          selectedDate
-                        )}
-                      </strong>
-
+                    <div>
+                      <span>السجلات</span>
+                      <strong>{selectedDateRows.length}</strong>
                     </div>
 
-                    <div className="selected-date-stats">
-
-                      <div>
-                        <strong>
-                          {selectedDateStats.rows.toLocaleString()}
-                        </strong>
-
-                        <span>
-                          محاضرة
-                        </span>
-                      </div>
-
-                      <div>
-                        <strong>
-                          {selectedDateStats.professors.toLocaleString()}
-                        </strong>
-
-                        <span>
-                          أستاذ
-                        </span>
-                      </div>
-
+                    <div>
+                      <span>الأساتذة</span>
+                      <strong>{selectedDateProfessors}</strong>
                     </div>
-
                   </div>
                 )}
-
-                <div className="helper-note">
-
-                  <span className="helper-icon">
-                    i
-                  </span>
-
-                  <span>
-                    سيتم إنشاء الخطة لليوم المحدد
-                    فقط، ولن يتم توزيع محاضرات
-                    الأيام الأخرى.
-                  </span>
-
-                </div>
-              </>
-            )}
-
-          </div>
-        </section>
-
-        {/* Step 03 - Supervisors */}
-
-        <section className="workspace-card">
-
-          <div className="section-heading">
-
-            <div className="section-number">
-              03
-            </div>
-
-            <div className="section-heading-text">
-
-              <div className="section-label">
-                جدول المناوبة
               </div>
+            </section>
 
-              <h2>
-                اختر المشرفين
-              </h2>
+            {/* Supervisors */}
 
-              <p>
-                حدد المشرفين الذين سيكونون
-                متاحين خلال يوم التوزيع المحدد.
-              </p>
+            <section className="workspace-section">
+              <div className="section-heading">
+                <div className="section-number">03</div>
 
-            </div>
-
-            {normalizeSupervisorIds(
-              selectedSupervisors
-            ).length > 0 && (
-
-              <div className="selection-count">
-
-                {
-                  normalizeSupervisorIds(
-                    selectedSupervisors
-                  ).length
-                }
-
-                <span>
-                  مشرف
-                </span>
-
-              </div>
-            )}
-
-          </div>
-
-          <div className="section-body">
-
-            <SupervisorSelector
-              selected={selectedSupervisors}
-              setSelected={
-                setSelectedSupervisors
-              }
-            />
-
-            <div className="helper-note">
-
-              <span className="helper-icon">
-                i
-              </span>
-
-              <span>
-                سيستخدم النظام المشرفين المحددين
-                لبناء التوزيع الخاص باليوم
-                المختار فقط.
-              </span>
-
-            </div>
-
-          </div>
-        </section>
-
-        {/* Step 04 - Quotas */}
-
-        <section className="workspace-card">
-
-          <div className="section-heading">
-
-            <div className="section-number">
-              04
-            </div>
-
-            <div className="section-heading-text">
-
-              <div className="section-label">
-                قواعد التوزيع
-              </div>
-
-              <h2>
-                أهداف الحمل
-              </h2>
-
-              <p>
-                اختر طريقة توزيع الحمل أو حدد
-                عدد الفترات المستهدف لكل مشرف.
-              </p>
-
-            </div>
-
-            {Object.keys(
-              periodQuotas
-            ).length > 0 && (
-
-              <div className="completed-badge">
-                {Icons.check}
-                مضبوط
-              </div>
-            )}
-
-          </div>
-
-          <div className="section-body">
-
-            {/* Quota mode */}
-
-            <div className="quota-mode-tabs">
-
-              <button
-                type="button"
-                className={
-                  periodQuotaMode === "all"
-                    ? "quota-tab active"
-                    : "quota-tab"
-                }
-                onClick={
-                  switchToAllSupervisors
-                }
-              >
-
-                <span className="tab-icon">
-                  {Icons.users}
-                </span>
-
-                التوزيع للكل
-
-              </button>
-
-              <button
-                type="button"
-                className={
-                  periodQuotaMode ===
-                  "specific"
-                    ? "quota-tab active"
-                    : "quota-tab"
-                }
-                onClick={
-                  switchToSpecificSupervisors
-                }
-              >
-
-                <span className="tab-icon">
-                  {Icons.target}
-                </span>
-
-                تحديد عدد الفترات
-
-              </button>
-
-            </div>
-
-            {/* Specific supervisors */}
-
-            {periodQuotaMode ===
-              "specific" && (
-
-              <div className="quota-specific-panel">
-
-                <div className="field-title">
-                  اختر المشرفين
+                <div>
+                  <h2>المشرفون المناوبون</h2>
+                  <p>اختر المشرفين الذين سيكونون ضمن خطة هذا اليوم.</p>
                 </div>
 
+                <div className="heading-counter">
+                  {selectedSupervisors.length}
+                  <span>/</span>
+                  متاح
+                </div>
+              </div>
+
+              <div className="supervisor-workspace">
                 <SupervisorSelector
-                  selected={
-                    quotaSupervisors
-                  }
-                  setSelected={
-                    setQuotaSupervisors
-                  }
+                  selected={selectedSupervisors}
+                  setSelected={setSelectedSupervisors}
+                />
+              </div>
+            </section>
+
+            {/* Preview */}
+
+            <section className="workspace-section preview-section">
+              <div className="section-heading">
+                <div className="section-number">04</div>
+
+                <div>
+                  <h2>مراجعة المحاضرات</h2>
+                  <p>راجع السجلات الخاصة بالتاريخ المحدد وعدّلها عند الحاجة.</p>
+                </div>
+
+                <span className="preview-count">
+                  {selectedDateRows.length} سجل
+                </span>
+              </div>
+
+              <div className="preview-workspace">
+                <PreviewTable
+                  rows={rows}
+                  selectedDate={selectedDate}
+                  onEdit={handleEditRow}
+                />
+              </div>
+            </section>
+          </div>
+
+          {/* Side configuration */}
+
+          <aside className="workspace-side">
+            {/* Quick status */}
+
+            <div className="side-panel readiness-panel">
+              <div className="side-panel-head">
+                <div>
+                  <span>حالة الإعداد</span>
+                  <h3>الخطة الحالية</h3>
+                </div>
+
+                <div className="readiness-circle">
+                  {readiness}
+                  <small>%</small>
+                </div>
+              </div>
+
+              <div className="check-list">
+                <div className={rows.length ? "done" : ""}>
+                  <span>{rows.length ? Icons.check : "1"}</span>
+                  تحميل البيانات
+                </div>
+
+                <div className={selectedDate ? "done" : ""}>
+                  <span>{selectedDate ? Icons.check : "2"}</span>
+                  اختيار التاريخ
+                </div>
+
+                <div className={selectedSupervisors.length ? "done" : ""}>
+                  <span>{selectedSupervisors.length ? Icons.check : "3"}</span>
+                  اختيار المشرفين
+                </div>
+
+                <div className={selectedDateRows.length ? "done" : ""}>
+                  <span>{selectedDateRows.length ? Icons.check : "4"}</span>
+                  مراجعة البيانات
+                </div>
+              </div>
+            </div>
+
+            {/* Quotas */}
+
+            <div className="side-panel">
+              <div className="side-panel-title">
+                <div className="mini-icon violet">{Icons.settings}</div>
+
+                <div>
+                  <h3>حصة الفترات</h3>
+                  <p>تحكم إضافي في توزيع الفترات.</p>
+                </div>
+              </div>
+
+              <div className="quota-tabs">
+                <button
+                  type="button"
+                  className={periodQuotaMode === "all" ? "active" : ""}
+                  onClick={() => setPeriodQuotaMode("all")}
+                >
+                  الكل
+                </button>
+
+                <button
+                  type="button"
+                  className={periodQuotaMode === "specific" ? "active" : ""}
+                  onClick={() => setPeriodQuotaMode("specific")}
+                >
+                  محدد
+                </button>
+              </div>
+
+              <div className="quota-input">
+                <input
+                  type="number"
+                  min="1"
+                  placeholder="عدد الفترات"
+                  value={globalPeriodQuota}
+                  onChange={(e) => setGlobalPeriodQuota(e.target.value)}
                 />
 
+                <button type="button" onClick={applyPeriodQuota}>
+                  تطبيق
+                </button>
               </div>
-            )}
 
-            {/* Quota input */}
-
-            <div className="quota-action-row">
-
-              <div className="number-field">
-
-                <label>
-                  عدد الفترات المستهدف
-                </label>
-
-                <div className="number-input-wrap">
-
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={
-                      globalPeriodQuota
-                    }
-                    onChange={(e) =>
-                      setGlobalPeriodQuota(
-                        e.target.value
-                      )
-                    }
-                    placeholder="مثال: 3"
+              {periodQuotaMode === "specific" && (
+                <div className="quota-supervisors">
+                  <SupervisorSelector
+                    selected={quotaSupervisors}
+                    setSelected={setQuotaSupervisors}
                   />
-
-                  <span>
-                    فترة
-                  </span>
-
                 </div>
+              )}
 
+              {Object.keys(periodQuotas).length > 0 && (
+                <div className="quota-list">
+                  {Object.entries(periodQuotas).map(([id, quota]) => (
+                    <div className="quota-row" key={id}>
+                      <span>مشرف #{id}</span>
+
+                      <strong>{quota}</strong>
+
+                      <button type="button" onClick={() => removeQuota(id)}>
+                        {Icons.trash}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Affinity */}
+
+            <div className="side-panel">
+              <div className="side-panel-title">
+                <div className="mini-icon blue">{Icons.link}</div>
+
+                <div>
+                  <h3>ربط الأستاذ</h3>
+                  <p>اجعل أستاذًا مرتبطًا بمشرف محدد.</p>
+                </div>
+              </div>
+
+              <select
+                className="side-select"
+                value={affinitySupervisor}
+                onChange={(e) => setAffinitySupervisor(e.target.value)}
+              >
+                <option value="">اختر المشرف</option>
+
+                {normalizedSupervisorIds.map((id) => (
+                  <option key={id} value={id}>
+                    مشرف #{id}
+                  </option>
+                ))}
+              </select>
+
+              <div className="professor-select">
+                <select
+                  multiple
+                  value={selectedProfessors}
+                  onChange={(e) => {
+                    const values = Array.from(
+                      e.target.selectedOptions,
+                      (option) => option.value,
+                    );
+
+                    setSelectedProfessors(values);
+                  }}
+                >
+                  {professors.map((professor) => (
+                    <option key={professor} value={professor}>
+                      {professor}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               <button
                 type="button"
                 className="secondary-action"
-                onClick={
-                  periodQuotaMode === "all"
-                    ? applyGlobalQuota
-                    : applySelectedQuota
-                }
+                onClick={addAffinity}
               >
-
-                <span>
-                  {Icons.plus}
-                </span>
-
-                تطبيق الهدف
-
+                إضافة الربط
               </button>
 
-            </div>
-
-            {/* Explanation */}
-
-            <div className="helper-note">
-
-              <span className="helper-icon">
-                i
-              </span>
-
-              <span>
-                في وضع "التوزيع للكل" سيتم توزيع
-                دكتور واحد لكل مشرف أولًا. أما
-                عند تحديد عدد الفترات، فيمكن للمشرف
-                استلام أكثر من دكتور للوصول إلى
-                الهدف المحدد.
-              </span>
-
-            </div>
-
-            {/* Applied quotas */}
-
-            {Object.keys(
-              periodQuotas
-            ).length > 0 && (
-
-              <div className="quota-results">
-
-                <div className="result-header">
-
-                  <div>
-
-                    <strong>
-                      الأهداف المحددة
-                    </strong>
-
-                    <span>
-                      يمكن تعديلها أو حذفها لاحقًا
-                    </span>
-
-                  </div>
-
-                  <span className="result-count">
-                    {
-                      Object.keys(
-                        periodQuotas
-                      ).length
-                    }
-                  </span>
-
-                </div>
-
-                <div className="quota-list">
-
-                  {Object.entries(
-                    periodQuotas
-                  ).map(
-                    ([id, value]) => (
-
-                      <div
-                        className="quota-row"
-                        key={id}
-                      >
-
-                        <div className="person-mini">
-                          <span>
-                            {String(id).slice(-2)}
-                          </span>
-                        </div>
-
-                        <div className="quota-person-info">
-
-                          <strong>
-                            مشرف #{id}
-                          </strong>
-
-                          <small>
-                            الهدف للفترة
-                          </small>
-
-                        </div>
-
-                        <div className="quota-number">
-
-                          {value}
-
-                          <span>
-                            فترة
-                          </span>
-
-                        </div>
-
-                        <button
-                          type="button"
-                          className="delete-button"
-                          onClick={() =>
-                            removeQuota(id)
-                          }
-                          aria-label="حذف"
-                        >
-                          {Icons.trash}
-                        </button>
-
-                      </div>
-                    )
-                  )}
-
-                </div>
-
-              </div>
-            )}
-
-          </div>
-        </section>
-
-        {/* Step 05 - Affinities */}
-
-        <section className="workspace-card">
-
-          <div className="section-heading">
-
-            <div className="section-number">
-              05
-            </div>
-
-            <div className="section-heading-text">
-
-              <div className="section-label">
-                تفضيلات التوزيع
-              </div>
-
-              <h2>
-                ربط الأستاذ بالمشرف
-              </h2>
-
-              <p>
-                يمكنك تفضيل مشرف معين لأستاذ أو
-                أكثر، وسيأخذ النظام ذلك بعين
-                الاعتبار.
-              </p>
-
-            </div>
-
-            {affinities.length > 0 && (
-
-              <div className="selection-count">
-
-                {affinities.length}
-
-                <span>
-                  ربط
-                </span>
-
-              </div>
-            )}
-
-          </div>
-
-          <div className="section-body">
-
-            <div className="affinity-builder">
-
-              <div className="professor-selector-area">
-
-                <div className="field-title">
-                  1. اختر الأستاذ أو الأساتذة
-                </div>
-
-                <div className="professor-list">
-
-                  {professors.length === 0 ? (
-
-                    <div className="empty-professors">
-
-                      <div className="empty-icon">
-                        {Icons.file}
-                      </div>
-
-                      <span>
-                        ارفع ملف المحاضرات أولًا
-                      </span>
-
-                    </div>
-
-                  ) : (
-
-                    professors.map(
-                      (professor) => {
-
-                        const active =
-                          selectedProfessors.includes(
-                            professor
-                          );
-
-                        return (
-
-                          <button
-                            type="button"
-                            key={professor}
-                            className={
-                              active
-                                ? "professor-chip selected"
-                                : "professor-chip"
-                            }
-                            onClick={() =>
-                              toggleProfessor(
-                                professor
-                              )
-                            }
-                          >
-
-                            <span className="professor-check">
-                              {active
-                                ? Icons.check
-                                : null}
-                            </span>
-
-                            <span>
-                              {professor}
-                            </span>
-
-                          </button>
-                        );
-                      }
-                    )
-                  )}
-
-                </div>
-              </div>
-
-              <div className="connection-arrow">
-                {Icons.arrow}
-              </div>
-
-              <div className="supervisor-link-area">
-
-                <div className="field-title">
-                  2. اختر المشرف المفضل
-                </div>
-
-                <select
-                  className="modern-select"
-                  value={affinitySupervisor}
-                  onChange={(e) =>
-                    setAffinitySupervisor(
-                      e.target.value
-                    )
-                  }
-                >
-
-                  <option value="">
-                    اختر المشرف...
-                  </option>
-
-                  {normalizeSupervisorIds(
-                    selectedSupervisors
-                  ).map(
-                    (supervisorId) => (
-
-                      <option
-                        key={supervisorId}
-                        value={supervisorId}
-                      >
-                        مشرف #{supervisorId}
-                      </option>
-
-                    )
-                  )}
-
-                </select>
-
-                <button
-                  type="button"
-                  className="add-affinity-button"
-                  onClick={
-                    addAffinity
-                  }
-                  disabled={
-                    !affinitySupervisor ||
-                    selectedProfessors.length === 0
-                  }
-                >
-                  {Icons.link}
-                  إضافة الربط
-                </button>
-
-              </div>
-
-            </div>
-
-            {affinities.length > 0 && (
-
-              <div className="affinity-results">
-
-                <div className="result-header">
-
-                  <div>
-
-                    <strong>
-                      الروابط المضافة
-                    </strong>
-
-                    <span>
-                      هذه التفضيلات ستؤخذ أثناء
-                      التوزيع
-                    </span>
-
-                  </div>
-
-                  <span className="result-count">
-                    {affinities.length}
-                  </span>
-
-                </div>
-
+              {affinities.length > 0 && (
                 <div className="affinity-list">
+                  {affinities.map((item) => (
+                    <div
+                      className="affinity-row"
+                      key={`${item.professorName}-${item.supervisorId}`}
+                    >
+                      <div>
+                        <strong>{item.professorName}</strong>
 
-                  {affinities.map(
-                    (item, index) => (
-
-                      <div
-                        className="affinity-row"
-                        key={`${item.professorName}-${item.supervisorId}-${index}`}
-                      >
-
-                        <div className="affinity-avatar">
-                          {item.professorName.charAt(
-                            0
-                          )}
-                        </div>
-
-                        <div className="affinity-professor">
-
-                          <span>
-                            الأستاذ
-                          </span>
-
-                          <strong>
-                            {item.professorName}
-                          </strong>
-
-                        </div>
-
-                        <div className="affinity-connector">
-                          {Icons.link}
-                        </div>
-
-                        <div className="affinity-supervisor">
-
-                          <span>
-                            المشرف المفضل
-                          </span>
-
-                          <strong>
-                            مشرف #{item.supervisorId}
-                          </strong>
-
-                        </div>
-
-                        <button
-                          type="button"
-                          className="delete-button"
-                          onClick={() =>
-                            removeAffinity(
-                              item.professorName,
-                              item.supervisorId
-                            )
-                          }
-                        >
-                          {Icons.trash}
-                        </button>
-
+                        <span>← مشرف #{item.supervisorId}</span>
                       </div>
-                    )
-                  )}
 
+                      <button
+                        type="button"
+                        onClick={() => removeAffinity(item.professorName)}
+                      >
+                        {Icons.trash}
+                      </button>
+                    </div>
+                  ))}
                 </div>
-
-              </div>
-            )}
-
-          </div>
+              )}
+            </div>
+          </aside>
         </section>
 
-        {/* Step 06 - Preview */}
+        {/* ================= Bottom action ================= */}
 
-        <section className="workspace-card preview-card">
+        <section className="generate-bar">
+          <div className="generate-info">
+            <div className="generate-icon">{Icons.spark}</div>
 
-          <div className="section-heading">
+            <div>
+              <strong>جاهز لإنشاء الخطة؟</strong>
 
-            <div className="section-number">
-              06
+              <p>سيتم توزيع المشرفين حسب البيانات والقواعد المحددة.</p>
             </div>
-
-            <div className="section-heading-text">
-
-              <div className="section-label">
-                مراجعة البيانات
-              </div>
-
-              <h2>
-                معاينة المحاضرات
-              </h2>
-
-              <p>
-                راجع البيانات المستوردة قبل إنشاء
-                خطة التوزيع.
-              </p>
-
-            </div>
-
-            {rows.length > 0 && (
-
-              <div className="preview-total">
-
-                <span>
-                  إجمالي السجلات
-                </span>
-
-                <strong>
-                  {rows.length.toLocaleString()}
-                </strong>
-
-              </div>
-            )}
-
-          </div>
-
-          <div className="preview-container">
-
-            {rows.length > 0 ? (
-
-              <PreviewTable
-                rows={rows}
-              />
-
-            ) : (
-
-              <div className="empty-preview">
-
-                <div className="empty-preview-icon">
-                  {Icons.eye}
-                </div>
-
-                <h3>
-                  لا توجد بيانات للمعاينة
-                </h3>
-
-                <p>
-                  ارفع ملف المحاضرات حتى تظهر
-                  البيانات هنا.
-                </p>
-
-              </div>
-            )}
-
-          </div>
-
-        </section>
-
-        {/* Final Action */}
-
-        <section className="generate-panel">
-
-          <div className="generate-decoration">
-            {Icons.spark}
-          </div>
-
-          <div className="generate-copy">
-
-            <span className="generate-kicker">
-              الخطوة الأخيرة
-            </span>
-
-            <h2>
-              جاهز لبناء خطة التوزيع؟
-            </h2>
-
-            <p>
-
-              سيقوم النظام بتوزيع جلسات
-
-              <strong>
-                {selectedDate
-                  ? " اليوم المحدد فقط"
-                  : " اليوم الذي تختاره"}
-              </strong>
-
-              ، مع مراعاة المشرفين والأهداف
-              والتفضيلات التي حددتها.
-
-            </p>
-
           </div>
 
           <button
             type="button"
             className="generate-button"
-            onClick={
-              handleGeneratePlan
-            }
-            disabled={
-              isGenerating ||
-              !selectedDate
-            }
+            disabled={!canGenerate}
+            onClick={handleGenerate}
           >
-
             {isGenerating ? (
-
               <>
-                <span className="button-spinner" />
-
-                جاري إنشاء الخطة...
+                <span className="spinner" />
+                جارٍ إنشاء الخطة...
               </>
-
             ) : (
-
               <>
-                {Icons.spark}
-
-                إنشاء خطة التوزيع
-
-                {Icons.arrow}
+                إنشاء الخطة
+                <span className="button-arrow">{Icons.arrow}</span>
               </>
             )}
-
           </button>
-
         </section>
-
-        <footer className="dashboard-footer">
-
-          <span>
-            LectureFlow
-          </span>
-
-          <span>
-            نظام توزيع المحاضرات
-          </span>
-
-        </footer>
-
       </main>
     </div>
   );
