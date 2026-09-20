@@ -200,7 +200,11 @@ const timeToMinutes = (value) => {
 // =====================================================
 
 const getSessionGroupId = (assignment) =>
-  assignment.session_group_id ?? assignment.sessionGroupId ?? null;
+  assignment.session_group_id ??
+  assignment.sessionGroupId ??
+  assignment.group_id ??
+  assignment.groupId ??
+  null;
 
 const getSupervisorId = (assignment) =>
   assignment.supervisor_id ?? assignment.supervisorId ?? null;
@@ -220,7 +224,6 @@ const getProfessorName = (assignment) =>
 
 const getPeriod = (assignment) =>
   assignment.period_label ?? assignment.period ?? "-";
-
 
 // =====================================================
 // Component
@@ -386,7 +389,11 @@ export default function PlanResult() {
 
         assignments = assignments.map((assignment) => {
           const groupId =
-            assignment.session_group_id ?? assignment.sessionGroupId ?? null;
+            assignment.session_group_id ??
+            assignment.sessionGroupId ??
+            assignment.group_id ??
+            assignment.groupId ??
+            null;
 
           const group = groupsMap.get(String(groupId));
 
@@ -397,6 +404,22 @@ export default function PlanResult() {
           return {
             ...group,
             ...assignment,
+
+            session_group_id:
+              assignment.session_group_id ??
+              assignment.sessionGroupId ??
+              group.session_group_id ??
+              group.sessionGroupId ??
+              group.id ??
+              null,
+
+            sessionGroupId:
+              assignment.session_group_id ??
+              assignment.sessionGroupId ??
+              group.session_group_id ??
+              group.sessionGroupId ??
+              group.id ??
+              null,
 
             time_from:
               assignment.time_from ??
@@ -1015,16 +1038,74 @@ export default function PlanResult() {
   // Start Editing
   // =====================================================
 
+  // =====================================================
+  // Get Affinity Supervisor
+  // =====================================================
+
+  const getProfessorAffinitySupervisorId = (assignment) => {
+    const professorId = assignment.professor_id ?? assignment.professorId;
+
+    if (
+      professorId === null ||
+      professorId === undefined ||
+      professorId === ""
+    ) {
+      return null;
+    }
+
+    const affinity = affinities.find((item) => {
+      const affinityProfessorId = item.professor_id ?? item.professorId;
+
+      return String(affinityProfessorId) === String(professorId);
+    });
+
+    if (!affinity) {
+      return null;
+    }
+
+    return affinity.supervisor_id ?? affinity.supervisorId ?? null;
+  };
+
+  // =====================================================
+  // Start Editing
+  // =====================================================
+
   const startEditing = (assignment) => {
     const id = getSessionGroupId(assignment);
 
+    console.log("=================================");
+    console.log("✏️ EDIT BUTTON CLICKED");
+    console.log("📦 assignment:", assignment);
+    console.log("🆔 sessionGroupId:", id);
+    console.log("👤 current supervisor:", getSupervisorId(assignment));
+
     const affinitySupervisorId = getProfessorAffinitySupervisorId(assignment);
 
-    setEditingId(id);
+    console.log("🔗 affinity supervisor:", affinitySupervisorId);
+
+    if (id === null || id === undefined || id === "") {
+      console.error("❌ Cannot edit: Session Group ID is missing", assignment);
+
+      alert("❌ لا يمكن تعديل هذا السجل لأن Session Group ID غير موجود.");
+
+      return;
+    }
+
+    const supervisorId = affinitySupervisorId ?? getSupervisorId(assignment);
+
+    console.log("🎯 supervisor selected for editing:", supervisorId);
+
+    setEditingId(String(id));
 
     setEditingSupervisor(
-      String(affinitySupervisorId ?? getSupervisorId(assignment) ?? ""),
+      supervisorId !== null && supervisorId !== undefined
+        ? String(supervisorId)
+        : "",
     );
+
+    console.log("✅ Editing started for:", String(id));
+
+    console.log("=================================");
   };
 
   // =====================================================
@@ -1032,44 +1113,11 @@ export default function PlanResult() {
   // =====================================================
 
   const cancelEditing = () => {
+    console.log("❌ EDIT CANCELLED");
+
     setEditingId(null);
     setEditingSupervisor("");
   };
-
-  // =====================================================
-  // Get Affinity Supervisor
-  const getProfessorAffinitySupervisorId = (assignment) => {
-  const professorId =
-    assignment.professor_id ??
-    assignment.professorId;
-
-  if (
-    professorId === null ||
-    professorId === undefined ||
-    professorId === ""
-  ) {
-    return null;
-  }
-
-  const affinity = affinities.find((item) => {
-    const affinityProfessorId =
-      item.professor_id ??
-      item.professorId;
-
-    return (
-      String(affinityProfessorId) ===
-      String(professorId)
-    );
-  });
-
-  if (!affinity) return null;
-
-  return (
-    affinity.supervisor_id ??
-    affinity.supervisorId ??
-    null
-  );
-};
 
   // =====================================================
   // Save Assignment
@@ -1094,25 +1142,19 @@ export default function PlanResult() {
 
     const currentSupervisorId = getSupervisorId(assignment);
 
-    const affinitySupervisorId =
-  getProfessorAffinitySupervisorId(assignment);
+    const affinitySupervisorId = getProfessorAffinitySupervisorId(assignment);
 
-if (
-  affinitySupervisorId !== null &&
-  affinitySupervisorId !== undefined &&
-  String(editingSupervisor) !==
-    String(affinitySupervisorId)
-) {
-  alert(
-    "⚠️ هذا الأستاذ مرتبط بمشرف محدد ولا يمكن تغييره إلى مشرف آخر."
-  );
+    if (
+      affinitySupervisorId !== null &&
+      affinitySupervisorId !== undefined &&
+      String(editingSupervisor) !== String(affinitySupervisorId)
+    ) {
+      alert("⚠️ هذا الأستاذ مرتبط بمشرف محدد ولا يمكن تغييره إلى مشرف آخر.");
 
-  setEditingSupervisor(
-    String(affinitySupervisorId)
-  );
+      setEditingSupervisor(String(affinitySupervisorId));
 
-  return;
-}
+      return;
+    }
 
     if (String(currentSupervisorId ?? "") === String(editingSupervisor)) {
       cancelEditing();
@@ -1677,9 +1719,19 @@ if (
                     filteredPlanData.map((assignment, index) => {
                       const rowId = getSessionGroupId(assignment);
 
-                      const isEditing = String(editingId) === String(rowId);
+                      const isEditing =
+                        editingId !== null &&
+                        editingId !== undefined &&
+                        rowId !== null &&
+                        rowId !== undefined &&
+                        String(editingId) === String(rowId);
 
-                      const isSaving = String(savingId) === String(rowId);
+                      const isSaving =
+                        savingId !== null &&
+                        savingId !== undefined &&
+                        rowId !== null &&
+                        rowId !== undefined &&
+                        String(savingId) === String(rowId);
 
                       const affinitySupervisorId =
                         getProfessorAffinitySupervisorId(assignment);

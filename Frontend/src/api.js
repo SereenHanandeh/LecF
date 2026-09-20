@@ -28,6 +28,7 @@ export const generatePlan = (
 
 export const getPlan = async (planId) => {
   console.log("🔎 getPlan planId:", planId);
+  ``
   console.log(
     "🔎 getPlan URL:",
     `/plan/${planId}`
