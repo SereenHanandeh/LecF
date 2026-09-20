@@ -3,7 +3,6 @@ import {
   createPlan,
   setDutyPool,
   setAffinities,
-  setPeriodQuotas as savePeriodQuotas,
   generatePlan,
   listSupervisors,
 } from "../api.js";
@@ -215,10 +214,9 @@ export default function Dashboard() {
   const [affinitySupervisor, setAffinitySupervisor] = useState("");
   const [affinities, setAffinitiesState] = useState([]);
 
-  const [periodQuotaMode, setPeriodQuotaMode] = useState("all");
-  const [globalPeriodQuota, setGlobalPeriodQuota] = useState("");
-  const [quotaSupervisors, setQuotaSupervisors] = useState([]);
-  const [periodQuotas, setPeriodQuotas] = useState({});
+  const MINIMUM_PERIODS = 4;
+
+  const [minimumPeriodsEnabled, setMinimumPeriodsEnabled] = useState(false);
 
   const [isGenerating, setIsGenerating] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
@@ -361,9 +359,7 @@ export default function Dashboard() {
       setAffinitiesState([]);
       setAffinitySupervisor("");
 
-      setPeriodQuotas({});
-      setQuotaSupervisors([]);
-      setGlobalPeriodQuota("");
+      setMinimumPeriodsEnabled(false);
 
       setUploadMessage(
         safeRows.length
@@ -398,46 +394,6 @@ export default function Dashboard() {
           : row,
       ),
     );
-  };
-
-  /* =========================================================
-     Quotas
-  ========================================================= */
-
-  const applyPeriodQuota = () => {
-    const quota = Number(globalPeriodQuota);
-
-    if (!Number.isFinite(quota) || quota <= 0) {
-      setErrorMessage("أدخل رقمًا صحيحًا للحصة.");
-      return;
-    }
-
-    const targetIds =
-      periodQuotaMode === "all"
-        ? normalizedSupervisorIds
-        : normalizeSupervisorIds(quotaSupervisors);
-
-    if (!targetIds.length) {
-      setErrorMessage("اختر مشرفًا واحدًا على الأقل.");
-      return;
-    }
-
-    const next = { ...periodQuotas };
-
-    targetIds.forEach((id) => {
-      next[id] = quota;
-    });
-
-    setPeriodQuotas(next);
-    setErrorMessage("");
-  };
-
-  const removeQuota = (id) => {
-    setPeriodQuotas((current) => {
-      const next = { ...current };
-      delete next[id];
-      return next;
-    });
   };
 
   /* =========================================================
@@ -534,51 +490,32 @@ export default function Dashboard() {
 
       await setDutyPool(planId, normalizedSupervisorIds);
 
-      /* Period quotas */
-
-      const quotaPayload = Object.entries(periodQuotas).map(
-        ([supervisorId, quota]) => ({
-          supervisorId: Number(supervisorId),
-          quota: Number(quota),
-        }),
-      );
-
-      if (quotaPayload.length) {
-        await savePeriodQuotas(planId, quotaPayload);
-      }
-
       /* Affinities */
 
-      // ==============================
-// 🔗 Affinities
-// ==============================
-if (affinities.length) {
-  console.log(
-    "🔗 SENDING AFFINITIES TO BACKEND:",
-    {
-      planId,
-      affinities,
-    }
-  );
-
-  const affinityResult = await setAffinities(
-    planId,
-    affinities
-  );
-
-  console.log(
-    "✅ AFFINITIES RESPONSE:",
-    affinityResult
-  );
-}
-
       if (affinities.length) {
-        await setAffinities(planId, affinities);
+        console.log("🔗 SENDING AFFINITIES TO BACKEND:", {
+          planId,
+          affinities,
+        });
+
+        const affinityResult = await setAffinities(planId, affinities);
+
+        console.log("✅ AFFINITIES RESPONSE:", affinityResult);
       }
 
       /* Generate */
 
-      const generated = await generatePlan(planId, 1);
+      console.log("🎯 MINIMUM PERIODS SETTINGS:", {
+        enabled: minimumPeriodsEnabled,
+        minimumPeriods: MINIMUM_PERIODS,
+      });
+
+      const generated = await generatePlan(
+        planId,
+        1,
+        minimumPeriodsEnabled,
+        MINIMUM_PERIODS,
+      );
 
       navigate(`/plan-result/${planId}`, {
         state: {
@@ -586,7 +523,8 @@ if (affinities.length) {
           generated,
           rows,
           selectedDate,
-          periodQuotas,
+          minimumPeriodsEnabled,
+          minimumPeriods: MINIMUM_PERIODS,
           affinities,
           selectedSupervisors: normalizedSupervisorIds,
         },
@@ -981,76 +919,56 @@ if (affinities.length) {
               </div>
             </div>
 
-            {/* Quotas */}
+            {/* Minimum Periods */}
 
             <div className="side-panel">
               <div className="side-panel-title">
                 <div className="mini-icon violet">{Icons.settings}</div>
 
                 <div>
-                  <h3>حصة الفترات</h3>
-                  <p>تحكم إضافي في توزيع الفترات.</p>
+                  <h3>الحد الأدنى للفترات</h3>
+
+                  <p>خيار اختياري لضمان حصول كل مشرف على الحد الأدنى.</p>
                 </div>
               </div>
 
-              <div className="quota-tabs">
-                <button
-                  type="button"
-                  className={periodQuotaMode === "all" ? "active" : ""}
-                  onClick={() => setPeriodQuotaMode("all")}
-                >
-                  الكل
-                </button>
-
-                <button
-                  type="button"
-                  className={periodQuotaMode === "specific" ? "active" : ""}
-                  onClick={() => setPeriodQuotaMode("specific")}
-                >
-                  محدد
-                </button>
-              </div>
-
-              <div className="quota-input">
+              <label className="minimum-period-option">
                 <input
-                  type="number"
-                  min="1"
-                  placeholder="عدد الفترات"
-                  value={globalPeriodQuota}
-                  onChange={(e) => setGlobalPeriodQuota(e.target.value)}
+                  type="checkbox"
+                  checked={minimumPeriodsEnabled}
+                  onChange={(e) => setMinimumPeriodsEnabled(e.target.checked)}
                 />
 
-                <button type="button" onClick={applyPeriodQuota}>
-                  تطبيق
-                </button>
+                <span className="minimum-period-check">
+                  {minimumPeriodsEnabled && Icons.check}
+                </span>
+
+                <span className="minimum-period-label">
+                  <strong>تفعيل الحد الأدنى</strong>
+
+                  <small>
+                    أعطِ أولوية للمشرفين الذين لم يصلوا إلى {MINIMUM_PERIODS}{" "}
+                    فترات.
+                  </small>
+                </span>
+              </label>
+
+              <div
+                className={`minimum-period-summary ${
+                  minimumPeriodsEnabled ? "active" : ""
+                }`}
+              >
+                <strong>{MINIMUM_PERIODS}</strong>
+
+                <span>فترات كحد أدنى لكل مشرف</span>
               </div>
 
-              {periodQuotaMode === "specific" && (
-                <div className="quota-supervisors">
-                  <SupervisorSelector
-                    selected={quotaSupervisors}
-                    setSelected={setQuotaSupervisors}
-                  />
-                </div>
-              )}
-
-              {Object.keys(periodQuotas).length > 0 && (
-                <div className="quota-list">
-                  {Object.entries(periodQuotas).map(([id, quota]) => (
-                    <div className="quota-row" key={id}>
-                      <span>مشرف #{id}</span>
-
-                      <strong>{quota}</strong>
-
-                      <button type="button" onClick={() => removeQuota(id)}>
-                        {Icons.trash}
-                      </button>
-                    </div>
-                  ))}
+              {!minimumPeriodsEnabled && (
+                <div className="minimum-period-disabled">
+                  الحد الأدنى غير مفعّل
                 </div>
               )}
             </div>
-
             {/* Affinity */}
 
             <div className="side-panel">

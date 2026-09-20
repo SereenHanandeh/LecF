@@ -529,6 +529,110 @@
   overflow: hidden;
 }
 
+/* =====================================================
+   Minimum Periods
+===================================================== */
+
+.minimum-period-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  margin-top: 16px;
+
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+
+  cursor: pointer;
+  background: #fafafa;
+}
+
+.minimum-period-option input {
+  display: none;
+}
+
+.minimum-period-check {
+  width: 24px;
+  height: 24px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  flex-shrink: 0;
+
+  border: 2px solid #d1d5db;
+  border-radius: 7px;
+
+  background: white;
+}
+
+.minimum-period-option input:checked
+  + .minimum-period-check {
+  background: #111827;
+  border-color: #111827;
+  color: white;
+}
+
+.minimum-period-check svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  fill: none;
+  stroke-width: 2.5;
+}
+
+.minimum-period-label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.minimum-period-label strong {
+  font-size: 14px;
+  color: #111827;
+}
+
+.minimum-period-label small {
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.minimum-period-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  margin-top: 12px;
+  padding: 14px;
+
+  border-radius: 12px;
+
+  background: #f3f4f6;
+  color: #6b7280;
+}
+
+.minimum-period-summary.active {
+  background: #111827;
+  color: white;
+}
+
+.minimum-period-summary strong {
+  font-size: 24px;
+}
+
+.minimum-period-summary span {
+  font-size: 12px;
+}
+
+.minimum-period-disabled {
+  margin-top: 10px;
+
+  font-size: 12px;
+  color: #9ca3af;
+  text-align: center;
+}
+
 .stat-item {
   min-height: 72px;
 
