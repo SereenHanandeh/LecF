@@ -6,9 +6,9 @@
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&display=swap');
 
 .dashboard-page {
-  --ink: #15213a;
-  --ink-2: #223052;
-  --ink-soft: #5c6478;
+  --ink: #8b9cc2;
+  --ink-2: #7b8cb9;
+  --ink-soft: #899bc9;
   --paper: #f6f4ec;
   --surface: #ffffff;
   --line: #e4decf;
@@ -1165,7 +1165,7 @@
   gap: 24px;
   padding: 22px 28px;
   border-radius: var(--radius-l);
-  background: linear-gradient(135deg, var(--ink) 0%, #1e2c4c 100%);
+  background: linear-gradient(135deg, var(--ink) 0%, #a6b0c7 100%);
   box-shadow: var(--shadow-lift);
   margin-top: 4px;
 }
