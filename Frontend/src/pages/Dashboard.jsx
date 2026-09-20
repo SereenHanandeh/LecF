@@ -207,6 +207,7 @@ export default function Dashboard() {
   const [excelBatchId, setExcelBatchId] = useState(null);
 
   const [selectedDate, setSelectedDate] = useState("");
+  const [planCategory, setPlanCategory] = useState("");
 
   const [selectedSupervisors, setSelectedSupervisors] = useState([]);
   const [selectedProfessors, setSelectedProfessors] = useState([]);
@@ -286,6 +287,7 @@ export default function Dashboard() {
     selectedDate &&
     normalizedSupervisorIds.length > 0 &&
     selectedDateRows.length > 0 &&
+    planCategory &&
     !isGenerating;
 
   useEffect(() => {
@@ -360,6 +362,7 @@ export default function Dashboard() {
       setAffinitySupervisor("");
 
       setMinimumPeriodsEnabled(false);
+      setPlanCategory("");
 
       setUploadMessage(
         safeRows.length
@@ -464,12 +467,18 @@ export default function Dashboard() {
 
       const createPayload = {
         name: planName,
+
         excelBatchId,
         excel_batch_id: excelBatchId,
+
         dateFrom: selectedDate,
         dateTo: selectedDate,
         date_from: selectedDate,
         date_to: selectedDate,
+
+        category: planCategory,
+        planCategory,
+        plan_category: planCategory,
       };
 
       const created = await createPlan(createPayload);
@@ -523,6 +532,7 @@ export default function Dashboard() {
           generated,
           rows,
           selectedDate,
+          planCategory,
           minimumPeriodsEnabled,
           minimumPeriods: MINIMUM_PERIODS,
           affinities,
@@ -877,6 +887,94 @@ export default function Dashboard() {
               </div>
             </section>
           </div>
+
+          {/* Plan Category */}
+
+          <section className="workspace-section">
+            <div className="section-heading">
+              <div className="section-number">04</div>
+
+              <div>
+                <h2>فئة الخطة</h2>
+                <p>اختر الفئة التي ستنتمي إليها هذه الخطة.</p>
+              </div>
+
+              {planCategory && (
+                <span className="section-complete">
+                  {Icons.check}
+                  محددة
+                </span>
+              )}
+            </div>
+
+            <div className="plan-category-grid">
+              <button
+                type="button"
+                className={`plan-category-card ${
+                  planCategory === "مدمج" ? "active" : ""
+                }`}
+                onClick={() => {
+                  setPlanCategory("مدمج");
+                  setErrorMessage("");
+                }}
+              >
+                <div className="plan-category-icon">م</div>
+
+                <div>
+                  <strong>مدمج</strong>
+                  <span>خطة للمساقات المدمجة</span>
+                </div>
+
+                {planCategory === "مدمج" && (
+                  <span className="plan-category-check">{Icons.check}</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className={`plan-category-card ${
+                  planCategory === "دبلوم" ? "active" : ""
+                }`}
+                onClick={() => {
+                  setPlanCategory("دبلوم");
+                  setErrorMessage("");
+                }}
+              >
+                <div className="plan-category-icon">د</div>
+
+                <div>
+                  <strong>دبلوم</strong>
+                  <span>خطة لمساقات الدبلوم</span>
+                </div>
+
+                {planCategory === "دبلوم" && (
+                  <span className="plan-category-check">{Icons.check}</span>
+                )}
+              </button>
+
+              <button
+                type="button"
+                className={`plan-category-card ${
+                  planCategory === "متطلبات" ? "active" : ""
+                }`}
+                onClick={() => {
+                  setPlanCategory("متطلبات");
+                  setErrorMessage("");
+                }}
+              >
+                <div className="plan-category-icon">م</div>
+
+                <div>
+                  <strong>متطلبات</strong>
+                  <span>خطة لمساقات المتطلبات</span>
+                </div>
+
+                {planCategory === "متطلبات" && (
+                  <span className="plan-category-check">{Icons.check}</span>
+                )}
+              </button>
+            </div>
+          </section>
 
           {/* Side configuration */}
 
