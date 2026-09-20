@@ -12,9 +12,18 @@ const api = axios.create({
 export const createPlan = (payload) =>
   api.post("/plan", payload).then((res) => res.data);
 
-export const generatePlan = (planId, variant = 1) =>
+export const generatePlan = (
+  planId,
+  variant = 1,
+  minimumPeriodsEnabled = false,
+  minimumPeriods = 4,
+) =>
   api
-    .post(`/plan/${planId}/generate`, { variant })
+    .post(`/plan/${planId}/generate`, {
+      variant,
+      minimumPeriodsEnabled,
+      minimumPeriods,
+    })
     .then((res) => res.data);
 
 export const getPlan = async (planId) => {
