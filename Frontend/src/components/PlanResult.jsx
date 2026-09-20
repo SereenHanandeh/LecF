@@ -1164,6 +1164,16 @@ export default function PlanResult() {
     try {
       setSavingId(sessionGroupId);
 
+      const payload = {
+        sessionGroupId: Number(sessionGroupId),
+        fromSupervisorId: Number(currentSupervisorId),
+        toSupervisorId: Number(editingSupervisor),
+      };
+
+      console.log("🚀 MOVE ASSIGNMENT REQUEST");
+      console.log("📌 planId:", planId);
+      console.log("📦 payload:", payload);
+
       await moveAssignment(planId, {
         sessionGroupId: Number(sessionGroupId),
 
