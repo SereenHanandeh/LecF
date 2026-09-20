@@ -1123,107 +1123,151 @@ export default function PlanResult() {
   // Save Assignment
   // =====================================================
 
-  const saveAssignment = async (assignment) => {
-    const sessionGroupId = getSessionGroupId(assignment);
+const saveAssignment = async (assignment) => {
+  const sessionGroupId = getSessionGroupId(assignment);
 
-    if (
-      sessionGroupId === null ||
-      sessionGroupId === undefined ||
-      sessionGroupId === ""
-    ) {
-      alert("❌ Session Group ID is missing.");
-      return;
-    }
+  const currentSupervisorId = getSupervisorId(assignment);
 
-    if (!editingSupervisor) {
-      alert("⚠️ Please select a supervisor.");
-      return;
-    }
+  const targetSupervisorId = Number(editingSupervisor);
 
-    const currentSupervisorId = getSupervisorId(assignment);
+  console.log("=================================");
+  console.log("💾 SAVE ASSIGNMENT");
+  console.log("📌 planId:", planId);
+  console.log("📌 sessionGroupId:", sessionGroupId);
+  console.log("📌 currentSupervisorId:", currentSupervisorId);
+  console.log("📌 editingSupervisor:", editingSupervisor);
+  console.log("📌 targetSupervisorId:", targetSupervisorId);
+  console.log("=================================");
 
-    const affinitySupervisorId = getProfessorAffinitySupervisorId(assignment);
+  if (
+    sessionGroupId === null ||
+    sessionGroupId === undefined ||
+    sessionGroupId === ""
+  ) {
+    alert("❌ Session Group ID is missing.");
+    return;
+  }
 
-    if (
-      affinitySupervisorId !== null &&
-      affinitySupervisorId !== undefined &&
-      String(editingSupervisor) !== String(affinitySupervisorId)
-    ) {
-      alert("⚠️ هذا الأستاذ مرتبط بمشرف محدد ولا يمكن تغييره إلى مشرف آخر.");
+  if (
+    currentSupervisorId === null ||
+    currentSupervisorId === undefined ||
+    currentSupervisorId === "" ||
+    !Number.isInteger(Number(currentSupervisorId))
+  ) {
+    alert("❌ Current Supervisor ID is missing.");
+    return;
+  }
 
-      setEditingSupervisor(String(affinitySupervisorId));
+  if (
+    !editingSupervisor ||
+    !Number.isInteger(targetSupervisorId)
+  ) {
+    alert("⚠️ Please select a valid supervisor.");
+    return;
+  }
 
-      return;
-    }
+  const affinitySupervisorId =
+    getProfessorAffinitySupervisorId(assignment);
 
-    if (String(currentSupervisorId ?? "") === String(editingSupervisor)) {
-      cancelEditing();
-      return;
-    }
+  if (
+    affinitySupervisorId !== null &&
+    affinitySupervisorId !== undefined &&
+    String(targetSupervisorId) !== String(affinitySupervisorId)
+  ) {
+    alert(
+      "⚠️ هذا الأستاذ مرتبط بمشرف محدد ولا يمكن تغييره إلى مشرف آخر."
+    );
 
-    try {
-      setSavingId(sessionGroupId);
+    setEditingSupervisor(
+      String(affinitySupervisorId)
+    );
 
-      const payload = {
-        sessionGroupId: Number(sessionGroupId),
-        fromSupervisorId: Number(currentSupervisorId),
-        toSupervisorId: Number(editingSupervisor),
-      };
+    return;
+  }
 
-      console.log("🚀 MOVE ASSIGNMENT REQUEST");
-      console.log("📌 planId:", planId);
-      console.log("📦 payload:", payload);
+  if (
+    String(currentSupervisorId) ===
+    String(targetSupervisorId)
+  ) {
+    cancelEditing();
+    return;
+  }
 
-      await moveAssignment(planId, {
-        sessionGroupId: Number(sessionGroupId),
+  try {
+    setSavingId(sessionGroupId);
 
-        fromSupervisorId: Number(currentSupervisorId),
+    const payload = {
+      sessionGroupId: Number(sessionGroupId),
+      fromSupervisorId: Number(currentSupervisorId),
+      toSupervisorId: targetSupervisorId,
+    };
 
-        toSupervisorId: Number(editingSupervisor),
-      });
+    console.log("🚀 MOVE ASSIGNMENT REQUEST");
+    console.log("📌 planId:", planId);
+    console.log("📦 payload:", payload);
 
-      const selectedSupervisor = supervisors.find(
-        (supervisor) => String(supervisor.id) === String(editingSupervisor),
-      );
+    await moveAssignment(planId, payload);
 
-      const newSupervisorName =
-        selectedSupervisor?.name ?? selectedSupervisor?.supervisor_name ?? "";
+    const selectedSupervisor = supervisors.find(
+      (supervisor) =>
+        String(supervisor.id) ===
+        String(targetSupervisorId),
+    );
 
-      setPlanData((prev) =>
-        prev.map((item) => {
-          const itemId = getSessionGroupId(item);
+    const newSupervisorName =
+      selectedSupervisor?.name ??
+      selectedSupervisor?.supervisor_name ??
+      "";
 
-          if (String(itemId) !== String(sessionGroupId)) {
-            return item;
-          }
+    setPlanData((prev) =>
+      prev.map((item) => {
+        const itemId = getSessionGroupId(item);
 
-          return {
-            ...item,
+        if (
+          String(itemId) !==
+          String(sessionGroupId)
+        ) {
+          return item;
+        }
 
-            supervisor_id: Number(editingSupervisor),
+        return {
+          ...item,
 
-            supervisorId: Number(editingSupervisor),
+          supervisor_id: targetSupervisorId,
 
-            supervisor_name: newSupervisorName,
+          supervisorId: targetSupervisorId,
 
-            supervisor: newSupervisorName,
-          };
-        }),
-      );
+          supervisor_name: newSupervisorName,
 
-      cancelEditing();
-    } catch (err) {
-      console.error("❌ Error moving assignment:", err);
+          supervisor: newSupervisorName,
+        };
+      }),
+    );
 
-      alert(
-        err.response?.data?.message ||
-          err.message ||
-          "Failed to update assignment.",
-      );
-    } finally {
-      setSavingId(null);
-    }
-  };
+    cancelEditing();
+
+  } catch (err) {
+    console.error(
+      "❌ Error moving assignment:",
+      err,
+    );
+
+    console.error(
+      "📦 Backend response:",
+      err?.response?.data,
+    );
+
+    alert(
+      err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to update assignment.",
+    );
+
+  } finally {
+    setSavingId(null);
+  }
+};
 
   // =====================================================
   // Print
