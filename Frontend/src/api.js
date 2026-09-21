@@ -80,13 +80,8 @@ export const rejectPlan = (planId) => updatePlanStatus(planId, "rejected");
 // ==============================
 // Excel Export (Download)
 // ==============================
-//
-// يفترض وجود Endpoint بالباك اند:
-// GET /plan/:id/export  يرجع ملف الـ .xlsx مباشرة (res.download)
-// ==============================
-
 export const getPlanExportUrl = (planId) =>
-  `${api.defaults.baseURL}/plan/${planId}/export`;
+  `${api.defaults.baseURL}/exports/plan_${planId}.xlsx`;
 
 // ==============================
 // Duty Pool
