@@ -1896,32 +1896,21 @@ export default function PlanResult() {
                               {isEditing ? (
                                 <div>
                                   <select
-                                    className="edit-supervisor-select"
                                     value={editingSupervisor}
                                     onChange={(e) =>
                                       setEditingSupervisor(e.target.value)
                                     }
-                                    disabled={
-                                      isSaving || affinitySupervisorId !== null
-                                    }
                                   >
-                                    <option value="">
-                                      -- Select Supervisor --
-                                    </option>
+                                    <option value="">اختر المشرف</option>
 
                                     {supervisors.map((supervisor) => (
                                       <option
                                         key={supervisor.id}
-                                        value={supervisor.id}
+                                        value={String(supervisor.id)}
                                       >
                                         {supervisor.name ??
                                           supervisor.supervisor_name ??
-                                          "-"}
-
-                                        {String(supervisor.id) ===
-                                        String(affinitySupervisorId)
-                                          ? " 🔗"
-                                          : ""}
+                                          supervisor.full_name}
                                       </option>
                                     ))}
                                   </select>
