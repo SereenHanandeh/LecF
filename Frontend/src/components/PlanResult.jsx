@@ -6,11 +6,7 @@ import React, {
   useState,
 } from "react";
 
-import {
-  useLocation,
-  useNavigate,
-  useParams,
-} from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 
 import * as XLSX from "xlsx";
 
@@ -249,6 +245,14 @@ const getProfessorName = (assignment) =>
   assignment.professor ??
   "-";
 
+const getCourseName = (assignment) =>
+  assignment.course_name ??
+  assignment.courseName ??
+  assignment.course ??
+  assignment.course_title ??
+  assignment.courseTitle ??
+  "-";
+
 const getPeriod = (assignment) =>
   assignment.period_label ?? assignment.period ?? "-";
 
@@ -265,7 +269,6 @@ export default function PlanResult() {
   const statePlanId = location.state?.planId;
 
   const planId = routePlanId || statePlanId;
-
 
   // =====================================================
   // State
@@ -312,6 +315,7 @@ export default function PlanResult() {
 
   const [visibleColumns, setVisibleColumns] = useState({
     crn: true,
+    courseName: true,
     professor: true,
     date: true,
     period: true,
@@ -388,11 +392,7 @@ export default function PlanResult() {
         console.log("=================================");
 
         if (!res?.success) {
-          throw new Error(
-            res?.message ||
-              res?.error ||
-              "Failed to load plan",
-          );
+          throw new Error(res?.message || res?.error || "Failed to load plan");
         }
 
         const data = res.data || {};
@@ -424,35 +424,22 @@ export default function PlanResult() {
           assignments = data.data;
         }
 
-        console.log(
-          "📋 Assignments before enrichment:",
-          assignments.length,
-        );
+        console.log("📋 Assignments before enrichment:", assignments.length);
 
         // =================================================
         // Groups
         // =================================================
 
-        const groups = Array.isArray(data.groups)
-          ? data.groups
-          : [];
+        const groups = Array.isArray(data.groups) ? data.groups : [];
 
         const groupsMap = new Map();
 
         groups.forEach((group) => {
           const groupId =
-            group.id ??
-            group.session_group_id ??
-            group.sessionGroupId;
+            group.id ?? group.session_group_id ?? group.sessionGroupId;
 
-          if (
-            groupId !== null &&
-            groupId !== undefined
-          ) {
-            groupsMap.set(
-              String(groupId),
-              group,
-            );
+          if (groupId !== null && groupId !== undefined) {
+            groupsMap.set(String(groupId), group);
           }
         });
 
@@ -468,9 +455,7 @@ export default function PlanResult() {
             assignment.groupId ??
             null;
 
-          const group = groupsMap.get(
-            String(groupId),
-          );
+          const group = groupsMap.get(String(groupId));
 
           if (!group) {
             return assignment;
@@ -531,15 +516,9 @@ export default function PlanResult() {
               group.period ??
               null,
 
-            date:
-              assignment.date ??
-              group.date ??
-              null,
+            date: assignment.date ?? group.date ?? null,
 
-            crn:
-              assignment.crn ??
-              group.crn ??
-              null,
+            crn: assignment.crn ?? group.crn ?? null,
 
             professor_name:
               assignment.professor_name ??
@@ -583,9 +562,7 @@ export default function PlanResult() {
         // Conflicts
         // =================================================
 
-        const planConflicts = Array.isArray(
-          data.conflicts,
-        )
+        const planConflicts = Array.isArray(data.conflicts)
           ? data.conflicts
           : [];
 
@@ -598,23 +575,17 @@ export default function PlanResult() {
           setConflicts(planConflicts);
         }
 
-        console.log(
-          "✅ TOTAL ASSIGNMENTS:",
-          assignments.length,
-        );
+        console.log("✅ TOTAL ASSIGNMENTS:", assignments.length);
 
         console.table(
           assignments.map((x) => ({
             assignmentId: x.id,
-            sessionGroupId:
-              x.session_group_id,
+            sessionGroupId: x.session_group_id,
             crn: x.crn,
             date: x.date,
             period: x.period_label,
-            professor:
-              x.professor_name,
-            supervisor:
-              x.supervisor_name,
+            professor: x.professor_name,
+            supervisor: x.supervisor_name,
           })),
         );
 
@@ -632,68 +603,35 @@ export default function PlanResult() {
           planSupervisors = data.dutyPool;
         }
 
-        if (
-          !planSupervisors.length &&
-          Array.isArray(data.duty_pool)
-        ) {
+        if (!planSupervisors.length && Array.isArray(data.duty_pool)) {
           planSupervisors = data.duty_pool;
         }
 
-        if (
-          !planSupervisors.length &&
-          Array.isArray(data.supervisors)
-        ) {
+        if (!planSupervisors.length && Array.isArray(data.supervisors)) {
           planSupervisors = data.supervisors;
         }
 
-        console.log(
-          "🎯 SELECTED SUPERVISORS FROM PLAN:",
-          planSupervisors,
-        );
+        console.log("🎯 SELECTED SUPERVISORS FROM PLAN:", planSupervisors);
 
         // =================================================
         // Load ALL supervisors once
         // =================================================
 
         try {
-          const supervisorsRes =
-            await listSupervisors();
+          const supervisorsRes = await listSupervisors();
 
-          console.log(
-            "👥 ALL SUPERVISORS:",
-            supervisorsRes,
-          );
+          console.log("👥 ALL SUPERVISORS:", supervisorsRes);
 
           let allSupervisors = [];
 
-          if (
-            Array.isArray(
-              supervisorsRes?.supervisors,
-            )
-          ) {
-            allSupervisors =
-              supervisorsRes.supervisors;
-          } else if (
-            Array.isArray(
-              supervisorsRes?.data,
-            )
-          ) {
-            allSupervisors =
-              supervisorsRes.data;
-          } else if (
-            Array.isArray(
-              supervisorsRes?.data?.supervisors,
-            )
-          ) {
-            allSupervisors =
-              supervisorsRes.data.supervisors;
-          } else if (
-            Array.isArray(
-              supervisorsRes?.data?.data,
-            )
-          ) {
-            allSupervisors =
-              supervisorsRes.data.data;
+          if (Array.isArray(supervisorsRes?.supervisors)) {
+            allSupervisors = supervisorsRes.supervisors;
+          } else if (Array.isArray(supervisorsRes?.data)) {
+            allSupervisors = supervisorsRes.data;
+          } else if (Array.isArray(supervisorsRes?.data?.supervisors)) {
+            allSupervisors = supervisorsRes.data.supervisors;
+          } else if (Array.isArray(supervisorsRes?.data?.data)) {
+            allSupervisors = supervisorsRes.data.data;
           }
 
           // =================================================
@@ -702,34 +640,20 @@ export default function PlanResult() {
 
           if (
             planSupervisors.length &&
-            !planSupervisors.every(
-              (item) =>
-                item &&
-                typeof item === "object",
-            )
+            !planSupervisors.every((item) => item && typeof item === "object")
           ) {
-            planSupervisors =
-              planSupervisors
-                .map((item) => {
-                  const id =
-                    typeof item ===
-                    "object"
-                      ? (
-                          item.id ??
-                          item.supervisor_id ??
-                          item.supervisorId
-                        )
-                      : item;
+            planSupervisors = planSupervisors
+              .map((item) => {
+                const id =
+                  typeof item === "object"
+                    ? (item.id ?? item.supervisor_id ?? item.supervisorId)
+                    : item;
 
-                  return allSupervisors.find(
-                    (sup) =>
-                      String(
-                        sup.id,
-                      ) ===
-                      String(id),
-                  );
-                })
-                .filter(Boolean);
+                return allSupervisors.find(
+                  (sup) => String(sup.id) === String(id),
+                );
+              })
+              .filter(Boolean);
           }
 
           // =================================================
@@ -739,101 +663,60 @@ export default function PlanResult() {
           const uniqueSupervisors = [];
           const seenIds = new Set();
 
-          planSupervisors.forEach(
-            (supervisor) => {
-              const id =
-                supervisor?.id ??
-                supervisor?.supervisor_id ??
-                supervisor?.supervisorId;
+          planSupervisors.forEach((supervisor) => {
+            const id =
+              supervisor?.id ??
+              supervisor?.supervisor_id ??
+              supervisor?.supervisorId;
 
-              if (
-                id === null ||
-                id === undefined
-              ) {
-                return;
-              }
+            if (id === null || id === undefined) {
+              return;
+            }
 
-              const key = String(id);
+            const key = String(id);
 
-              if (seenIds.has(key)) {
-                return;
-              }
+            if (seenIds.has(key)) {
+              return;
+            }
 
-              seenIds.add(key);
-              uniqueSupervisors.push(
-                supervisor,
-              );
-            },
-          );
+            seenIds.add(key);
+            uniqueSupervisors.push(supervisor);
+          });
 
           // =================================================
           // Fallback:
           // supervisors actually used in assignments
           // =================================================
 
-          if (
-            !uniqueSupervisors.length
-          ) {
-            const usedIds =
-              new Set();
+          if (!uniqueSupervisors.length) {
+            const usedIds = new Set();
 
-            assignments.forEach(
-              (assignment) => {
-                const id =
-                  getSupervisorId(
-                    assignment,
-                  );
+            assignments.forEach((assignment) => {
+              const id = getSupervisorId(assignment);
 
-                if (
-                  id !== null &&
-                  id !== undefined
-                ) {
-                  usedIds.add(
-                    String(id),
-                  );
-                }
-              },
+              if (id !== null && id !== undefined) {
+                usedIds.add(String(id));
+              }
+            });
+
+            planSupervisors = allSupervisors.filter((sup) =>
+              usedIds.has(
+                String(sup.id ?? sup.supervisor_id ?? sup.supervisorId),
+              ),
             );
-
-            planSupervisors =
-              allSupervisors.filter(
-                (sup) =>
-                  usedIds.has(
-                    String(
-                      sup.id ??
-                        sup.supervisor_id ??
-                        sup.supervisorId,
-                    ),
-                  ),
-              );
           } else {
-            planSupervisors =
-              uniqueSupervisors;
+            planSupervisors = uniqueSupervisors;
           }
 
-          console.log(
-            "🎯 PLAN SUPERVISORS ONLY:",
-            planSupervisors,
-          );
+          console.log("🎯 PLAN SUPERVISORS ONLY:", planSupervisors);
 
-          if (
-            isMountedRef.current
-          ) {
+          if (isMountedRef.current) {
             setSupervisors(
-              Array.isArray(
-                planSupervisors,
-              )
-                ? planSupervisors
-                : [],
+              Array.isArray(planSupervisors) ? planSupervisors : [],
             );
           }
-        } catch (
-          supervisorError
-        ) {
-          console.warn(
-            "⚠️ Could not load supervisors list:",
-            supervisorError,
-          );
+        } catch (supervisorError) {
+          console.warn("⚠️ Could not load supervisors list:", supervisorError);
 
           // =================================================
           // Fallback from assignments
@@ -841,63 +724,35 @@ export default function PlanResult() {
 
           const map = new Map();
 
-          assignments.forEach(
-            (assignment) => {
-              const id =
-                getSupervisorId(
-                  assignment,
-                );
+          assignments.forEach((assignment) => {
+            const id = getSupervisorId(assignment);
 
-              const name =
-                assignment.supervisor_name ??
-                assignment.supervisorName ??
-                assignment.supervisor;
+            const name =
+              assignment.supervisor_name ??
+              assignment.supervisorName ??
+              assignment.supervisor;
 
-              if (
-                id !== null &&
-                id !== undefined &&
-                name
-              ) {
-                map.set(
-                  String(id),
-                  {
-                    id,
-                    name,
-                  },
-                );
-              }
-            },
-          );
+            if (id !== null && id !== undefined && name) {
+              map.set(String(id), {
+                id,
+                name,
+              });
+            }
+          });
 
-          if (
-            isMountedRef.current
-          ) {
-            setSupervisors(
-              Array.from(
-                map.values(),
-              ),
-            );
+          if (isMountedRef.current) {
+            setSupervisors(Array.from(map.values()));
           }
         }
 
-        console.log(
-          "✅ PLAN LOADED SUCCESSFULLY",
-        );
+        console.log("✅ PLAN LOADED SUCCESSFULLY");
       } catch (err) {
-        console.error(
-          "❌ Error fetching plan:",
-          err?.response?.data ||
-            err,
-        );
+        console.error("❌ Error fetching plan:", err?.response?.data || err);
 
-        if (
-          isMountedRef.current
-        ) {
+        if (isMountedRef.current) {
           setError(
-            err?.response?.data
-              ?.error ||
-              err?.response?.data
-                ?.message ||
+            err?.response?.data?.error ||
+              err?.response?.data?.message ||
               err?.message ||
               "Error loading plan",
           );
@@ -909,15 +764,10 @@ export default function PlanResult() {
           }
         }
       } finally {
-        if (
-          isMountedRef.current &&
-          !silent
-        ) {
+        if (isMountedRef.current && !silent) {
           setLoading(false);
 
-          console.log(
-            "🏁 PLAN LOADING FINISHED",
-          );
+          console.log("🏁 PLAN LOADING FINISHED");
         }
       }
     },
@@ -937,18 +787,9 @@ export default function PlanResult() {
       ...new Set(
         planData
           .map(getProfessorName)
-          .filter(
-            (value) =>
-              value &&
-              value !== "-",
-          ),
+          .filter((value) => value && value !== "-"),
       ),
-    ].sort((a, b) =>
-      String(a).localeCompare(
-        String(b),
-        "ar",
-      ),
-    );
+    ].sort((a, b) => String(a).localeCompare(String(b), "ar"));
   }, [planData]);
 
   // =====================================================
@@ -958,20 +799,9 @@ export default function PlanResult() {
   const periodOptions = useMemo(() => {
     return [
       ...new Set(
-        planData
-          .map(getPeriod)
-          .filter(
-            (value) =>
-              value &&
-              value !== "-",
-          ),
+        planData.map(getPeriod).filter((value) => value && value !== "-"),
       ),
-    ].sort((a, b) =>
-      String(a).localeCompare(
-        String(b),
-        "ar",
-      ),
-    );
+    ].sort((a, b) => String(a).localeCompare(String(b), "ar"));
   }, [planData]);
 
   // =====================================================
@@ -981,363 +811,209 @@ export default function PlanResult() {
   const supervisorOptions = useMemo(() => {
     const names = new Set();
 
-    supervisors.forEach(
-      (supervisor) => {
-        const name =
-          supervisor.name ??
-          supervisor.supervisor_name ??
-          supervisor.supervisorName;
+    supervisors.forEach((supervisor) => {
+      const name =
+        supervisor.name ??
+        supervisor.supervisor_name ??
+        supervisor.supervisorName;
 
-        if (name) {
-          names.add(String(name));
-        }
-      },
-    );
+      if (name) {
+        names.add(String(name));
+      }
+    });
 
-    return [...names].sort(
-      (a, b) =>
-        a.localeCompare(b, "ar"),
-    );
+    return [...names].sort((a, b) => a.localeCompare(b, "ar"));
   }, [supervisors]);
 
   // =====================================================
   // Filtered Data
   // =====================================================
 
-  const filteredPlanData =
-    useMemo(() => {
-      const text =
-        search.trim().toLowerCase();
+  const filteredPlanData = useMemo(() => {
+    const text = search.trim().toLowerCase();
 
-      const filtered =
-        planData.filter(
-          (assignment) => {
-            // Session Group remains searchable internally
-            // even though it is no longer displayed.
-            const sessionGroup =
-              String(
-                getSessionGroupId(
-                  assignment,
-                ) ?? "",
-              );
+    const filtered = planData.filter((assignment) => {
+      // Session Group remains searchable internally
+      // even though it is no longer displayed.
+      const sessionGroup = String(getSessionGroupId(assignment) ?? "");
 
-            const crn = String(
-              assignment.crn ?? "",
-            );
+      const crn = String(assignment.crn ?? "");
 
-            const professor =
-              String(
-                getProfessorName(
-                  assignment,
-                ),
-              );
+      const professor = String(getProfessorName(assignment));
 
-            const supervisor =
-              String(
-                getSupervisorName(
-                  assignment,
-                ),
-              );
+      const supervisor = String(getSupervisorName(assignment));
 
-            const date = String(
-              formatDate(
-                assignment.date,
-              ),
-            );
+      const date = String(formatDate(assignment.date));
 
-            const period = String(
-              getPeriod(assignment),
-            );
+      const period = String(getPeriod(assignment));
 
-            const timeFrom = String(
-              getTimeFrom(assignment),
-            );
+      const timeFrom = String(getTimeFrom(assignment));
 
-            const timeTo = String(
-              getTimeTo(assignment),
-            );
-
-            // =================================================
-            // Search
-            // =================================================
-
-            const matchesSearch =
-              !text ||
-              sessionGroup
-                .toLowerCase()
-                .includes(text) ||
-              crn
-                .toLowerCase()
-                .includes(text) ||
-              professor
-                .toLowerCase()
-                .includes(text) ||
-              supervisor
-                .toLowerCase()
-                .includes(text) ||
-              date
-                .toLowerCase()
-                .includes(text) ||
-              period
-                .toLowerCase()
-                .includes(text) ||
-              timeFrom
-                .toLowerCase()
-                .includes(text) ||
-              timeTo
-                .toLowerCase()
-                .includes(text);
-
-            if (!matchesSearch) {
-              return false;
-            }
-
-            // Supervisor filter
-            if (
-              filterSupervisor &&
-              supervisor !==
-                filterSupervisor
-            ) {
-              return false;
-            }
-
-            // Professor filter
-            if (
-              filterProfessor &&
-              professor !==
-                filterProfessor
-            ) {
-              return false;
-            }
-
-            // Date filter
-            if (
-              filterDate &&
-              getDateValue(
-                assignment.date,
-              ) !== filterDate
-            ) {
-              return false;
-            }
-
-            // Period filter
-            if (
-              filterPeriod &&
-              period !== filterPeriod
-            ) {
-              return false;
-            }
-
-            return true;
-          },
-        );
+      const timeTo = String(getTimeTo(assignment));
 
       // =================================================
-      // Sort
+      // Search
       // =================================================
 
-      return [...filtered].sort(
-        (a, b) => {
-          const dateA =
-            getDateValue(a.date);
+      const matchesSearch =
+        !text ||
+        sessionGroup.toLowerCase().includes(text) ||
+        crn.toLowerCase().includes(text) ||
+        professor.toLowerCase().includes(text) ||
+        supervisor.toLowerCase().includes(text) ||
+        date.toLowerCase().includes(text) ||
+        period.toLowerCase().includes(text) ||
+        timeFrom.toLowerCase().includes(text) ||
+        timeTo.toLowerCase().includes(text);
 
-          const dateB =
-            getDateValue(b.date);
+      if (!matchesSearch) {
+        return false;
+      }
 
-          if (dateA !== dateB) {
-            return dateA.localeCompare(
-              dateB,
-            );
-          }
+      // Supervisor filter
+      if (filterSupervisor && supervisor !== filterSupervisor) {
+        return false;
+      }
 
-          const fromA =
-            timeToMinutes(
-              getTimeFrom(a),
-            );
+      // Professor filter
+      if (filterProfessor && professor !== filterProfessor) {
+        return false;
+      }
 
-          const fromB =
-            timeToMinutes(
-              getTimeFrom(b),
-            );
+      // Date filter
+      if (filterDate && getDateValue(assignment.date) !== filterDate) {
+        return false;
+      }
 
-          if (fromA !== fromB) {
-            return fromA - fromB;
-          }
+      // Period filter
+      if (filterPeriod && period !== filterPeriod) {
+        return false;
+      }
 
-          const toA =
-            timeToMinutes(
-              getTimeTo(a),
-            );
+      return true;
+    });
 
-          const toB =
-            timeToMinutes(
-              getTimeTo(b),
-            );
+    // =================================================
+    // Sort
+    // =================================================
 
-          if (toA !== toB) {
-            return toA - toB;
-          }
+    return [...filtered].sort((a, b) => {
+      const dateA = getDateValue(a.date);
 
-          const periodA =
-            String(
-              getPeriod(a),
-            );
+      const dateB = getDateValue(b.date);
 
-          const periodB =
-            String(
-              getPeriod(b),
-            );
+      if (dateA !== dateB) {
+        return dateA.localeCompare(dateB);
+      }
 
-          const periodCompare =
-            periodA.localeCompare(
-              periodB,
-              "ar",
-            );
+      const fromA = timeToMinutes(getTimeFrom(a));
 
-          if (periodCompare !== 0) {
-            return periodCompare;
-          }
+      const fromB = timeToMinutes(getTimeFrom(b));
 
-          const groupA = Number(
-            getSessionGroupId(a),
-          );
+      if (fromA !== fromB) {
+        return fromA - fromB;
+      }
 
-          const groupB = Number(
-            getSessionGroupId(b),
-          );
+      const toA = timeToMinutes(getTimeTo(a));
 
-          if (
-            Number.isFinite(
-              groupA,
-            ) &&
-            Number.isFinite(
-              groupB,
-            )
-          ) {
-            return groupA - groupB;
-          }
+      const toB = timeToMinutes(getTimeTo(b));
 
-          return String(
-            getSessionGroupId(a),
-          ).localeCompare(
-            String(
-              getSessionGroupId(b),
-            ),
-          );
-        },
+      if (toA !== toB) {
+        return toA - toB;
+      }
+
+      const periodA = String(getPeriod(a));
+
+      const periodB = String(getPeriod(b));
+
+      const periodCompare = periodA.localeCompare(periodB, "ar");
+
+      if (periodCompare !== 0) {
+        return periodCompare;
+      }
+
+      const groupA = Number(getSessionGroupId(a));
+
+      const groupB = Number(getSessionGroupId(b));
+
+      if (Number.isFinite(groupA) && Number.isFinite(groupB)) {
+        return groupA - groupB;
+      }
+
+      return String(getSessionGroupId(a)).localeCompare(
+        String(getSessionGroupId(b)),
       );
-    }, [
-      planData,
-      search,
-      filterSupervisor,
-      filterProfessor,
-      filterDate,
-      filterPeriod,
-    ]);
+    });
+  }, [
+    planData,
+    search,
+    filterSupervisor,
+    filterProfessor,
+    filterDate,
+    filterPeriod,
+  ]);
 
   // =====================================================
   // Supervisor Statistics
   // =====================================================
 
-  const supervisorStats =
-    useMemo(() => {
-      const stats = {};
+  const supervisorStats = useMemo(() => {
+    const stats = {};
 
-      planData.forEach(
-        (assignment) => {
-          const supervisorId =
-            getSupervisorId(
-              assignment,
-            );
+    planData.forEach((assignment) => {
+      const supervisorId = getSupervisorId(assignment);
 
-          const supervisorName =
-            getSupervisorName(
-              assignment,
-            );
+      const supervisorName = getSupervisorName(assignment);
 
-          if (
-            supervisorId ===
-              null ||
-            supervisorId ===
-              undefined ||
-            !supervisorName ||
-            supervisorName === "-"
-          ) {
-            return;
-          }
+      if (
+        supervisorId === null ||
+        supervisorId === undefined ||
+        !supervisorName ||
+        supervisorName === "-"
+      ) {
+        return;
+      }
 
-          const key =
-            String(
-              supervisorId,
-            );
+      const key = String(supervisorId);
 
-          if (!stats[key]) {
-            stats[key] = {
-              id: supervisorId,
-              name: supervisorName,
-              periods: new Set(),
-            };
-          }
+      if (!stats[key]) {
+        stats[key] = {
+          id: supervisorId,
+          name: supervisorName,
+          periods: new Set(),
+        };
+      }
 
-          const date =
-            getDateValue(
-              assignment.date,
-            );
+      const date = getDateValue(assignment.date);
 
-          const period =
-            getPeriod(
-              assignment,
-            );
+      const period = getPeriod(assignment);
 
-          if (
-            date &&
-            period &&
-            period !== "-"
-          ) {
-            stats[
-              key
-            ].periods.add(
-              `${date}|${period}`,
-            );
-          }
-        },
-      );
+      if (date && period && period !== "-") {
+        stats[key].periods.add(`${date}|${period}`);
+      }
+    });
 
-      return Object.values(
-        stats,
-      )
-        .sort((a, b) => {
-          if (
-            b.periods.size !==
-            a.periods.size
-          ) {
-            return (
-              b.periods.size -
-              a.periods.size
-            );
-          }
+    return Object.values(stats)
+      .sort((a, b) => {
+        if (b.periods.size !== a.periods.size) {
+          return b.periods.size - a.periods.size;
+        }
 
-          return a.name.localeCompare(
-            b.name,
-            "ar",
-          );
-        })
-        .map((item) => ({
-          id: item.id,
-          name: item.name,
-          count:
-            item.periods.size,
-        }));
-    }, [planData]);
+        return a.name.localeCompare(b.name, "ar");
+      })
+      .map((item) => ({
+        id: item.id,
+        name: item.name,
+        count: item.periods.size,
+      }));
+  }, [planData]);
 
   // =====================================================
   // Fairness
   // =====================================================
 
   const fairness = useMemo(() => {
-    if (
-      !supervisorStats.length
-    ) {
+    if (!supervisorStats.length) {
       return {
         min: 0,
         max: 0,
@@ -1345,24 +1021,16 @@ export default function PlanResult() {
       };
     }
 
-    const counts =
-      supervisorStats.map(
-        (item) => item.count,
-      );
+    const counts = supervisorStats.map((item) => item.count);
 
-    const min = Math.min(
-      ...counts,
-    );
+    const min = Math.min(...counts);
 
-    const max = Math.max(
-      ...counts,
-    );
+    const max = Math.max(...counts);
 
     return {
       min,
       max,
-      difference:
-        max - min,
+      difference: max - min,
     };
   }, [supervisorStats]);
 
@@ -1370,50 +1038,31 @@ export default function PlanResult() {
   // Total Days
   // =====================================================
 
-  const totalDays =
-    useMemo(() => {
-      return new Set(
-        planData
-          .map((item) =>
-            getDateValue(
-              item.date,
-            ),
-          )
-          .filter(Boolean),
-      ).size;
-    }, [planData]);
+  const totalDays = useMemo(() => {
+    return new Set(
+      planData.map((item) => getDateValue(item.date)).filter(Boolean),
+    ).size;
+  }, [planData]);
 
   // =====================================================
   // Total Professors
   // =====================================================
 
-  const totalProfessors =
-    useMemo(() => {
-      return new Set(
-        planData
-          .map(getProfessorName)
-          .filter(
-            (name) =>
-              name &&
-              name !== "-",
-          ),
-      ).size;
-    }, [planData]);
+  const totalProfessors = useMemo(() => {
+    return new Set(
+      planData.map(getProfessorName).filter((name) => name && name !== "-"),
+    ).size;
+  }, [planData]);
 
   // =====================================================
   // Column Toggle
   // =====================================================
 
-  const toggleColumn = (
-    column,
-  ) => {
-    setVisibleColumns(
-      (prev) => ({
-        ...prev,
-        [column]:
-          !prev[column],
-      }),
-    );
+  const toggleColumn = (column) => {
+    setVisibleColumns((prev) => ({
+      ...prev,
+      [column]: !prev[column],
+    }));
   };
 
   // =====================================================
@@ -1433,187 +1082,113 @@ export default function PlanResult() {
   // Click Supervisor Statistics
   // =====================================================
 
-  const handleSupervisorStatsClick =
-    (supervisorName) => {
-      setSelectedStatsSupervisor(
-        supervisorName,
-      );
+  const handleSupervisorStatsClick = (supervisorName) => {
+    setSelectedStatsSupervisor(supervisorName);
 
-      setFilterSupervisor(
-        supervisorName,
-      );
+    setFilterSupervisor(supervisorName);
 
-      setTimeout(() => {
-        document
-          .getElementById(
-            "assignments-section",
-          )
-          ?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          });
-      }, 100);
-    };
+    setTimeout(() => {
+      document.getElementById("assignments-section")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
+  };
 
   // =====================================================
   // Clear Supervisor Selection
   // =====================================================
 
-  const clearSupervisorSelection =
-    () => {
-      setSelectedStatsSupervisor(
-        "",
-      );
+  const clearSupervisorSelection = () => {
+    setSelectedStatsSupervisor("");
 
-      setFilterSupervisor("");
-    };
+    setFilterSupervisor("");
+  };
 
   // =====================================================
   // Get Affinity Supervisor
   // =====================================================
 
-  const getProfessorAffinitySupervisorId =
-    (assignment) => {
-      const professorId =
-        assignment.professor_id ??
-        assignment.professorId;
+  const getProfessorAffinitySupervisorId = (assignment) => {
+    const professorId = assignment.professor_id ?? assignment.professorId;
 
-      if (
-        professorId === null ||
-        professorId === undefined ||
-        professorId === ""
-      ) {
-        return null;
-      }
+    if (
+      professorId === null ||
+      professorId === undefined ||
+      professorId === ""
+    ) {
+      return null;
+    }
 
-      const affinity =
-        affinities.find((item) => {
-          const affinityProfessorId =
-            item.professor_id ??
-            item.professorId;
+    const affinity = affinities.find((item) => {
+      const affinityProfessorId = item.professor_id ?? item.professorId;
 
-          return (
-            String(
-              affinityProfessorId,
-            ) ===
-            String(professorId)
-          );
-        });
+      return String(affinityProfessorId) === String(professorId);
+    });
 
-      if (!affinity) {
-        return null;
-      }
+    if (!affinity) {
+      return null;
+    }
 
-      return (
-        affinity.supervisor_id ??
-        affinity.supervisorId ??
-        null
-      );
-    };
+    return affinity.supervisor_id ?? affinity.supervisorId ?? null;
+  };
 
   // =====================================================
   // Start Editing
   // =====================================================
 
-  const startEditing = (
-    assignment,
-  ) => {
-    const sessionGroupId =
-      getSessionGroupId(
-        assignment,
-      );
+  const startEditing = (assignment) => {
+    const sessionGroupId = getSessionGroupId(assignment);
 
-    const currentSupervisorId =
-      getSupervisorId(
-        assignment,
-      );
+    const currentSupervisorId = getSupervisorId(assignment);
 
-    console.log(
-      "=================================",
-    );
+    console.log("=================================");
 
-    console.log(
-      "🟢 EDIT CLICK",
-    );
+    console.log("🟢 EDIT CLICK");
 
-    console.log(
-      "📦 assignment:",
-      assignment,
-    );
+    console.log("📦 assignment:", assignment);
 
-    console.log(
-      "🟢 sessionGroupId =",
-      sessionGroupId,
-    );
+    console.log("🟢 sessionGroupId =", sessionGroupId);
 
-    console.log(
-      "🟢 currentSupervisorId =",
-      currentSupervisorId,
-    );
+    console.log("🟢 currentSupervisorId =", currentSupervisorId);
 
     if (
-      sessionGroupId ===
-        null ||
-      sessionGroupId ===
-        undefined ||
+      sessionGroupId === null ||
+      sessionGroupId === undefined ||
       sessionGroupId === ""
     ) {
-      console.error(
-        "🔴 sessionGroupId is missing",
-      );
+      console.error("🔴 sessionGroupId is missing");
 
-      alert(
-        "Session Group ID is missing",
-      );
+      alert("Session Group ID is missing");
 
       return;
     }
 
     if (
-      currentSupervisorId ===
-        null ||
-      currentSupervisorId ===
-        undefined ||
+      currentSupervisorId === null ||
+      currentSupervisorId === undefined ||
       currentSupervisorId === ""
     ) {
-      console.error(
-        "🔴 supervisorId is missing",
-      );
+      console.error("🔴 supervisorId is missing");
 
-      alert(
-        "Supervisor ID is missing",
-      );
+      alert("Supervisor ID is missing");
 
       return;
     }
 
-    const editId =
-      String(sessionGroupId);
+    const editId = String(sessionGroupId);
 
-    const editSupervisorId =
-      String(
-        currentSupervisorId,
-      );
+    const editSupervisorId = String(currentSupervisorId);
 
-    console.log(
-      "🟢 SETTING editingId TO:",
-      editId,
-    );
+    console.log("🟢 SETTING editingId TO:", editId);
 
-    console.log(
-      "🟢 SETTING editingSupervisor TO:",
-      editSupervisorId,
-    );
+    console.log("🟢 SETTING editingSupervisor TO:", editSupervisorId);
 
     setEditingId(editId);
 
-    setEditingSupervisor(
-      editSupervisorId,
-    );
+    setEditingSupervisor(editSupervisorId);
 
-    console.log(
-      "=================================",
-    );
+    console.log("=================================");
   };
 
   // =====================================================
@@ -1621,9 +1196,7 @@ export default function PlanResult() {
   // =====================================================
 
   const cancelEditing = () => {
-    console.log(
-      "❌ EDIT CANCELLED",
-    );
+    console.log("❌ EDIT CANCELLED");
 
     setEditingId(null);
     setEditingSupervisor("");
@@ -1633,69 +1206,39 @@ export default function PlanResult() {
   // Save Assignment
   // =====================================================
 
-  const saveAssignment = async (
-    assignment,
-  ) => {
-    const sessionGroupId =
-      getSessionGroupId(
-        assignment,
-      );
+  const saveAssignment = async (assignment) => {
+    const sessionGroupId = getSessionGroupId(assignment);
 
-    const currentSupervisorId =
-      getSupervisorId(
-        assignment,
-      );
+    const currentSupervisorId = getSupervisorId(assignment);
 
-    console.log(
-      "=================================",
-    );
+    console.log("=================================");
 
-    console.log(
-      "💾 SAVE ASSIGNMENT START",
-    );
+    console.log("💾 SAVE ASSIGNMENT START");
 
-    console.log(
-      "📦 assignment:",
-      assignment,
-    );
+    console.log("📦 assignment:", assignment);
 
-    console.log(
-      "📌 editingId:",
-      editingId,
-    );
+    console.log("📌 editingId:", editingId);
 
     console.log(
       "📌 editingSupervisor:",
-      JSON.stringify(
-        editingSupervisor,
-      ),
+      JSON.stringify(editingSupervisor),
       typeof editingSupervisor,
     );
 
-    console.log(
-      "📌 sessionGroupId:",
-      sessionGroupId,
-    );
+    console.log("📌 sessionGroupId:", sessionGroupId);
 
-    console.log(
-      "📌 currentSupervisorId:",
-      currentSupervisorId,
-    );
+    console.log("📌 currentSupervisorId:", currentSupervisorId);
 
     // =========================================
     // التحقق من Session Group ID
     // =========================================
 
     if (
-      sessionGroupId ===
-        null ||
-      sessionGroupId ===
-        undefined ||
+      sessionGroupId === null ||
+      sessionGroupId === undefined ||
       sessionGroupId === ""
     ) {
-      alert(
-        "❌ Session Group ID is missing.",
-      );
+      alert("❌ Session Group ID is missing.");
 
       return;
     }
@@ -1705,20 +1248,12 @@ export default function PlanResult() {
     // =========================================
 
     if (
-      currentSupervisorId ===
-        null ||
-      currentSupervisorId ===
-        undefined ||
+      currentSupervisorId === null ||
+      currentSupervisorId === undefined ||
       currentSupervisorId === "" ||
-      !Number.isInteger(
-        Number(
-          currentSupervisorId,
-        ),
-      )
+      !Number.isInteger(Number(currentSupervisorId))
     ) {
-      alert(
-        "❌ Current Supervisor ID is missing.",
-      );
+      alert("❌ Current Supervisor ID is missing.");
 
       return;
     }
@@ -1727,44 +1262,32 @@ export default function PlanResult() {
     // تنظيف قيمة المشرف المختار
     // =========================================
 
-    const rawSupervisorId =
-      editingSupervisor;
+    const rawSupervisorId = editingSupervisor;
 
     console.log(
       "🔎 rawSupervisorId:",
-      JSON.stringify(
-        rawSupervisorId,
-      ),
+      JSON.stringify(rawSupervisorId),
       typeof rawSupervisorId,
     );
 
     if (
-      rawSupervisorId ===
-        undefined ||
-      rawSupervisorId ===
-        null ||
+      rawSupervisorId === undefined ||
+      rawSupervisorId === null ||
       rawSupervisorId === "" ||
-      rawSupervisorId ===
-        "undefined" ||
-      rawSupervisorId ===
-        "null"
+      rawSupervisorId === "undefined" ||
+      rawSupervisorId === "null"
     ) {
       console.error(
         "❌ editingSupervisor contains invalid value:",
         rawSupervisorId,
       );
 
-      alert(
-        "⚠️ Please select a valid supervisor.",
-      );
+      alert("⚠️ Please select a valid supervisor.");
 
       return;
     }
 
-    const targetSupervisorId =
-      Number(
-        rawSupervisorId,
-      );
+    const targetSupervisorId = Number(rawSupervisorId);
 
     console.log(
       "🎯 targetSupervisorId:",
@@ -1776,19 +1299,10 @@ export default function PlanResult() {
     // التحقق من أن ID رقم صحيح
     // =========================================
 
-    if (
-      !Number.isInteger(
-        targetSupervisorId,
-      )
-    ) {
-      console.error(
-        "❌ Invalid target supervisor ID:",
-        rawSupervisorId,
-      );
+    if (!Number.isInteger(targetSupervisorId)) {
+      console.error("❌ Invalid target supervisor ID:", rawSupervisorId);
 
-      alert(
-        "⚠️ Please select a valid supervisor.",
-      );
+      alert("⚠️ Please select a valid supervisor.");
 
       return;
     }
@@ -1797,37 +1311,18 @@ export default function PlanResult() {
     // Affinity
     // =========================================
 
-    const affinitySupervisorId =
-      getProfessorAffinitySupervisorId(
-        assignment,
-      );
+    const affinitySupervisorId = getProfessorAffinitySupervisorId(assignment);
 
-    console.log(
-      "🔗 affinitySupervisorId:",
-      affinitySupervisorId,
-    );
+    console.log("🔗 affinitySupervisorId:", affinitySupervisorId);
 
     if (
-      affinitySupervisorId !==
-        null &&
-      affinitySupervisorId !==
-        undefined &&
-      String(
-        targetSupervisorId,
-      ) !==
-        String(
-          affinitySupervisorId,
-        )
+      affinitySupervisorId !== null &&
+      affinitySupervisorId !== undefined &&
+      String(targetSupervisorId) !== String(affinitySupervisorId)
     ) {
-      alert(
-        "⚠️ هذا الأستاذ مرتبط بمشرف محدد ولا يمكن تغييره إلى مشرف آخر.",
-      );
+      alert("⚠️ هذا الأستاذ مرتبط بمشرف محدد ولا يمكن تغييره إلى مشرف آخر.");
 
-      setEditingSupervisor(
-        String(
-          affinitySupervisorId,
-        ),
-      );
+      setEditingSupervisor(String(affinitySupervisorId));
 
       return;
     }
@@ -1836,17 +1331,8 @@ export default function PlanResult() {
     // إذا لم يتغير المشرف
     // =========================================
 
-    if (
-      String(
-        currentSupervisorId,
-      ) ===
-      String(
-        targetSupervisorId,
-      )
-    ) {
-      console.log(
-        "ℹ️ Supervisor did not change.",
-      );
+    if (String(currentSupervisorId) === String(targetSupervisorId)) {
+      console.log("ℹ️ Supervisor did not change.");
 
       cancelEditing();
 
@@ -1858,119 +1344,67 @@ export default function PlanResult() {
     // =========================================
 
     try {
-      setSavingId(
-        sessionGroupId,
-      );
+      setSavingId(sessionGroupId);
 
       const payload = {
-        sessionGroupId:
-          Number(
-            sessionGroupId,
-          ),
+        sessionGroupId: Number(sessionGroupId),
 
-        fromSupervisorId:
-          Number(
-            currentSupervisorId,
-          ),
+        fromSupervisorId: Number(currentSupervisorId),
 
-        toSupervisorId:
-          targetSupervisorId,
+        toSupervisorId: targetSupervisorId,
       };
 
-      console.log(
-        "📤 SENDING PAYLOAD:",
-      );
+      console.log("📤 SENDING PAYLOAD:");
 
-      console.log(
-        JSON.stringify(
-          payload,
-          null,
-          2,
-        ),
-      );
+      console.log(JSON.stringify(payload, null, 2));
 
-      await moveAssignment(
-        planId,
-        payload,
-      );
+      await moveAssignment(planId, payload);
 
-      console.log(
-        "✅ Assignment moved successfully",
-      );
+      console.log("✅ Assignment moved successfully");
 
       // =========================================
       // الحصول على اسم المشرف الجديد
       // =========================================
 
-      const selectedSupervisor =
-        supervisors.find(
-          (supervisor) => {
-            const supervisorId =
-              supervisor?.id ??
-              supervisor?.supervisor_id ??
-              supervisor?.supervisorId;
+      const selectedSupervisor = supervisors.find((supervisor) => {
+        const supervisorId =
+          supervisor?.id ??
+          supervisor?.supervisor_id ??
+          supervisor?.supervisorId;
 
-            return (
-              String(
-                supervisorId,
-              ) ===
-              String(
-                targetSupervisorId,
-              )
-            );
-          },
-        );
+        return String(supervisorId) === String(targetSupervisorId);
+      });
 
       const newSupervisorName =
-        selectedSupervisor
-          ?.name ??
-        selectedSupervisor
-          ?.supervisor_name ??
-        selectedSupervisor
-          ?.supervisorName ??
+        selectedSupervisor?.name ??
+        selectedSupervisor?.supervisor_name ??
+        selectedSupervisor?.supervisorName ??
         "";
 
       // =========================================
       // تحديث الجدول مباشرة
       // =========================================
 
-      setPlanData(
-        (prev) =>
-          prev.map(
-            (item) => {
-              const itemId =
-                getSessionGroupId(
-                  item,
-                );
+      setPlanData((prev) =>
+        prev.map((item) => {
+          const itemId = getSessionGroupId(item);
 
-              if (
-                String(
-                  itemId,
-                ) !==
-                String(
-                  sessionGroupId,
-                )
-              ) {
-                return item;
-              }
+          if (String(itemId) !== String(sessionGroupId)) {
+            return item;
+          }
 
-              return {
-                ...item,
+          return {
+            ...item,
 
-                supervisor_id:
-                  targetSupervisorId,
+            supervisor_id: targetSupervisorId,
 
-                supervisorId:
-                  targetSupervisorId,
+            supervisorId: targetSupervisorId,
 
-                supervisor_name:
-                  newSupervisorName,
+            supervisor_name: newSupervisorName,
 
-                supervisor:
-                  newSupervisorName,
-              };
-            },
-          ),
+            supervisor: newSupervisorName,
+          };
+        }),
       );
 
       cancelEditing();
@@ -1983,21 +1417,13 @@ export default function PlanResult() {
         silent: true,
       });
     } catch (err) {
-      console.error(
-        "❌ Error moving assignment:",
-        err,
-      );
+      console.error("❌ Error moving assignment:", err);
 
-      console.error(
-        "📦 Backend response:",
-        err?.response?.data,
-      );
+      console.error("📦 Backend response:", err?.response?.data);
 
       alert(
-        err?.response?.data
-          ?.error ||
-          err?.response?.data
-            ?.message ||
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
           err?.message ||
           "Failed to update assignment.",
       );
@@ -2010,62 +1436,45 @@ export default function PlanResult() {
   // Accept / Reject Plan
   // =====================================================
 
-  const changePlanStatus =
-    async (status) => {
-      if (!planId) return;
+  const changePlanStatus = async (status) => {
+    if (!planId) return;
 
-      const labels = {
-        accepted: "قبول",
-        rejected: "رفض",
-      };
-
-      const confirmed =
-        window.confirm(
-          `هل أنت متأكد من ${
-            labels[status] ||
-            status
-          } هذه الخطة؟`,
-        );
-
-      if (!confirmed) {
-        return;
-      }
-
-      try {
-        setStatusSaving(true);
-
-        await updatePlanStatus(
-          planId,
-          status,
-        );
-
-        if (
-          isMountedRef.current
-        ) {
-          setPlanStatus(status);
-        }
-      } catch (err) {
-        console.error(
-          "❌ Error updating plan status:",
-          err,
-        );
-
-        alert(
-          err?.response?.data
-            ?.error ||
-            err?.response?.data
-              ?.message ||
-            err?.message ||
-            "فشل تحديث حالة الخطة.",
-        );
-      } finally {
-        if (
-          isMountedRef.current
-        ) {
-          setStatusSaving(false);
-        }
-      }
+    const labels = {
+      accepted: "قبول",
+      rejected: "رفض",
     };
+
+    const confirmed = window.confirm(
+      `هل أنت متأكد من ${labels[status] || status} هذه الخطة؟`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setStatusSaving(true);
+
+      await updatePlanStatus(planId, status);
+
+      if (isMountedRef.current) {
+        setPlanStatus(status);
+      }
+    } catch (err) {
+      console.error("❌ Error updating plan status:", err);
+
+      alert(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "فشل تحديث حالة الخطة.",
+      );
+    } finally {
+      if (isMountedRef.current) {
+        setStatusSaving(false);
+      }
+    }
+  };
 
   // =====================================================
   // Print
@@ -2079,151 +1488,104 @@ export default function PlanResult() {
   // Download Excel
   // =====================================================
 
-// =====================================================
-// Download Excel - Current Filtered Data
-// =====================================================
+  // =====================================================
+  // Download Excel - Current Filtered Data
+  // =====================================================
 
-const downloadExcel = () => {
-  try {
-    // =================================================
-    // نستخدم البيانات الموجودة حاليًا بعد الفلترة
-    // وليس كامل الخطة
-    // =================================================
+  const downloadExcel = () => {
+    try {
+      // =================================================
+      // نستخدم البيانات الموجودة حاليًا بعد الفلترة
+      // وليس كامل الخطة
+      // =================================================
 
-    const rowsToExport =
-      filteredPlanData.map(
-        (assignment) => ({
-          CRN:
-            assignment.crn ?? "-",
+      const rowsToExport = filteredPlanData.map((assignment) => ({
+        CRN: assignment.crn ?? "-",
 
-          Professor:
-            getProfessorName(
-              assignment,
-            ),
+        Professor: getProfessorName(assignment),
 
-          Date:
-            formatDate(
-              assignment.date,
-            ),
+        Date: formatDate(assignment.date),
 
-          Period:
-            getPeriod(
-              assignment,
-            ),
+        Period: getPeriod(assignment),
 
-          From:
-            formatTime(
-              getTimeFrom(
-                assignment,
-              ),
-            ),
+        From: formatTime(getTimeFrom(assignment)),
 
-          To:
-            formatTime(
-              getTimeTo(
-                assignment,
-              ),
-            ),
+        To: formatTime(getTimeTo(assignment)),
 
-          Supervisor:
-            getSupervisorName(
-              assignment,
-            ),
-        }),
-      );
+        Supervisor: getSupervisorName(assignment),
+      }));
 
-    // =================================================
-    // لا توجد نتائج
-    // =================================================
+      // =================================================
+      // لا توجد نتائج
+      // =================================================
 
-    if (
-      rowsToExport.length === 0
-    ) {
-      alert(
-        "⚠️ لا توجد بيانات لتنزيلها حسب الفلتر الحالي.",
-      );
+      if (rowsToExport.length === 0) {
+        alert("⚠️ لا توجد بيانات لتنزيلها حسب الفلتر الحالي.");
 
-      return;
-    }
+        return;
+      }
 
-    // =================================================
-    // إنشاء Worksheet
-    // =================================================
+      // =================================================
+      // إنشاء Worksheet
+      // =================================================
 
-    const worksheet =
-      XLSX.utils.json_to_sheet(
-        rowsToExport,
-      );
+      const worksheet = XLSX.utils.json_to_sheet(rowsToExport);
 
-    // =================================================
-    // ترتيب وعرض الأعمدة
-    // =================================================
+      // =================================================
+      // ترتيب وعرض الأعمدة
+      // =================================================
 
-    worksheet["!cols"] = [
-      {
-        wch: 15,
-      },
-      {
-        wch: 30,
-      },
-      {
-        wch: 15,
-      },
-      {
-        wch: 15,
-      },
-      {
-        wch: 12,
-      },
-      {
-        wch: 12,
-      },
-      {
-        wch: 30,
-      },
-    ];
+      worksheet["!cols"] = [
+        {
+          wch: 15,
+        },
+        {
+          wch: 30,
+        },
+        {
+          wch: 15,
+        },
+        {
+          wch: 15,
+        },
+        {
+          wch: 12,
+        },
+        {
+          wch: 12,
+        },
+        {
+          wch: 30,
+        },
+      ];
 
-    // =================================================
-    // إنشاء Workbook
-    // =================================================
+      // =================================================
+      // إنشاء Workbook
+      // =================================================
 
-    const workbook =
-      XLSX.utils.book_new();
+      const workbook = XLSX.utils.book_new();
 
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      "Plan",
-    );
+      XLSX.utils.book_append_sheet(workbook, worksheet, "Plan");
 
-    // =================================================
-    // اسم الملف
-    // =================================================
+      // =================================================
+      // اسم الملف
+      // =================================================
 
-    const fileName =
-      filterSupervisor
+      const fileName = filterSupervisor
         ? `plan_${planId}_${filterSupervisor}.xlsx`
         : `plan_${planId}_filtered.xlsx`;
 
-    // =================================================
-    // تنزيل الملف
-    // =================================================
+      // =================================================
+      // تنزيل الملف
+      // =================================================
 
-    XLSX.writeFile(
-      workbook,
-      fileName,
-    );
-  } catch (err) {
-    console.error(
-      "❌ Excel download error:",
-      err,
-    );
+      XLSX.writeFile(workbook, fileName);
+    } catch (err) {
+      console.error("❌ Excel download error:", err);
 
-    alert(
-      "❌ حدث خطأ أثناء إنشاء ملف Excel.",
-    );
-  }
-};
+      alert("❌ حدث خطأ أثناء إنشاء ملف Excel.");
+    }
+  };
   // =====================================================
   // No Plan
   // =====================================================
@@ -2231,16 +1593,11 @@ const downloadExcel = () => {
   if (!planId) {
     return (
       <div className="plan-empty">
-        <div className="empty-icon">
-          📋
-        </div>
+        <div className="empty-icon">📋</div>
 
         <h2>No Plan Selected</h2>
 
-        <p>
-          Please generate a plan
-          first.
-        </p>
+        <p>Please generate a plan first.</p>
       </div>
     );
   }
@@ -2254,14 +1611,9 @@ const downloadExcel = () => {
       <div className="plan-loading">
         <div className="loading-spinner" />
 
-        <h3>
-          Loading Plan...
-        </h3>
+        <h3>Loading Plan...</h3>
 
-        <p>
-          Please wait while the
-          plan is being loaded.
-        </p>
+        <p>Please wait while the plan is being loaded.</p>
       </div>
     );
   }
@@ -2273,13 +1625,9 @@ const downloadExcel = () => {
   if (error) {
     return (
       <div className="plan-error">
-        <div className="error-icon">
-          ⚠️
-        </div>
+        <div className="error-icon">⚠️</div>
 
-        <h2>
-          Unable to Load Plan
-        </h2>
+        <h2>Unable to Load Plan</h2>
 
         <p>{error}</p>
       </div>
@@ -2291,1408 +1639,1405 @@ const downloadExcel = () => {
   // =====================================================
 
   return (
-    <div className="plan-page">
-      {/* =================================================
-          Header
-      ================================================= */}
+  <div className="plan-page">
 
-      <header className="plan-header">
-        <div className="plan-header-content">
-          <div>
-            <div className="plan-eyebrow">
-              LECTURE SUPERVISOR SYSTEM
-            </div>
+    {/* =================================================
+        Header
+    ================================================= */}
+    <header className="plan-header">
+      <div className="plan-header-content">
 
-            <h1>
-              📅 Plan Result
-            </h1>
-
-            <p>
-              Generated supervision
-              schedule
-            </p>
+        <div>
+          <div className="plan-eyebrow">
+            LECTURE SUPERVISOR SYSTEM
           </div>
 
-          {/* =================================================
-              Status فقط في الـ Header
-              الأزرار تم نقلها لأسفل الجدول
-          ================================================= */}
+          <h1>📅 Plan Result</h1>
 
-          <div className="plan-header-actions">
-
-  {/* زر الرجوع للصفحة الرئيسية */}
-  <button
-    type="button"
-    className="back-home-btn"
-    onClick={() => navigate("/")}
-  >
-    🏠 الصفحة الرئيسية
-  </button>
-
-  {/* حالة الخطة */}
-  <span
-    className={
-      planStatus ===
-      "accepted"
-        ? "status-badge status-accepted"
-        : planStatus ===
-          "rejected"
-          ? "status-badge status-rejected"
-          : "status-badge status-draft"
-    }
-  >
-    {planStatus ===
-    "accepted"
-      ? "✅ مقبولة"
-      : planStatus ===
-        "rejected"
-        ? "❌ مرفوضة"
-        : "📝 مسودة"}
-  </span>
-
-</div>
+          <p>Generated supervision schedule</p>
         </div>
-      </header>
 
-      <main className="plan-content">
         {/* =================================================
-            Selected Supervisor Banner
+            Header Actions
         ================================================= */}
+        <div className="plan-header-actions">
 
-        {selectedStatsSupervisor && (
-          <div className="selected-supervisor-banner">
-            <div className="selected-supervisor-info">
-              <span className="selected-icon">
-                👤
+          {/* زر الرجوع للصفحة الرئيسية */}
+          <button
+            type="button"
+            className="back-home-btn"
+            onClick={() => navigate("/")}
+          >
+            🏠 الصفحة الرئيسية
+          </button>
+
+          {/* حالة الخطة */}
+          <span
+            className={
+              planStatus === "accepted"
+                ? "status-badge status-accepted"
+                : planStatus === "rejected"
+                  ? "status-badge status-rejected"
+                  : "status-badge status-draft"
+            }
+          >
+            {planStatus === "accepted"
+              ? "✅ مقبولة"
+              : planStatus === "rejected"
+                ? "❌ مرفوضة"
+                : "📝 مسودة"}
+          </span>
+
+        </div>
+      </div>
+    </header>
+
+    <main className="plan-content">
+
+      {/* =================================================
+          Selected Supervisor Banner
+      ================================================= */}
+      {selectedStatsSupervisor && (
+        <div className="selected-supervisor-banner">
+
+          <div className="selected-supervisor-info">
+
+            <span className="selected-icon">
+              👤
+            </span>
+
+            <div>
+              <span>
+                Showing assignments for
               </span>
 
-              <div>
-                <span>
-                  Showing assignments
-                  for
-                </span>
+              <strong>
+                {selectedStatsSupervisor}
+              </strong>
+            </div>
 
-                <strong>
-                  {
-                    selectedStatsSupervisor
-                  }
-                </strong>
-              </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={clearSupervisorSelection}
+          >
+            ✕ Show All Supervisors
+          </button>
+
+        </div>
+      )}
+
+      {/* =================================================
+          Summary Cards
+      ================================================= */}
+      <section className="summary-grid">
+
+        <div className="summary-card blue">
+          <div className="summary-icon">
+            📋
+          </div>
+
+          <div>
+            <span>Total Assignments</span>
+            <strong>{planData.length}</strong>
+          </div>
+        </div>
+
+        <div className="summary-card purple">
+          <div className="summary-icon">
+            👨‍🏫
+          </div>
+
+          <div>
+            <span>Professors</span>
+            <strong>{totalProfessors}</strong>
+          </div>
+        </div>
+
+        <div className="summary-card green">
+          <div className="summary-icon">
+            👥
+          </div>
+
+          <div>
+            <span>Supervisors</span>
+            <strong>{supervisorStats.length}</strong>
+          </div>
+        </div>
+
+        <div className="summary-card orange">
+          <div className="summary-icon">
+            📅
+          </div>
+
+          <div>
+            <span>Plan Days</span>
+            <strong>{totalDays}</strong>
+          </div>
+        </div>
+
+        <div className="summary-card teal">
+          <div className="summary-icon">
+            ⚖️
+          </div>
+
+          <div>
+            <span>Fairness Difference</span>
+            <strong>{fairness.difference}</strong>
+          </div>
+        </div>
+
+      </section>
+
+      {/* =================================================
+          Filters
+      ================================================= */}
+      {planData.length > 0 && (
+        <section className="panel filters-panel">
+
+          <div className="panel-heading">
+
+            <div>
+              <h2>🔎 Search & Filters</h2>
+              <p>
+                Find and filter plan assignments
+              </p>
             </div>
 
             <button
               type="button"
-              onClick={
-                clearSupervisorSelection
-              }
+              className="clear-btn"
+              onClick={clearFilters}
             >
-              ✕ Show All
-              Supervisors
+              ✕ Clear
             </button>
-          </div>
-        )}
 
-        {/* =================================================
-            Summary Cards
-        ================================================= */}
-
-        <section className="summary-grid">
-          <div className="summary-card blue">
-            <div className="summary-icon">
-              📋
-            </div>
-
-            <div>
-              <span>
-                Total Assignments
-              </span>
-
-              <strong>
-                {planData.length}
-              </strong>
-            </div>
           </div>
 
-          <div className="summary-card purple">
-            <div className="summary-icon">
-              👨‍🏫
-            </div>
+          <div className="search-wrapper">
 
-            <div>
-              <span>
-                Professors
-              </span>
+            <span className="search-icon">
+              🔍
+            </span>
 
-              <strong>
-                {totalProfessors}
-              </strong>
-            </div>
+            <input
+              type="text"
+              value={search}
+              onChange={(e) =>
+                setSearch(e.target.value)
+              }
+              placeholder="Search by Session Group, CRN, Course Name, Professor, Supervisor..."
+            />
+
+            {search && (
+              <button
+                type="button"
+                className="search-clear"
+                onClick={() => setSearch("")}
+              >
+                ×
+              </button>
+            )}
+
           </div>
 
-          <div className="summary-card green">
-            <div className="summary-icon">
-              👥
+          <div className="filters-grid">
+
+            {/* Supervisor */}
+            <div className="filter-field">
+
+              <label>
+                👥 Supervisor
+              </label>
+
+              <select
+                value={filterSupervisor}
+                onChange={(e) => {
+                  setFilterSupervisor(e.target.value);
+                  setSelectedStatsSupervisor(
+                    e.target.value
+                  );
+                }}
+              >
+                <option value="">
+                  All Selected Supervisors
+                </option>
+
+                {supervisorOptions.map((name) => (
+                  <option
+                    key={name}
+                    value={name}
+                  >
+                    {name}
+                  </option>
+                ))}
+              </select>
+
             </div>
 
-            <div>
-              <span>
-                Supervisors
-              </span>
+            {/* Professor */}
+            <div className="filter-field">
 
-              <strong>
-                {
-                  supervisorStats.length
+              <label>
+                👨‍🏫 Professor
+              </label>
+
+              <select
+                value={filterProfessor}
+                onChange={(e) =>
+                  setFilterProfessor(e.target.value)
                 }
-              </strong>
+              >
+                <option value="">
+                  All Professors
+                </option>
+
+                {professorOptions.map((name) => (
+                  <option
+                    key={name}
+                    value={name}
+                  >
+                    {name}
+                  </option>
+                ))}
+              </select>
+
             </div>
+
+            {/* Date */}
+            <div className="filter-field">
+
+              <label>
+                📅 Date
+              </label>
+
+              <input
+                type="date"
+                value={filterDate}
+                onChange={(e) =>
+                  setFilterDate(e.target.value)
+                }
+              />
+
+            </div>
+
+            {/* Period */}
+            <div className="filter-field">
+
+              <label>
+                🕐 Period
+              </label>
+
+              <select
+                value={filterPeriod}
+                onChange={(e) =>
+                  setFilterPeriod(e.target.value)
+                }
+              >
+                <option value="">
+                  All Periods
+                </option>
+
+                {periodOptions.map((period) => (
+                  <option
+                    key={period}
+                    value={period}
+                  >
+                    {period}
+                  </option>
+                ))}
+              </select>
+
+            </div>
+
           </div>
 
-          <div className="summary-card orange">
-            <div className="summary-icon">
-              📅
-            </div>
-
-            <div>
-              <span>
-                Plan Days
-              </span>
-
-              <strong>
-                {totalDays}
-              </strong>
-            </div>
+          <div className="filter-result">
+            Showing{" "}
+            <strong>
+              {filteredPlanData.length}
+            </strong>{" "}
+            of{" "}
+            <strong>
+              {planData.length}
+            </strong>{" "}
+            assignments
           </div>
 
-          <div className="summary-card teal">
-            <div className="summary-icon">
-              ⚖️
-            </div>
+        </section>
+      )}
+
+      {/* =================================================
+          Supervisor Statistics
+      ================================================= */}
+      {supervisorStats.length > 0 && (
+        <section className="panel statistics-panel">
+
+          <div className="panel-heading">
 
             <div>
-              <span>
-                Fairness Difference
-              </span>
+              <h2>
+                👥 Supervisor Statistics
+              </h2>
 
+              <p>
+                Click a supervisor to view only
+                their assignments
+              </p>
+            </div>
+
+            <div className="fairness-badge">
+              Difference:
               <strong>
                 {fairness.difference}
               </strong>
             </div>
+
+          </div>
+
+          <div className="stats-table-wrapper">
+
+            <table className="stats-table">
+
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Supervisor</th>
+                  <th>Periods</th>
+                  <th>View</th>
+                </tr>
+              </thead>
+
+              <tbody>
+
+                {supervisorStats.map(
+                  (item, index) => {
+
+                    const isSelected =
+                      selectedStatsSupervisor ===
+                      item.name;
+
+                    return (
+                      <tr
+                        key={
+                          item.id ?? item.name
+                        }
+                        className={
+                          isSelected
+                            ? "selected-stat-row"
+                            : ""
+                        }
+                      >
+
+                        <td>
+                          <span className="rank-number">
+                            {index + 1}
+                          </span>
+                        </td>
+
+                        <td>
+
+                          <button
+                            type="button"
+                            className="supervisor-name-button"
+                            onClick={() =>
+                              handleSupervisorStatsClick(
+                                item.name
+                              )
+                            }
+                          >
+
+                            <span className="avatar">
+                              {String(
+                                item.name
+                              ).charAt(0)}
+                            </span>
+
+                            <span>
+                              {item.name}
+                            </span>
+
+                          </button>
+
+                        </td>
+
+                        <td>
+                          <span className="period-count">
+                            {item.count}
+                          </span>
+                        </td>
+
+                        <td>
+
+                          <button
+                            type="button"
+                            className={
+                              isSelected
+                                ? "view-btn active"
+                                : "view-btn"
+                            }
+                            onClick={() =>
+                              handleSupervisorStatsClick(
+                                item.name
+                              )
+                            }
+                          >
+                            {isSelected
+                              ? "✓ Viewing"
+                              : "View Plan"}
+                          </button>
+
+                        </td>
+
+                      </tr>
+                    );
+                  }
+                )}
+
+              </tbody>
+
+            </table>
+
           </div>
         </section>
+      )}
 
-        {/* =================================================
-            Filters
-        ================================================= */}
+      {/* =================================================
+          Columns
+          Session Group removed
+      ================================================= */}
+      {planData.length > 0 && (
+        <section className="panel columns-panel">
 
-        {planData.length > 0 && (
-          <section className="panel filters-panel">
-            <div className="panel-heading">
-              <div>
-                <h2>
-                  🔎 Search & Filters
-                </h2>
+          <div className="panel-heading compact">
 
-                <p>
-                  Find and filter plan
-                  assignments
-                </p>
-              </div>
+            <div>
+              <h2>
+                👁️ Table Columns
+              </h2>
+            </div>
 
-              <button
-                type="button"
-                className="clear-btn"
-                onClick={
-                  clearFilters
+          </div>
+
+          <div className="column-options">
+
+            {[
+              ["crn", "CRN"],
+              ["courseName", "Course name"],
+              ["professor", "Professor"],
+              ["date", "Date"],
+              ["period", "Period"],
+              ["timeFrom", "From"],
+              ["timeTo", "To"],
+              ["supervisor", "Supervisor"],
+            ].map(([key, label]) => (
+
+              <label
+                key={key}
+                className={
+                  visibleColumns[key]
+                    ? "column-option active"
+                    : "column-option"
                 }
               >
-                ✕ Clear
-              </button>
-            </div>
-
-            <div className="search-wrapper">
-              <span className="search-icon">
-                🔍
-              </span>
-
-              <input
-                type="text"
-                value={search}
-                onChange={(e) =>
-                  setSearch(
-                    e.target.value,
-                  )
-                }
-                placeholder="Search by Session Group, CRN, Professor, Supervisor..."
-              />
-
-              {search && (
-                <button
-                  type="button"
-                  className="search-clear"
-                  onClick={() =>
-                    setSearch("")
-                  }
-                >
-                  ×
-                </button>
-              )}
-            </div>
-
-            <div className="filters-grid">
-              <div className="filter-field">
-                <label>
-                  👥 Supervisor
-                </label>
-
-                <select
-                  value={
-                    filterSupervisor
-                  }
-                  onChange={(e) => {
-                    setFilterSupervisor(
-                      e.target.value,
-                    );
-
-                    setSelectedStatsSupervisor(
-                      e.target.value,
-                    );
-                  }}
-                >
-                  <option value="">
-                    All Selected
-                    Supervisors
-                  </option>
-
-                  {supervisorOptions.map(
-                    (name) => (
-                      <option
-                        key={name}
-                        value={name}
-                      >
-                        {name}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </div>
-
-              <div className="filter-field">
-                <label>
-                  👨‍🏫 Professor
-                </label>
-
-                <select
-                  value={
-                    filterProfessor
-                  }
-                  onChange={(e) =>
-                    setFilterProfessor(
-                      e.target.value,
-                    )
-                  }
-                >
-                  <option value="">
-                    All Professors
-                  </option>
-
-                  {professorOptions.map(
-                    (name) => (
-                      <option
-                        key={name}
-                        value={name}
-                      >
-                        {name}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </div>
-
-              <div className="filter-field">
-                <label>
-                  📅 Date
-                </label>
 
                 <input
-                  type="date"
-                  value={filterDate}
-                  onChange={(e) =>
-                    setFilterDate(
-                      e.target.value,
-                    )
+                  type="checkbox"
+                  checked={
+                    visibleColumns[key]
+                  }
+                  onChange={() =>
+                    toggleColumn(key)
                   }
                 />
-              </div>
 
-              <div className="filter-field">
-                <label>
-                  🕐 Period
-                </label>
+                <span>
+                  {label}
+                </span>
 
-                <select
-                  value={
-                    filterPeriod
-                  }
-                  onChange={(e) =>
-                    setFilterPeriod(
-                      e.target.value,
-                    )
-                  }
-                >
-                  <option value="">
-                    All Periods
-                  </option>
+              </label>
 
-                  {periodOptions.map(
-                    (period) => (
-                      <option
-                        key={period}
-                        value={period}
-                      >
-                        {period}
-                      </option>
-                    ),
+            ))}
+
+          </div>
+
+        </section>
+      )}
+
+      {/* =================================================
+          Assignments
+      ================================================= */}
+      <section
+        id="assignments-section"
+        className="panel assignments-panel print-plan-table"
+      >
+
+        <div className="panel-heading">
+
+          <div>
+
+            <h2>
+              📋 Assignments
+            </h2>
+
+            <p>
+              {selectedStatsSupervisor
+                ? `Assignments for ${selectedStatsSupervisor}`
+                : "Complete supervision plan"}
+            </p>
+
+          </div>
+
+          <div className="assignment-count">
+            {filteredPlanData.length}
+          </div>
+
+        </div>
+
+        {planData.length > 0 ? (
+
+          <div className="table-container">
+
+            {/* =================================================
+                SCREEN TABLE
+                Session Group removed
+            ================================================= */}
+            <table className="assignments-table screen-plan-table">
+
+              <thead>
+
+                <tr>
+
+                  {visibleColumns.crn && (
+                    <th>CRN</th>
                   )}
-                </select>
-              </div>
-            </div>
 
-            <div className="filter-result">
-              Showing{" "}
-              <strong>
-                {
-                  filteredPlanData.length
-                }
-              </strong>{" "}
-              of{" "}
-              <strong>
-                {planData.length}
-              </strong>{" "}
-              assignments
-            </div>
-          </section>
-        )}
+                  {visibleColumns.courseName && (
+                    <th>Course name</th>
+                  )}
 
-        {/* =================================================
-            Supervisor Statistics
-        ================================================= */}
+                  {visibleColumns.professor && (
+                    <th>Professor</th>
+                  )}
 
-        {supervisorStats.length >
-          0 && (
-          <section className="panel statistics-panel">
-            <div className="panel-heading">
-              <div>
-                <h2>
-                  👥 Supervisor
-                  Statistics
-                </h2>
+                  {visibleColumns.date && (
+                    <th>Date</th>
+                  )}
 
-                <p>
-                  Click a supervisor
-                  to view only their
-                  assignments
-                </p>
-              </div>
+                  {visibleColumns.period && (
+                    <th>Period</th>
+                  )}
 
-              <div className="fairness-badge">
-                Difference:
-                <strong>
-                  {
-                    fairness.difference
-                  }
-                </strong>
-              </div>
-            </div>
+                  {visibleColumns.timeFrom && (
+                    <th>From</th>
+                  )}
 
-            <div className="stats-table-wrapper">
-              <table className="stats-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
+                  {visibleColumns.timeTo && (
+                    <th>To</th>
+                  )}
 
-                    <th>
-                      Supervisor
-                    </th>
+                  {visibleColumns.supervisor && (
+                    <th>Supervisor</th>
+                  )}
 
-                    <th>
-                      Periods
-                    </th>
+                  <th className="action-column">
+                    Action
+                  </th>
 
-                    <th>
-                      View
-                    </th>
-                  </tr>
-                </thead>
+                </tr>
 
-                <tbody>
-                  {supervisorStats.map(
-                    (
-                      item,
-                      index,
-                    ) => {
-                      const isSelected =
-                        selectedStatsSupervisor ===
-                        item.name;
+              </thead>
+
+              <tbody>
+
+                {filteredPlanData.length > 0 ? (
+
+                  filteredPlanData.map(
+                    (assignment, index) => {
+
+                      {/* Session Group still used internally */}
+                      const rowId =
+                        getSessionGroupId(
+                          assignment
+                        );
+
+                      const isEditing =
+                        editingId !== null &&
+                        editingId !== undefined &&
+                        rowId !== null &&
+                        rowId !== undefined &&
+                        String(editingId) ===
+                          String(rowId);
+
+                      const isSaving =
+                        savingId !== null &&
+                        savingId !== undefined &&
+                        rowId !== null &&
+                        rowId !== undefined &&
+                        String(savingId) ===
+                          String(rowId);
+
+                      const affinitySupervisorId =
+                        getProfessorAffinitySupervisorId(
+                          assignment
+                        );
 
                       return (
                         <tr
-                          key={
-                            item.id ??
-                            item.name
-                          }
-                          className={
-                            isSelected
-                              ? "selected-stat-row"
-                              : ""
-                          }
+                          key={`${rowId}-${index}`}
                         >
-                          <td>
-                            <span className="rank-number">
-                              {index +
-                                1}
-                            </span>
-                          </td>
 
-                          <td>
-                            <button
-                              type="button"
-                              className="supervisor-name-button"
-                              onClick={() =>
-                                handleSupervisorStatsClick(
-                                  item.name,
-                                )
-                              }
-                            >
-                              <span className="avatar">
-                                {String(
-                                  item.name,
-                                ).charAt(
-                                  0,
-                                )}
+                          {/* CRN */}
+                          {visibleColumns.crn && (
+                            <td>
+
+                              <span className="crn-text">
+                                {assignment.crn ?? "-"}
                               </span>
 
-                              <span>
-                                {
-                                  item.name
-                                }
-                              </span>
-                            </button>
-                          </td>
-
-                          <td>
-                            <span className="period-count">
-                              {
-                                item.count
-                              }
-                            </span>
-                          </td>
-
-                          <td>
-                            <button
-                              type="button"
-                              className={
-                                isSelected
-                                  ? "view-btn active"
-                                  : "view-btn"
-                              }
-                              onClick={() =>
-                                handleSupervisorStatsClick(
-                                  item.name,
-                                )
-                              }
-                            >
-                              {isSelected
-                                ? "✓ Viewing"
-                                : "View Plan"}
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    },
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-        )}
-
-        {/* =================================================
-            Columns
-            Session Group removed
-        ================================================= */}
-
-        {planData.length > 0 && (
-          <section className="panel columns-panel">
-            <div className="panel-heading compact">
-              <div>
-                <h2>
-                  👁️ Table Columns
-                </h2>
-              </div>
-            </div>
-
-            <div className="column-options">
-              {[
-                ["crn", "CRN"],
-                [
-                  "professor",
-                  "Professor",
-                ],
-                ["date", "Date"],
-                [
-                  "period",
-                  "Period",
-                ],
-                [
-                  "timeFrom",
-                  "From",
-                ],
-                [
-                  "timeTo",
-                  "To",
-                ],
-                [
-                  "supervisor",
-                  "Supervisor",
-                ],
-              ].map(
-                ([key, label]) => (
-                  <label
-                    key={key}
-                    className={
-                      visibleColumns[
-                        key
-                      ]
-                        ? "column-option active"
-                        : "column-option"
-                    }
-                  >
-                    <input
-                      type="checkbox"
-                      checked={
-                        visibleColumns[
-                          key
-                        ]
-                      }
-                      onChange={() =>
-                        toggleColumn(
-                          key,
-                        )
-                      }
-                    />
-
-                    <span>
-                      {label}
-                    </span>
-                  </label>
-                ),
-              )}
-            </div>
-          </section>
-        )}
-
-        {/* =================================================
-            Assignments
-        ================================================= */}
-
-        <section
-          id="assignments-section"
-          className="panel assignments-panel print-plan-table"
-        >
-          <div className="panel-heading">
-            <div>
-              <h2>
-                📋 Assignments
-              </h2>
-
-              <p>
-                {selectedStatsSupervisor
-                  ? `Assignments for ${selectedStatsSupervisor}`
-                  : "Complete supervision plan"}
-              </p>
-            </div>
-
-            <div className="assignment-count">
-              {
-                filteredPlanData.length
-              }
-            </div>
-          </div>
-
-          {planData.length > 0 ? (
-            <div className="table-container">
-              {/* =================================================
-                  SCREEN TABLE
-                  Session Group removed
-              ================================================= */}
-
-              <table className="assignments-table screen-plan-table">
-                <thead>
-                  <tr>
-                    {visibleColumns.crn && (
-                      <th>CRN</th>
-                    )}
-
-                    {visibleColumns.professor && (
-                      <th>
-                        Professor
-                      </th>
-                    )}
-
-                    {visibleColumns.date && (
-                      <th>Date</th>
-                    )}
-
-                    {visibleColumns.period && (
-                      <th>
-                        Period
-                      </th>
-                    )}
-
-                    {visibleColumns.timeFrom && (
-                      <th>From</th>
-                    )}
-
-                    {visibleColumns.timeTo && (
-                      <th>To</th>
-                    )}
-
-                    {visibleColumns.supervisor && (
-                      <th>
-                        Supervisor
-                      </th>
-                    )}
-
-                    <th className="action-column">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {filteredPlanData.length >
-                  0 ? (
-                    filteredPlanData.map(
-                      (
-                        assignment,
-                        index,
-                      ) => {
-                        // Session Group still used internally
-                        const rowId =
-                          getSessionGroupId(
-                            assignment,
-                          );
-
-                        const isEditing =
-                          editingId !==
-                            null &&
-                          editingId !==
-                            undefined &&
-                          rowId !==
-                            null &&
-                          rowId !==
-                            undefined &&
-                          String(
-                            editingId,
-                          ) ===
-                            String(
-                              rowId,
-                            );
-
-                        const isSaving =
-                          savingId !==
-                            null &&
-                          savingId !==
-                            undefined &&
-                          rowId !==
-                            null &&
-                          rowId !==
-                            undefined &&
-                          String(
-                            savingId,
-                          ) ===
-                            String(
-                              rowId,
-                            );
-
-                        const affinitySupervisorId =
-                          getProfessorAffinitySupervisorId(
-                            assignment,
-                          );
-
-                        return (
-                          <tr
-                            key={`${rowId}-${index}`}
-                          >
-                            {/* CRN */}
-                            {visibleColumns.crn && (
-                              <td>
-                                <span className="crn-text">
-                                  {assignment.crn ??
-                                    "-"}
-                                </span>
-                              </td>
-                            )}
-
-                            {/* Professor */}
-                            {visibleColumns.professor && (
-                              <td>
-                                <div className="professor-cell">
-                                  <span className="professor-dot" />
-
-                                  <span>
-                                    {getProfessorName(
-                                      assignment,
-                                    )}
-                                  </span>
-                                </div>
-                              </td>
-                            )}
-
-                            {/* Date */}
-                            {visibleColumns.date && (
-                              <td>
-                                <span className="date-badge">
-                                  {formatDate(
-                                    assignment.date,
-                                  )}
-                                </span>
-                              </td>
-                            )}
-
-                            {/* Period */}
-                            {visibleColumns.period && (
-                              <td>
-                                <span className="period-badge">
-                                  {getPeriod(
-                                    assignment,
-                                  )}
-                                </span>
-                              </td>
-                            )}
-
-                            {/* From */}
-                            {visibleColumns.timeFrom && (
-                              <td>
-                                <span className="time-badge">
-                                  {formatTime(
-                                    getTimeFrom(
-                                      assignment,
-                                    ),
-                                  )}
-                                </span>
-                              </td>
-                            )}
-
-                            {/* To */}
-                            {visibleColumns.timeTo && (
-                              <td>
-                                <span className="time-badge">
-                                  {formatTime(
-                                    getTimeTo(
-                                      assignment,
-                                    ),
-                                  )}
-                                </span>
-                              </td>
-                            )}
-
-                            {/* Supervisor */}
-                            {visibleColumns.supervisor && (
-                              <td>
-                                {isEditing ? (
-                                  <div>
-                                    <select
-                                      className="edit-supervisor-select"
-                                      value={
-                                        editingSupervisor ??
-                                        ""
-                                      }
-                                      onChange={(
-                                        e,
-                                      ) => {
-                                        console.log(
-                                          "🔵 SELECT CHANGED:",
-                                          e
-                                            .target
-                                            .value,
-                                          typeof e
-                                            .target
-                                            .value,
-                                        );
-
-                                        setEditingSupervisor(
-                                          e
-                                            .target
-                                            .value,
-                                        );
-                                      }}
-                                      disabled={
-                                        isSaving ||
-                                        affinitySupervisorId !==
-                                          null
-                                      }
-                                    >
-                                      <option value="">
-                                        اختر
-                                        المشرف
-                                      </option>
-
-                                      {supervisors.map(
-                                        (
-                                          supervisor,
-                                        ) => {
-                                          const supervisorId =
-                                            supervisor?.id ??
-                                            supervisor?.supervisor_id ??
-                                            supervisor?.supervisorId;
-
-                                          const supervisorName =
-                                            supervisor?.name ??
-                                            supervisor?.supervisor_name ??
-                                            supervisor?.supervisorName ??
-                                            supervisor?.full_name ??
-                                            "";
-
-                                          if (
-                                            supervisorId ===
-                                              null ||
-                                            supervisorId ===
-                                              undefined ||
-                                            supervisorId ===
-                                              ""
-                                          ) {
-                                            return null;
-                                          }
-
-                                          return (
-                                            <option
-                                              key={String(
-                                                supervisorId,
-                                              )}
-                                              value={String(
-                                                supervisorId,
-                                              )}
-                                            >
-                                              {
-                                                supervisorName
-                                              }
-
-                                              {String(
-                                                supervisorId,
-                                              ) ===
-                                              String(
-                                                affinitySupervisorId,
-                                              )
-                                                ? " 🔗"
-                                                : ""}
-                                            </option>
-                                          );
-                                        },
-                                      )}
-                                    </select>
-
-                                    {affinitySupervisorId !==
-                                      null && (
-                                      <small className="affinity-note">
-                                        🔗 هذا الأستاذ
-                                        مرتبط بهذا
-                                        المشرف
-                                      </small>
-                                    )}
-                                  </div>
-                                ) : (
-                                  <div className="supervisor-cell">
-                                    <span className="supervisor-avatar">
-                                      {String(
-                                        getSupervisorName(
-                                          assignment,
-                                        ),
-                                      ).charAt(
-                                        0,
-                                      )}
-                                    </span>
-
-                                    <span>
-                                      {getSupervisorName(
-                                        assignment,
-                                      )}
-                                    </span>
-                                  </div>
-                                )}
-                              </td>
-                            )}
-
-                            {/* Action */}
-                            <td className="action-column">
-                              {isEditing ? (
-                                <div className="edit-actions">
-                                  <button
-                                    type="button"
-                                    className="save-btn"
-                                    onClick={() =>
-                                      saveAssignment(
-                                        assignment,
-                                      )
-                                    }
-                                    disabled={
-                                      isSaving
-                                    }
-                                  >
-                                    {isSaving
-                                      ? "⏳"
-                                      : "✓"}
-
-                                    <span>
-                                      {isSaving
-                                        ? "Saving"
-                                        : "Save"}
-                                    </span>
-                                  </button>
-
-                                  <button
-                                    type="button"
-                                    className="cancel-btn"
-                                    onClick={
-                                      cancelEditing
-                                    }
-                                    disabled={
-                                      isSaving
-                                    }
-                                  >
-                                    ✕
-                                  </button>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  className="edit-btn"
-                                  onClick={() =>
-                                    startEditing(
-                                      assignment,
-                                    )
-                                  }
-                                >
-                                  ✏️ Edit
-                                </button>
-                              )}
                             </td>
-                          </tr>
-                        );
-                      },
-                    )
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={
-                          Object.values(
-                            visibleColumns,
-                          ).filter(
-                            Boolean,
-                          ).length +
-                          1
-                        }
-                        className="no-results"
-                      >
-                        <div>
-                          <span>
-                            🔍
-                          </span>
+                          )}
 
-                          <strong>
-                            No results found
-                          </strong>
+                          {/* Course Name */}
+                          {visibleColumns.courseName && (
+                            <td>
 
-                          <p>
-                            Try changing
-                            the filters
-                            or search
-                            term.
-                          </p>
-                        </div>
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-
-              {/* =================================================
-                  PRINT TABLE
-                  Session Group removed
-              ================================================= */}
-
-              <div className="print-only-table">
-                <table className="assignments-table print-table">
-                  <colgroup>
-                    <col className="print-col-crn" />
-
-                    <col className="print-col-professor" />
-
-                    <col className="print-col-date" />
-
-                    <col className="print-col-period" />
-
-                    <col className="print-col-time" />
-
-                    <col className="print-col-time" />
-
-                    <col className="print-col-supervisor" />
-                  </colgroup>
-
-                  <thead>
-                    <tr>
-                      <th>CRN</th>
-
-                      <th>
-                        Professor
-                      </th>
-
-                      <th>Date</th>
-
-                      <th>
-                        Period
-                      </th>
-
-                      <th>From</th>
-
-                      <th>To</th>
-
-                      <th>
-                        Supervisor
-                      </th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {filteredPlanData.length >
-                    0 ? (
-                      filteredPlanData.map(
-                        (
-                          assignment,
-                          index,
-                        ) => {
-                          const rowId =
-                            getSessionGroupId(
-                              assignment,
-                            );
-
-                          return (
-                            <tr
-                              key={`print-${rowId}-${index}`}
-                            >
-                              <td>
-                                {assignment.crn ??
-                                  "-"}
-                              </td>
-
-                              <td
-                                className="print-professor"
-                                dir="auto"
-                              >
-                                {getProfessorName(
-                                  assignment,
+                              <span className="course-name-text">
+                                {getCourseName(
+                                  assignment
                                 )}
-                              </td>
+                              </span>
 
-                              <td>
+                            </td>
+                          )}
+
+                          {/* Professor */}
+                          {visibleColumns.professor && (
+                            <td>
+
+                              <div className="professor-cell">
+
+                                <span className="professor-dot" />
+
+                                <span>
+                                  {getProfessorName(
+                                    assignment
+                                  )}
+                                </span>
+
+                              </div>
+
+                            </td>
+                          )}
+
+                          {/* Date */}
+                          {visibleColumns.date && (
+                            <td>
+
+                              <span className="date-badge">
                                 {formatDate(
-                                  assignment.date,
+                                  assignment.date
                                 )}
-                              </td>
+                              </span>
 
-                              <td>
+                            </td>
+                          )}
+
+                          {/* Period */}
+                          {visibleColumns.period && (
+                            <td>
+
+                              <span className="period-badge">
                                 {getPeriod(
-                                  assignment,
+                                  assignment
                                 )}
-                              </td>
+                              </span>
 
-                              <td>
+                            </td>
+                          )}
+
+                          {/* From */}
+                          {visibleColumns.timeFrom && (
+                            <td>
+
+                              <span className="time-badge">
                                 {formatTime(
                                   getTimeFrom(
-                                    assignment,
-                                  ),
+                                    assignment
+                                  )
                                 )}
-                              </td>
+                              </span>
 
-                              <td>
+                            </td>
+                          )}
+
+                          {/* To */}
+                          {visibleColumns.timeTo && (
+                            <td>
+
+                              <span className="time-badge">
                                 {formatTime(
                                   getTimeTo(
-                                    assignment,
-                                  ),
+                                    assignment
+                                  )
                                 )}
-                              </td>
+                              </span>
 
-                              <td
-                                className="print-supervisor"
-                                dir="auto"
+                            </td>
+                          )}
+
+                          {/* Supervisor */}
+                          {visibleColumns.supervisor && (
+                            <td>
+
+                              {isEditing ? (
+
+                                <div>
+
+                                  <select
+                                    className="edit-supervisor-select"
+                                    value={
+                                      editingSupervisor ??
+                                      ""
+                                    }
+                                    onChange={(e) => {
+
+                                      console.log(
+                                        "🔵 SELECT CHANGED:",
+                                        e.target.value,
+                                        typeof e.target.value
+                                      );
+
+                                      setEditingSupervisor(
+                                        e.target.value
+                                      );
+                                    }}
+                                    disabled={
+                                      isSaving ||
+                                      affinitySupervisorId !==
+                                        null
+                                    }
+                                  >
+
+                                    <option value="">
+                                      اختر المشرف
+                                    </option>
+
+                                    {supervisors.map(
+                                      (supervisor) => {
+
+                                        const supervisorId =
+                                          supervisor?.id ??
+                                          supervisor?.supervisor_id ??
+                                          supervisor?.supervisorId;
+
+                                        const supervisorName =
+                                          supervisor?.name ??
+                                          supervisor?.supervisor_name ??
+                                          supervisor?.supervisorName ??
+                                          supervisor?.full_name ??
+                                          "";
+
+                                        if (
+                                          supervisorId ===
+                                            null ||
+                                          supervisorId ===
+                                            undefined ||
+                                          supervisorId === ""
+                                        ) {
+                                          return null;
+                                        }
+
+                                        return (
+                                          <option
+                                            key={String(
+                                              supervisorId
+                                            )}
+                                            value={String(
+                                              supervisorId
+                                            )}
+                                          >
+
+                                            {supervisorName}
+
+                                            {String(
+                                              supervisorId
+                                            ) ===
+                                            String(
+                                              affinitySupervisorId
+                                            )
+                                              ? " 🔗"
+                                              : ""}
+
+                                          </option>
+                                        );
+                                      }
+                                    )}
+
+                                  </select>
+
+                                  {affinitySupervisorId !==
+                                    null && (
+                                    <small className="affinity-note">
+                                      🔗 هذا الأستاذ مرتبط بهذا
+                                      المشرف
+                                    </small>
+                                  )}
+
+                                </div>
+
+                              ) : (
+
+                                <div className="supervisor-cell">
+
+                                  <span className="supervisor-avatar">
+
+                                    {String(
+                                      getSupervisorName(
+                                        assignment
+                                      )
+                                    ).charAt(0)}
+
+                                  </span>
+
+                                  <span>
+                                    {getSupervisorName(
+                                      assignment
+                                    )}
+                                  </span>
+
+                                </div>
+
+                              )}
+
+                            </td>
+                          )}
+
+                          {/* Action */}
+                          <td className="action-column">
+
+                            {isEditing ? (
+
+                              <div className="edit-actions">
+
+                                <button
+                                  type="button"
+                                  className="save-btn"
+                                  onClick={() =>
+                                    saveAssignment(
+                                      assignment
+                                    )
+                                  }
+                                  disabled={isSaving}
+                                >
+
+                                  {isSaving
+                                    ? "⏳"
+                                    : "✓"}
+
+                                  <span>
+                                    {isSaving
+                                      ? "Saving"
+                                      : "Save"}
+                                  </span>
+
+                                </button>
+
+                                <button
+                                  type="button"
+                                  className="cancel-btn"
+                                  onClick={
+                                    cancelEditing
+                                  }
+                                  disabled={isSaving}
+                                >
+                                  ✕
+                                </button>
+
+                              </div>
+
+                            ) : (
+
+                              <button
+                                type="button"
+                                className="edit-btn"
+                                onClick={() =>
+                                  startEditing(
+                                    assignment
+                                  )
+                                }
                               >
-                                {getSupervisorName(
-                                  assignment,
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        },
-                      )
-                    ) : (
-                      <tr>
-                        <td
-                          colSpan="7"
-                          className="print-no-results"
-                        >
-                          No assignments
-                          found.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : (
-            <div className="no-plan-data">
-              ⚠️ No assignments
-              found.
-            </div>
-          )}
+                                ✏️ Edit
+                              </button>
 
-          {/* =================================================
-              PLAN ACTIONS
-              الأزرار أسفل جدول الخطة
-          ================================================= */}
+                            )}
 
-          <div className="plan-bottom-actions">
-            <button
-              type="button"
-              className="btn btn-success"
-              disabled={
-                statusSaving ||
-                planStatus ===
-                  "accepted"
-              }
-              onClick={() =>
-                changePlanStatus(
-                  "accepted",
-                )
-              }
-            >
-              <span>
-                ✅
-              </span>
+                          </td>
 
-              <span>
-                {statusSaving &&
-                planStatus !==
-                  "accepted"
-                  ? "جاري الحفظ..."
-                  : "قبول الخطة"}
-              </span>
-            </button>
+                        </tr>
+                      );
+                    }
+                  )
 
-            <button
-              type="button"
-              className="btn btn-danger"
-              disabled={
-                statusSaving ||
-                planStatus ===
-                  "rejected"
-              }
-              onClick={() =>
-                changePlanStatus(
-                  "rejected",
-                )
-              }
-            >
-              <span>
-                ❌
-              </span>
+                ) : (
 
-              <span>
-                رفض الخطة
-              </span>
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-secondary"
-              onClick={
-                printPlan
-              }
-            >
-              <span>
-                🖨️
-              </span>
-
-              <span>
-                طباعة الخطة
-              </span>
-            </button>
-
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={
-                downloadExcel
-              }
-            >
-              <span>
-                📥
-              </span>
-
-              <span>
-                تحميل Excel
-              </span>
-            </button>
-          </div>
-        </section>
-
-        {/* =================================================
-            Conflicts
-        ================================================= */}
-
-        <section className="panel conflicts-panel">
-          <div className="panel-heading">
-            <div>
-              <h2>
-                ⚠️ Unassigned /
-                Conflicts
-              </h2>
-
-              <p>
-                Items that could
-                not be assigned
-                automatically
-              </p>
-            </div>
-
-            <span
-              className={
-                conflicts.length >
-                0
-                  ? "conflict-count danger"
-                  : "conflict-count success"
-              }
-            >
-              {
-                conflicts.length
-              }
-            </span>
-          </div>
-
-          {conflicts.length >
-          0 ? (
-            <div className="table-container">
-              <table className="conflicts-table">
-                <thead>
                   <tr>
-                    <th>
-                      Session Group
-                    </th>
+
+                    <td
+                      colSpan={
+                        Object.values(
+                          visibleColumns
+                        ).filter(Boolean).length + 1
+                      }
+                      className="no-results"
+                    >
+
+                      <div>
+
+                        <span>
+                          🔍
+                        </span>
+
+                        <strong>
+                          No results found
+                        </strong>
+
+                        <p>
+                          Try changing the filters
+                          or search term.
+                        </p>
+
+                      </div>
+
+                    </td>
+
+                  </tr>
+
+                )}
+
+              </tbody>
+
+            </table>
+
+            {/* =================================================
+                PRINT TABLE
+                Session Group removed
+            ================================================= */}
+            <div className="print-only-table">
+
+              <table className="assignments-table print-table">
+
+                <colgroup>
+
+                  <col className="print-col-crn" />
+
+                  <col className="print-col-course" />
+
+                  <col className="print-col-professor" />
+
+                  <col className="print-col-date" />
+
+                  <col className="print-col-period" />
+
+                  <col className="print-col-time" />
+
+                  <col className="print-col-time" />
+
+                  <col className="print-col-supervisor" />
+
+                </colgroup>
+
+                <thead>
+
+                  <tr>
 
                     <th>CRN</th>
 
+                    <th>Course Name</th>
+
+                    <th>Professor</th>
+
                     <th>Date</th>
 
-                    <th>
-                      Period
-                    </th>
+                    <th>Period</th>
 
                     <th>From</th>
 
                     <th>To</th>
 
-                    <th>
-                      Reason
-                    </th>
+                    <th>Supervisor</th>
+
                   </tr>
+
                 </thead>
 
                 <tbody>
-                  {conflicts.map(
-                    (
-                      conflict,
-                      index,
-                    ) => (
-                      <tr
-                        key={
-                          index
-                        }
+
+                  {filteredPlanData.length > 0 ? (
+
+                    filteredPlanData.map(
+                      (assignment, index) => {
+
+                        const rowId =
+                          getSessionGroupId(
+                            assignment
+                          );
+
+                        return (
+                          <tr
+                            key={`print-${rowId}-${index}`}
+                          >
+
+                            <td>
+                              {assignment.crn ?? "-"}
+                            </td>
+
+                            <td
+                              className="print-course-name"
+                              dir="auto"
+                            >
+                              {getCourseName(
+                                assignment
+                              )}
+                            </td>
+
+                            <td
+                              className="print-professor"
+                              dir="auto"
+                            >
+                              {getProfessorName(
+                                assignment
+                              )}
+                            </td>
+
+                            <td>
+                              {formatDate(
+                                assignment.date
+                              )}
+                            </td>
+
+                            <td>
+                              {getPeriod(
+                                assignment
+                              )}
+                            </td>
+
+                            <td>
+                              {formatTime(
+                                getTimeFrom(
+                                  assignment
+                                )
+                              )}
+                            </td>
+
+                            <td>
+                              {formatTime(
+                                getTimeTo(
+                                  assignment
+                                )
+                              )}
+                            </td>
+
+                            <td
+                              className="print-supervisor"
+                              dir="auto"
+                            >
+                              {getSupervisorName(
+                                assignment
+                              )}
+                            </td>
+
+                          </tr>
+                        );
+                      }
+                    )
+
+                  ) : (
+
+                    <tr>
+
+                      <td
+                        colSpan="8"
+                        className="print-no-results"
                       >
-                        <td>
-                          {conflict.session_group_id ??
-                            conflict.group_id ??
-                            "-"}
-                        </td>
+                        No assignments found.
+                      </td>
 
-                        <td>
-                          {conflict.crn ??
-                            "-"}
-                        </td>
+                    </tr>
 
-                        <td>
-                          {formatDate(
-                            conflict.date,
-                          )}
-                        </td>
-
-                        <td>
-                          {conflict.period_label ??
-                            conflict.period ??
-                            "-"}
-                        </td>
-
-                        <td>
-                          {formatTime(
-                            conflict.time_from ??
-                              conflict.timeFrom ??
-                              conflict.from,
-                          )}
-                        </td>
-
-                        <td>
-                          {formatTime(
-                            conflict.time_to ??
-                              conflict.timeTo ??
-                              conflict.to,
-                          )}
-                        </td>
-
-                        <td>
-                          <span className="reason-text">
-                            {conflict.reason ??
-                              conflict.message ??
-                              "Unable to assign"}
-                          </span>
-                        </td>
-                      </tr>
-                    ),
                   )}
+
                 </tbody>
+
               </table>
-            </div>
-          ) : (
-            <div className="no-conflicts">
-              <div className="success-check">
-                ✓
-              </div>
 
-              <div>
-                <strong>
-                  No conflicts
-                  found
-                </strong>
-
-                <p>
-                  All assignments
-                  were
-                  successfully
-                  distributed.
-                </p>
-              </div>
             </div>
-          )}
-        </section>
-      </main>
-    </div>
-  );
+
+          </div>
+
+        ) : (
+
+          <div className="no-plan-data">
+            ⚠️ No assignments found.
+          </div>
+
+        )}
+
+        {/* =================================================
+            PLAN ACTIONS
+            الأزرار أسفل جدول الخطة
+        ================================================= */}
+        <div className="plan-bottom-actions">
+
+          {/* Accept */}
+          <button
+            type="button"
+            className="btn btn-success"
+            disabled={
+              statusSaving ||
+              planStatus === "accepted"
+            }
+            onClick={() =>
+              changePlanStatus("accepted")
+            }
+          >
+
+            <span>✅</span>
+
+            <span>
+              {statusSaving &&
+              planStatus !== "accepted"
+                ? "جاري الحفظ..."
+                : "قبول الخطة"}
+            </span>
+
+          </button>
+
+          {/* Reject */}
+          <button
+            type="button"
+            className="btn btn-danger"
+            disabled={
+              statusSaving ||
+              planStatus === "rejected"
+            }
+            onClick={() =>
+              changePlanStatus("rejected")
+            }
+          >
+
+            <span>❌</span>
+
+            <span>
+              رفض الخطة
+            </span>
+
+          </button>
+
+          {/* Print */}
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={printPlan}
+          >
+
+            <span>🖨️</span>
+
+            <span>
+              طباعة الخطة
+            </span>
+
+          </button>
+
+          {/* Excel */}
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={downloadExcel}
+          >
+
+            <span>📥</span>
+
+            <span>
+              تحميل Excel
+            </span>
+
+          </button>
+
+        </div>
+
+      </section>
+
+      {/* =================================================
+          Conflicts
+      ================================================= */}
+      <section className="panel conflicts-panel">
+
+        <div className="panel-heading">
+
+          <div>
+
+            <h2>
+              ⚠️ Unassigned / Conflicts
+            </h2>
+
+            <p>
+              Items that could not be assigned
+              automatically
+            </p>
+
+          </div>
+
+          <span
+            className={
+              conflicts.length > 0
+                ? "conflict-count danger"
+                : "conflict-count success"
+            }
+          >
+            {conflicts.length}
+          </span>
+
+        </div>
+
+        {conflicts.length > 0 ? (
+
+          <div className="table-container">
+
+            <table className="conflicts-table">
+
+              <thead>
+
+                <tr>
+
+                  <th>
+                    Session Group
+                  </th>
+
+                  <th>
+                    CRN
+                  </th>
+
+                  <th>
+                    Date
+                  </th>
+
+                  <th>
+                    Period
+                  </th>
+
+                  <th>
+                    From
+                  </th>
+
+                  <th>
+                    To
+                  </th>
+
+                  <th>
+                    Reason
+                  </th>
+
+                </tr>
+
+              </thead>
+
+              <tbody>
+
+                {conflicts.map(
+                  (conflict, index) => (
+
+                    <tr key={index}>
+
+                      <td>
+                        {conflict.session_group_id ??
+                          conflict.group_id ??
+                          "-"}
+                      </td>
+
+                      <td>
+                        {conflict.crn ?? "-"}
+                      </td>
+
+                      <td>
+                        {formatDate(
+                          conflict.date
+                        )}
+                      </td>
+
+                      <td>
+                        {conflict.period_label ??
+                          conflict.period ??
+                          "-"}
+                      </td>
+
+                      <td>
+                        {formatTime(
+                          conflict.time_from ??
+                            conflict.timeFrom ??
+                            conflict.from
+                        )}
+                      </td>
+
+                      <td>
+                        {formatTime(
+                          conflict.time_to ??
+                            conflict.timeTo ??
+                            conflict.to
+                        )}
+                      </td>
+
+                      <td>
+
+                        <span className="reason-text">
+                          {conflict.reason ??
+                            conflict.message ??
+                            "Unable to assign"}
+                        </span>
+
+                      </td>
+
+                    </tr>
+
+                  )
+                )}
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        ) : (
+
+          <div className="no-conflicts">
+
+            <div className="success-check">
+              ✓
+            </div>
+
+            <div>
+
+              <strong>
+                No conflicts found
+              </strong>
+
+              <p>
+                All assignments were successfully
+                distributed.
+              </p>
+
+            </div>
+
+          </div>
+
+        )}
+
+      </section>
+
+    </main>
+
+  </div>
+);
 }
