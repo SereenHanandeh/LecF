@@ -206,8 +206,15 @@ const getSessionGroupId = (assignment) =>
   assignment.groupId ??
   null;
 
-const getSupervisorId = (assignment) =>
-  assignment.supervisor_id ?? assignment.supervisorId ?? null;
+const getSupervisorId = (assignment) => {
+  return (
+    assignment?.supervisor_id ??
+    assignment?.supervisorId ??
+    assignment?.supervisor?.id ??
+    assignment?.supervisorId?.id ??
+    null
+  );
+};
 
 const getSupervisorName = (assignment) =>
   assignment.supervisor_name ??
@@ -1070,31 +1077,26 @@ export default function PlanResult() {
   // Start Editing
   // =====================================================
 
+  const startEditing = (assignment) => {
+    const id = getSessionGroupId(assignment);
 
-const startEditing = (assignment) => {
-  const id = getSessionGroupId(assignment);
+    if (id === null || id === undefined || id === "") {
+      alert("❌ لا يمكن تعديل هذا السجل لأن Session Group ID غير موجود.");
+      return;
+    }
 
-  if (id === null || id === undefined || id === "") {
-    alert(
-      "❌ لا يمكن تعديل هذا السجل لأن Session Group ID غير موجود."
+    // المشرف الحالي فقط
+    const supervisorId = getSupervisorId(assignment);
+
+    setEditingId(String(id));
+
+    // مهم جدًا: نخزن ID وليس اسم المشرف
+    setEditingSupervisor(
+      supervisorId !== null && supervisorId !== undefined
+        ? String(supervisorId)
+        : "",
     );
-    return;
-  }
-
-  // المشرف الحالي فقط
-  const supervisorId = getSupervisorId(assignment);
-
-  setEditingId(String(id));
-
-  // مهم جدًا: نخزن ID وليس اسم المشرف
-  setEditingSupervisor(
-    supervisorId !== null && supervisorId !== undefined
-      ? String(supervisorId)
-      : ""
-  );
-};
-
-
+  };
 
   // =====================================================
   // Cancel Editing
@@ -1123,7 +1125,8 @@ const startEditing = (assignment) => {
     console.log("=================================");
 
     console.log("📌 planId:", planId);
-    console.log("📌 assignment:", assignment);
+
+    console.log("📌 assignment FULL:", JSON.stringify(assignment, null, 2));
 
     console.log("📌 sessionGroupId:", sessionGroupId);
 
