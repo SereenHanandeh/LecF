@@ -1919,38 +1919,56 @@ export default function PlanResult() {
                                     className="edit-supervisor-select"
                                     value={editingSupervisor ?? ""}
                                     onChange={(e) => {
-                                      const value = e.target.value;
-
                                       console.log(
                                         "🔵 SELECT CHANGED:",
-                                        value,
-                                        typeof value,
+                                        e.target.value,
+                                        typeof e.target.value,
                                       );
 
-                                      setEditingSupervisor(value);
+                                      setEditingSupervisor(e.target.value);
                                     }}
                                     disabled={
                                       isSaving || affinitySupervisorId !== null
                                     }
                                   >
-                                    <option value="">
-                                      -- Select Supervisor --
-                                    </option>
+                                    <option value="">اختر المشرف</option>
 
-                                    {supervisors.map((supervisor) => (
-                                      <option
-                                        key={supervisor.id}
-                                        value={String(supervisor.id)}
-                                      >
-                                        {supervisor.name ??
-                                          supervisor.supervisor_name ??
-                                          "-"}
-                                        {String(supervisor.id) ===
-                                        String(affinitySupervisorId)
-                                          ? " 🔗"
-                                          : ""}
-                                      </option>
-                                    ))}
+                                    {supervisors.map((supervisor) => {
+                                      // مهم: نحدد ID من نفس البيانات التي تأتي من الـ API
+                                      const supervisorId =
+                                        supervisor?.id ??
+                                        supervisor?.supervisor_id ??
+                                        supervisor?.supervisorId;
+
+                                      const supervisorName =
+                                        supervisor?.name ??
+                                        supervisor?.supervisor_name ??
+                                        supervisor?.full_name ??
+                                        "";
+
+                                      console.log("👤 SUPERVISOR OPTION:", {
+                                        supervisor,
+                                        supervisorId,
+                                        supervisorName,
+                                      });
+
+                                      // لا نعرض option إذا لم يكن له ID
+                                      if (
+                                        supervisorId === null ||
+                                        supervisorId === undefined
+                                      ) {
+                                        return null;
+                                      }
+
+                                      return (
+                                        <option
+                                          key={String(supervisorId)}
+                                          value={String(supervisorId)}
+                                        >
+                                          {supervisorName}
+                                        </option>
+                                      );
+                                    })}
                                   </select>
 
                                   {affinitySupervisorId !== null && (
