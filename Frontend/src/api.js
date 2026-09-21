@@ -162,4 +162,8 @@ export const unlockAssignment = (planId, sgId) =>
     .delete(`/plan/${planId}/lock/${sgId}`)
     .then((res) => res.data);
 
+
+export const deletePlan = (planId) =>
+  api.delete(`/plan/${planId}`).then((res) => res.data);
+
 export default api;

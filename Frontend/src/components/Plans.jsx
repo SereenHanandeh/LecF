@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Sidebar from "../components/Sidebar.jsx";
-import { getPlans } from "../api.js";
+import { getPlans, deletePlan } from "../api.js";
 
 import "../assets/Plan.css";
 
@@ -71,6 +71,15 @@ const Icons = {
     </svg>
   ),
 
+  trash: (
+    <svg viewBox="0 0 24 24">
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 15H6L5 6" />
+      <path d="M10 11v6M14 11v6" />
+    </svg>
+  ),
+
   arrow: (
     <svg viewBox="0 0 24 24">
       <path d="M9 18l6-6-6-6" />
@@ -106,23 +115,38 @@ function formatDateRange(from, to) {
   return `${formatDate(from)} — ${formatDate(to)}`;
 }
 
-function getStatus(plan) {
-  const assignments = Number(
-    plan.assignment_count ??
-      plan.assignments_count ??
-      plan.assignmentCount ??
-      0
-  );
+// =====================================================
+// Plan Status
+// =====================================================
 
-  if (assignments > 0) {
+function getPlanStatus(plan) {
+  return (
+    plan.status ??
+    plan.plan_status ??
+    plan.planStatus ??
+    "draft"
+  );
+}
+
+function getStatus(plan) {
+  const status = getPlanStatus(plan);
+
+  if (status === "accepted") {
     return {
-      label: "مكتملة",
+      label: "مقبولة",
       className: "status-complete",
     };
   }
 
+  if (status === "rejected") {
+    return {
+      label: "مرفوضة",
+      className: "status-rejected",
+    };
+  }
+
   return {
-    label: "غير مولدة",
+    label: "مسودة",
     className: "status-pending",
   };
 }
@@ -146,6 +170,8 @@ export default function Plans() {
 
   const [statusFilter, setStatusFilter] = useState("all");
 
+  const [deletingPlanId, setDeletingPlanId] = useState(null);
+
   // ===================================================
   // Load Plans
   // ===================================================
@@ -164,35 +190,18 @@ export default function Plans() {
 
       setError("");
 
-      // -------------------------------------------------
-      // جلب الخطط
-      // -------------------------------------------------
-
       const response = await getPlans();
 
       console.log("🟢 getPlans response:");
       console.log(response);
 
-      // -------------------------------------------------
-      // Backend عندك يرجع:
-      //
-      // {
-      //   success: true,
-      //   message: "...",
-      //   data: [...]
-      // }
-      // -------------------------------------------------
-
       let receivedPlans = [];
 
       if (Array.isArray(response)) {
-        // احتياط إذا الـ backend رجع Array مباشرة
         receivedPlans = response;
       } else if (Array.isArray(response?.data)) {
-        // الشكل الصحيح الحالي
         receivedPlans = response.data;
       } else if (Array.isArray(response?.plans)) {
-        // احتياط لو غيرنا شكل الـ API لاحقًا
         receivedPlans = response.plans;
       }
 
@@ -205,33 +214,13 @@ export default function Plans() {
       console.error("====================================");
 
       console.error("Full error:", err);
-
-      console.error(
-        "Response:",
-        err?.response
-      );
-
-      console.error(
-        "Response data:",
-        err?.response?.data
-      );
-
-      console.error(
-        "Status:",
-        err?.response?.status
-      );
-
-      console.error(
-        "Message:",
-        err?.message
-      );
-
-      // -------------------------------------------------
-      // رسالة الخطأ
-      // -------------------------------------------------
+      console.error("Response:", err?.response);
+      console.error("Response data:", err?.response?.data);
+      console.error("Status:", err?.response?.status);
+      console.error("Message:", err?.message);
 
       let errorMessage =
-        "تعذر تحميل الخطط السابقة.";
+        "تعذر تحميل الخطط المقبولة.";
 
       if (err?.code === "ECONNABORTED") {
         errorMessage =
@@ -249,8 +238,6 @@ export default function Plans() {
 
       setError(errorMessage);
 
-      // مهم:
-      // حتى لو صار Error لا نبقى على Loading
       setPlans([]);
     } finally {
       console.log("⚪ Finished loading plans");
@@ -269,13 +256,25 @@ export default function Plans() {
   }, []);
 
   // ===================================================
+  // Accepted Plans Only
+  // ===================================================
+
+  const acceptedPlans = useMemo(() => {
+    return plans.filter((plan) => {
+      const status = getPlanStatus(plan);
+
+      return status === "accepted";
+    });
+  }, [plans]);
+
+  // ===================================================
   // Filter
   // ===================================================
 
   const filteredPlans = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return plans.filter((plan) => {
+    return acceptedPlans.filter((plan) => {
       const name = String(
         plan.name || ""
       ).toLowerCase();
@@ -289,49 +288,22 @@ export default function Plans() {
         name.includes(query) ||
         id.includes(query);
 
-      const assignments = Number(
-        plan.assignment_count ??
-          plan.assignments_count ??
-          plan.assignmentCount ??
-          0
-      );
-
-      const matchesStatus =
-        statusFilter === "all" ||
-        (statusFilter === "complete" &&
-          assignments > 0) ||
-        (statusFilter === "pending" &&
-          assignments === 0);
-
-      return (
-        matchesSearch &&
-        matchesStatus
-      );
+      return matchesSearch;
     });
   }, [
-    plans,
+    acceptedPlans,
     search,
-    statusFilter,
   ]);
 
   // ===================================================
   // Stats
   // ===================================================
 
-  const totalPlans = plans.length;
+  const totalPlans = acceptedPlans.length;
 
-  const generatedPlans = plans.filter(
-    (plan) =>
-      Number(
-        plan.assignment_count ??
-          plan.assignments_count ??
-          plan.assignmentCount ??
-          0
-      ) > 0
-  ).length;
+  const generatedPlans = acceptedPlans.length;
 
-  const pendingPlans =
-    totalPlans - generatedPlans;
+  const pendingPlans = 0;
 
   // ===================================================
   // Excel
@@ -362,6 +334,62 @@ export default function Plans() {
     navigate(
       `/plan-result/${planId}`
     );
+  }
+
+  // ===================================================
+  // Delete Plan
+  // ===================================================
+
+  async function handleDeletePlan(planId) {
+    const confirmed = window.confirm(
+      "هل أنت متأكد من حذف هذه الخطة؟\n\nلا يمكن التراجع عن عملية الحذف."
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setDeletingPlanId(planId);
+      setError("");
+
+      console.log(
+        "🗑️ Deleting plan:",
+        planId
+      );
+
+      await deletePlan(planId);
+
+      // إزالة الخطة مباشرة من الواجهة
+      setPlans((prevPlans) =>
+        prevPlans.filter(
+          (plan) =>
+            Number(plan.id) !== Number(planId)
+        )
+      );
+
+      console.log(
+        "🟢 Plan deleted successfully:",
+        planId
+      );
+    } catch (err) {
+      console.error(
+        "🔴 DELETE PLAN ERROR:",
+        err
+      );
+
+      const errorMessage =
+        err?.response?.data?.error ??
+        err?.response?.data?.message ??
+        err?.message ??
+        "تعذر حذف الخطة.";
+
+      setError(errorMessage);
+
+      alert(errorMessage);
+    } finally {
+      setDeletingPlanId(null);
+    }
   }
 
   // ===================================================
@@ -398,16 +426,16 @@ export default function Plans() {
 
               <span>/</span>
 
-              الخطط السابقة
+              الخطط المقبولة
             </div>
 
             <h1>
-              الخطط السابقة
+              الخطط المقبولة
             </h1>
 
             <p>
               عرض وإدارة جميع خطط توزيع
-              المشرفين التي تم إنشاؤها.
+              المشرفين التي تم قبولها.
             </p>
 
           </div>
@@ -442,7 +470,7 @@ export default function Plans() {
             <div>
 
               <span>
-                إجمالي الخطط
+                إجمالي الخطط المقبولة
               </span>
 
               <strong>
@@ -462,7 +490,7 @@ export default function Plans() {
             <div>
 
               <span>
-                خطط مولدة
+                خطط مقبولة
               </span>
 
               <strong>
@@ -482,11 +510,11 @@ export default function Plans() {
             <div>
 
               <span>
-                بانتظار التوليد
+                الخطط المعروضة
               </span>
 
               <strong>
-                {pendingPlans}
+                {filteredPlans.length}
               </strong>
 
             </div>
@@ -523,46 +551,12 @@ export default function Plans() {
           <div className="plans-filters">
 
             <button
-              className={
-                statusFilter === "all"
-                  ? "filter-button active"
-                  : "filter-button"
-              }
+              className="filter-button active"
               onClick={() =>
                 setStatusFilter("all")
               }
             >
-              الكل
-            </button>
-
-            <button
-              className={
-                statusFilter === "complete"
-                  ? "filter-button active"
-                  : "filter-button"
-              }
-              onClick={() =>
-                setStatusFilter(
-                  "complete"
-                )
-              }
-            >
-              مكتملة
-            </button>
-
-            <button
-              className={
-                statusFilter === "pending"
-                  ? "filter-button active"
-                  : "filter-button"
-              }
-              onClick={() =>
-                setStatusFilter(
-                  "pending"
-                )
-              }
-            >
-              غير مولدة
+              المقبولة
             </button>
 
             <button
@@ -605,7 +599,7 @@ export default function Plans() {
               <div className="loading-spinner" />
 
               <span>
-                جاري تحميل الخطط...
+                جاري تحميل الخطط المقبولة...
               </span>
 
             </div>
@@ -663,25 +657,25 @@ export default function Plans() {
                 </div>
 
                 <h2>
-                  {plans.length === 0
-                    ? "لا توجد خطط حتى الآن"
+                  {acceptedPlans.length === 0
+                    ? "لا توجد خطط مقبولة حتى الآن"
                     : "لا توجد نتائج مطابقة"}
                 </h2>
 
                 <p>
-                  {plans.length === 0
-                    ? "أنشئي أول خطة توزيع للمشرفين وستظهر هنا."
-                    : "جربي تغيير كلمة البحث أو الفلتر."}
+                  {acceptedPlans.length === 0
+                    ? "عند قبول أي خطة ستظهر هنا."
+                    : "جربي تغيير كلمة البحث."}
                 </p>
 
-                {plans.length === 0 && (
+                {acceptedPlans.length === 0 && (
 
                   <button
                     onClick={() =>
                       navigate("/")
                     }
                   >
-                    إنشاء أول خطة
+                    إنشاء خطة جديدة
                   </button>
 
                 )}
@@ -761,6 +755,10 @@ export default function Plans() {
                               plan.assignmentCount ??
                               0
                           );
+
+                        const isDeleting =
+                          Number(deletingPlanId) ===
+                          Number(plan.id);
 
                         return (
 
@@ -917,6 +915,25 @@ export default function Plans() {
                                   {Icons.excel}
                                 </button>
 
+                                <button
+                                  className="action-delete"
+                                  onClick={() =>
+                                    handleDeletePlan(
+                                      plan.id
+                                    )
+                                  }
+                                  disabled={isDeleting}
+                                  title="حذف الخطة"
+                                >
+                                  {Icons.trash}
+
+                                  <span>
+                                    {isDeleting
+                                      ? "جاري الحذف..."
+                                      : "حذف"}
+                                  </span>
+                                </button>
+
                               </div>
 
                             </td>
@@ -949,7 +966,7 @@ export default function Plans() {
 
               <span>
                 عرض {filteredPlans.length} من{" "}
-                {plans.length} خطة
+                {acceptedPlans.length} خطة مقبولة
               </span>
 
               <span>
