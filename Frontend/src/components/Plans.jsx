@@ -196,14 +196,11 @@ export default function Plans() {
         receivedPlans = response.plans;
       }
 
-      console.log("📋 Received plans:", receivedPlans);
+      console.log("Received plans:", receivedPlans);
 
       setPlans(receivedPlans);
     } catch (err) {
-      console.error("====================================");
-      console.error("🔴 ERROR LOADING PLANS");
-      console.error("====================================");
-
+      console.error("ERROR LOADING PLANS");
       console.error("Full error:", err);
       console.error("Response:", err?.response);
       console.error("Response data:", err?.response?.data);
@@ -246,16 +243,8 @@ export default function Plans() {
   // ===================================================
 
  const acceptedPlans = useMemo(() => {
-  console.log("🟡 ALL PLANS:", plans);
-
   return plans.filter((plan) => {
     const status = getPlanStatus(plan);
-
-    console.log("🔵 PLAN:", {
-      id: plan.id,
-      name: plan.name,
-      status,
-    });
 
     return status === "accepted";
   });
