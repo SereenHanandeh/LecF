@@ -1,12 +1,10 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 import Sidebar from "../components/Sidebar.jsx";
 import { getPlans } from "../api.js";
-import "../assets/Plan.css";
 
-// =====================================================
-// API
-// =====================================================
+import "../assets/Plan.css";
 
 const API_BASE_URL = "http://localhost:5000";
 
@@ -108,76 +106,13 @@ function formatDateRange(from, to) {
   return `${formatDate(from)} — ${formatDate(to)}`;
 }
 
-// -----------------------------------------------------
-// Category
-// -----------------------------------------------------
-
-function getCategory(plan) {
-  return (
-    plan.category ??
-    plan.plan_category ??
-    plan.planCategory ??
-    ""
-  );
-}
-
-function getCategoryInfo(category) {
-  switch (category) {
-    case "مدمج":
-      return {
-        label: "مدمج",
-        className: "category-merged",
-      };
-
-    case "دبلوم":
-      return {
-        label: "دبلوم",
-        className: "category-diploma",
-      };
-
-    case "متطلبات":
-      return {
-        label: "متطلبات",
-        className: "category-requirements",
-      };
-
-    default:
-      return {
-        label: "غير محددة",
-        className: "category-unknown",
-      };
-  }
-}
-
-// -----------------------------------------------------
-// Counts
-// -----------------------------------------------------
-
-function getAssignmentCount(plan) {
-  return Number(
+function getStatus(plan) {
+  const assignments = Number(
     plan.assignment_count ??
       plan.assignments_count ??
       plan.assignmentCount ??
       0
   );
-}
-
-function getSupervisorCount(plan) {
-  return Number(
-    plan.supervisor_count ??
-      plan.supervisors_count ??
-      plan.selected_supervisors ??
-      plan.selectedSupervisorCount ??
-      0
-  );
-}
-
-// -----------------------------------------------------
-// Status
-// -----------------------------------------------------
-
-function getStatus(plan) {
-  const assignments = getAssignmentCount(plan);
 
   if (assignments > 0) {
     return {
@@ -200,20 +135,16 @@ export default function Plans() {
   const navigate = useNavigate();
 
   const [plans, setPlans] = useState([]);
+
   const [loading, setLoading] = useState(true);
+
   const [refreshing, setRefreshing] = useState(false);
+
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
 
-  // all | مدمج | دبلوم | متطلبات
-  const [categoryFilter, setCategoryFilter] = useState("all");
-
-  // all | complete | pending
   const [statusFilter, setStatusFilter] = useState("all");
-
-  const [downloadingExcelId, setDownloadingExcelId] =
-    useState(null);
 
   // ===================================================
   // Load Plans
@@ -233,18 +164,35 @@ export default function Plans() {
 
       setError("");
 
+      // -------------------------------------------------
+      // جلب الخطط
+      // -------------------------------------------------
+
       const response = await getPlans();
 
       console.log("🟢 getPlans response:");
       console.log(response);
 
+      // -------------------------------------------------
+      // Backend عندك يرجع:
+      //
+      // {
+      //   success: true,
+      //   message: "...",
+      //   data: [...]
+      // }
+      // -------------------------------------------------
+
       let receivedPlans = [];
 
       if (Array.isArray(response)) {
+        // احتياط إذا الـ backend رجع Array مباشرة
         receivedPlans = response;
       } else if (Array.isArray(response?.data)) {
+        // الشكل الصحيح الحالي
         receivedPlans = response.data;
       } else if (Array.isArray(response?.plans)) {
+        // احتياط لو غيرنا شكل الـ API لاحقًا
         receivedPlans = response.plans;
       }
 
@@ -257,16 +205,30 @@ export default function Plans() {
       console.error("====================================");
 
       console.error("Full error:", err);
-      console.error("Response:", err?.response);
+
+      console.error(
+        "Response:",
+        err?.response
+      );
+
       console.error(
         "Response data:",
         err?.response?.data
       );
+
       console.error(
         "Status:",
         err?.response?.status
       );
-      console.error("Message:", err?.message);
+
+      console.error(
+        "Message:",
+        err?.message
+      );
+
+      // -------------------------------------------------
+      // رسالة الخطأ
+      // -------------------------------------------------
 
       let errorMessage =
         "تعذر تحميل الخطط السابقة.";
@@ -281,12 +243,18 @@ export default function Plans() {
         errorMessage =
           err.response.data.message;
       } else if (err?.message) {
-        errorMessage = err.message;
+        errorMessage =
+          err.message;
       }
 
       setError(errorMessage);
+
+      // مهم:
+      // حتى لو صار Error لا نبقى على Loading
       setPlans([]);
     } finally {
+      console.log("⚪ Finished loading plans");
+
       setLoading(false);
       setRefreshing(false);
     }
@@ -316,144 +284,69 @@ export default function Plans() {
         plan.id || ""
       ).toLowerCase();
 
-      const category = getCategory(plan);
-
       const matchesSearch =
         !query ||
         name.includes(query) ||
-        id.includes(query) ||
-        category.toLowerCase().includes(query);
+        id.includes(query);
 
-      const matchesCategory =
-        categoryFilter === "all" ||
-        category === categoryFilter;
-
-      const assignmentCount =
-        getAssignmentCount(plan);
+      const assignments = Number(
+        plan.assignment_count ??
+          plan.assignments_count ??
+          plan.assignmentCount ??
+          0
+      );
 
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "complete" &&
-          assignmentCount > 0) ||
+          assignments > 0) ||
         (statusFilter === "pending" &&
-          assignmentCount === 0);
+          assignments === 0);
 
       return (
         matchesSearch &&
-        matchesCategory &&
         matchesStatus
       );
     });
   }, [
     plans,
     search,
-    categoryFilter,
     statusFilter,
   ]);
 
   // ===================================================
-  // Statistics
+  // Stats
   // ===================================================
 
   const totalPlans = plans.length;
 
   const generatedPlans = plans.filter(
-    (plan) => getAssignmentCount(plan) > 0
+    (plan) =>
+      Number(
+        plan.assignment_count ??
+          plan.assignments_count ??
+          plan.assignmentCount ??
+          0
+      ) > 0
   ).length;
 
   const pendingPlans =
     totalPlans - generatedPlans;
 
-  const mergedPlans = plans.filter(
-    (plan) => getCategory(plan) === "مدمج"
-  ).length;
-
-  const diplomaPlans = plans.filter(
-    (plan) => getCategory(plan) === "دبلوم"
-  ).length;
-
-  const requirementsPlans = plans.filter(
-    (plan) => getCategory(plan) === "متطلبات"
-  ).length;
-
   // ===================================================
-  // Download Excel
+  // Excel
   // ===================================================
 
-  async function downloadExcel(plan) {
-    const planId = plan?.id;
+  function downloadExcel(planId) {
+    const url =
+      `${API_BASE_URL}/exports/plan_${planId}.xlsx`;
 
-    if (!planId) {
-      alert("❌ رقم الخطة غير موجود.");
-      return;
-    }
+    console.log(
+      "📥 Download Excel:",
+      url
+    );
 
-    const url = `${API_BASE_URL}/exports/plan_${encodeURIComponent(
-      planId
-    )}.xlsx`;
-
-    console.log("====================================");
-    console.log("📥 DOWNLOAD EXCEL");
-    console.log("📌 planId:", planId);
-    console.log("🌐 URL:", url);
-    console.log("====================================");
-
-    try {
-      setDownloadingExcelId(planId);
-
-      const response = await fetch(url);
-
-      console.log(
-        "📡 Excel response status:",
-        response.status
-      );
-
-      if (!response.ok) {
-        throw new Error(
-          `Download failed: ${response.status}`
-        );
-      }
-
-      const blob = await response.blob();
-
-      if (!blob || blob.size === 0) {
-        throw new Error(
-          "Excel file is empty."
-        );
-      }
-
-      const blobUrl =
-        window.URL.createObjectURL(blob);
-
-      const link =
-        document.createElement("a");
-
-      link.href = blobUrl;
-      link.download = `plan_${planId}.xlsx`;
-
-      document.body.appendChild(link);
-
-      link.click();
-
-      link.remove();
-
-      window.URL.revokeObjectURL(blobUrl);
-
-      console.log(
-        "✅ Excel downloaded successfully"
-      );
-    } catch (err) {
-      console.error(
-        "❌ Excel download error:",
-        err
-      );
-
-      alert(
-        "❌ لم يتم تحميل ملف Excel.\n\nتأكدي أن ملف الخطة تم توليده وأن Backend يقوم بخدمة مجلد exports."
-      );
-    } finally {
-      setDownloadingExcelId(null);
-    }
+    window.open(url, "_blank");
   }
 
   // ===================================================
@@ -461,14 +354,14 @@ export default function Plans() {
   // ===================================================
 
   function openPlan(planId) {
-    if (!planId) return;
-
     console.log(
       "👁 Opening plan:",
       planId
     );
 
-    navigate(`/plan-result/${planId}`);
+    navigate(
+      `/plan-result/${planId}`
+    );
   }
 
   // ===================================================
@@ -480,7 +373,15 @@ export default function Plans() {
       className="plans-layout"
       dir="rtl"
     >
+      {/* =================================================
+          Sidebar
+      ================================================= */}
+
       <Sidebar />
+
+      {/* =================================================
+          Main
+      ================================================= */}
 
       <main className="plans-main">
 
@@ -490,11 +391,13 @@ export default function Plans() {
 
         <header className="plans-header">
 
-          <div className="plans-header-content">
+          <div>
 
             <div className="plans-breadcrumb">
               LectureFlow
+
               <span>/</span>
+
               الخطط السابقة
             </div>
 
@@ -511,7 +414,9 @@ export default function Plans() {
 
           <button
             className="new-plan-button"
-            onClick={() => navigate("/")}
+            onClick={() =>
+              navigate("/")
+            }
           >
             <span className="button-icon">
               {Icons.plus}
@@ -523,125 +428,69 @@ export default function Plans() {
         </header>
 
         {/* =================================================
-            Category Cards
-        ================================================= */}
-
-        <section className="plans-category-grid">
-
-          <button
-            className={`category-summary-card ${
-              categoryFilter === "مدمج"
-                ? "selected"
-                : ""
-            }`}
-            onClick={() =>
-              setCategoryFilter(
-                categoryFilter === "مدمج"
-                  ? "all"
-                  : "مدمج"
-              )
-            }
-          >
-            <div className="category-summary-icon category-icon-merged">
-              📚
-            </div>
-
-            <div>
-              <span>مدمج</span>
-              <strong>{mergedPlans}</strong>
-              <small>خطة</small>
-            </div>
-          </button>
-
-          <button
-            className={`category-summary-card ${
-              categoryFilter === "دبلوم"
-                ? "selected"
-                : ""
-            }`}
-            onClick={() =>
-              setCategoryFilter(
-                categoryFilter === "دبلوم"
-                  ? "all"
-                  : "دبلوم"
-              )
-            }
-          >
-            <div className="category-summary-icon category-icon-diploma">
-              🎓
-            </div>
-
-            <div>
-              <span>دبلوم</span>
-              <strong>{diplomaPlans}</strong>
-              <small>خطة</small>
-            </div>
-          </button>
-
-          <button
-            className={`category-summary-card ${
-              categoryFilter === "متطلبات"
-                ? "selected"
-                : ""
-            }`}
-            onClick={() =>
-              setCategoryFilter(
-                categoryFilter === "متطلبات"
-                  ? "all"
-                  : "متطلبات"
-              )
-            }
-          >
-            <div className="category-summary-icon category-icon-requirements">
-              📋
-            </div>
-
-            <div>
-              <span>متطلبات</span>
-              <strong>{requirementsPlans}</strong>
-              <small>خطة</small>
-            </div>
-          </button>
-
-        </section>
-
-        {/* =================================================
-            General Statistics
+            Statistics
         ================================================= */}
 
         <section className="plans-stat-grid">
 
           <div className="plan-stat-card">
+
             <div className="plan-stat-icon blue">
               {Icons.assignments}
             </div>
 
             <div>
-              <span>إجمالي الخطط</span>
-              <strong>{totalPlans}</strong>
+
+              <span>
+                إجمالي الخطط
+              </span>
+
+              <strong>
+                {totalPlans}
+              </strong>
+
             </div>
+
           </div>
 
           <div className="plan-stat-card">
+
             <div className="plan-stat-icon green">
               {Icons.calendar}
             </div>
 
             <div>
-              <span>خطط مولدة</span>
-              <strong>{generatedPlans}</strong>
+
+              <span>
+                خطط مولدة
+              </span>
+
+              <strong>
+                {generatedPlans}
+              </strong>
+
             </div>
+
           </div>
 
           <div className="plan-stat-card">
+
             <div className="plan-stat-icon orange">
               {Icons.refresh}
             </div>
 
             <div>
-              <span>بانتظار التوليد</span>
-              <strong>{pendingPlans}</strong>
+
+              <span>
+                بانتظار التوليد
+              </span>
+
+              <strong>
+                {pendingPlans}
+              </strong>
+
             </div>
+
           </div>
 
         </section>
@@ -660,152 +509,82 @@ export default function Plans() {
 
             <input
               type="text"
-              placeholder="ابحث باسم الخطة أو رقمها أو الفئة..."
+              placeholder="ابحث باسم الخطة أو رقمها..."
               value={search}
               onChange={(e) =>
-                setSearch(e.target.value)
+                setSearch(
+                  e.target.value
+                )
               }
             />
 
           </div>
 
-          {/* Category Filters */}
+          <div className="plans-filters">
 
-          <div className="plans-filter-section">
-
-            <span className="filter-title">
-              الفئة:
-            </span>
-
-            <div className="plans-filters">
-
-              <button
-                className={
-                  categoryFilter === "all"
-                    ? "filter-button active"
-                    : "filter-button"
-                }
-                onClick={() =>
-                  setCategoryFilter("all")
-                }
-              >
-                الكل
-              </button>
-
-              <button
-                className={
-                  categoryFilter === "مدمج"
-                    ? "filter-button active"
-                    : "filter-button"
-                }
-                onClick={() =>
-                  setCategoryFilter("مدمج")
-                }
-              >
-                مدمج
-              </button>
-
-              <button
-                className={
-                  categoryFilter === "دبلوم"
-                    ? "filter-button active"
-                    : "filter-button"
-                }
-                onClick={() =>
-                  setCategoryFilter("دبلوم")
-                }
-              >
-                دبلوم
-              </button>
-
-              <button
-                className={
-                  categoryFilter === "متطلبات"
-                    ? "filter-button active"
-                    : "filter-button"
-                }
-                onClick={() =>
-                  setCategoryFilter("متطلبات")
-                }
-              >
-                متطلبات
-              </button>
-
-            </div>
-
-          </div>
-
-          {/* Status Filters */}
-
-          <div className="plans-filter-section">
-
-            <span className="filter-title">
-              الحالة:
-            </span>
-
-            <div className="plans-filters">
-
-              <button
-                className={
-                  statusFilter === "all"
-                    ? "filter-button active"
-                    : "filter-button"
-                }
-                onClick={() =>
-                  setStatusFilter("all")
-                }
-              >
-                الكل
-              </button>
-
-              <button
-                className={
-                  statusFilter === "complete"
-                    ? "filter-button active"
-                    : "filter-button"
-                }
-                onClick={() =>
-                  setStatusFilter("complete")
-                }
-              >
-                مكتملة
-              </button>
-
-              <button
-                className={
-                  statusFilter === "pending"
-                    ? "filter-button active"
-                    : "filter-button"
-                }
-                onClick={() =>
-                  setStatusFilter("pending")
-                }
-              >
-                غير مولدة
-              </button>
-
-            </div>
-
-          </div>
-
-          <button
-            className="refresh-button"
-            onClick={() =>
-              loadPlans(true)
-            }
-            disabled={refreshing}
-            title="تحديث"
-          >
-            <span
+            <button
               className={
-                refreshing
-                  ? "refresh-spinning"
-                  : ""
+                statusFilter === "all"
+                  ? "filter-button active"
+                  : "filter-button"
+              }
+              onClick={() =>
+                setStatusFilter("all")
               }
             >
-              {Icons.refresh}
-            </span>
-          </button>
+              الكل
+            </button>
+
+            <button
+              className={
+                statusFilter === "complete"
+                  ? "filter-button active"
+                  : "filter-button"
+              }
+              onClick={() =>
+                setStatusFilter(
+                  "complete"
+                )
+              }
+            >
+              مكتملة
+            </button>
+
+            <button
+              className={
+                statusFilter === "pending"
+                  ? "filter-button active"
+                  : "filter-button"
+              }
+              onClick={() =>
+                setStatusFilter(
+                  "pending"
+                )
+              }
+            >
+              غير مولدة
+            </button>
+
+            <button
+              className="refresh-button"
+              onClick={() =>
+                loadPlans(true)
+              }
+              disabled={refreshing}
+              title="تحديث"
+            >
+              <span
+                className={
+                  refreshing
+                    ? "refresh-spinning"
+                    : ""
+                }
+              >
+                {Icons.refresh}
+              </span>
+            </button>
+
+          </div>
 
         </section>
 
@@ -815,20 +594,30 @@ export default function Plans() {
 
         <section className="plans-table-card">
 
-          {/* Loading */}
+          {/* =================================================
+              Loading
+          ================================================= */}
 
           {loading && (
+
             <div className="plans-loading">
+
               <div className="loading-spinner" />
+
               <span>
                 جاري تحميل الخطط...
               </span>
+
             </div>
+
           )}
 
-          {/* Error */}
+          {/* =================================================
+              Error
+          ================================================= */}
 
           {!loading && error && (
+
             <div className="plans-error">
 
               <div className="error-symbol">
@@ -836,6 +625,7 @@ export default function Plans() {
               </div>
 
               <div>
+
                 <strong>
                   حدث خطأ أثناء تحميل الخطط
                 </strong>
@@ -843,6 +633,7 @@ export default function Plans() {
                 <span>
                   {error}
                 </span>
+
               </div>
 
               <button
@@ -854,9 +645,12 @@ export default function Plans() {
               </button>
 
             </div>
+
           )}
 
-          {/* Empty */}
+          {/* =================================================
+              Empty
+          ================================================= */}
 
           {!loading &&
             !error &&
@@ -877,10 +671,11 @@ export default function Plans() {
                 <p>
                   {plans.length === 0
                     ? "أنشئي أول خطة توزيع للمشرفين وستظهر هنا."
-                    : "جربي تغيير كلمة البحث أو الفلترة."}
+                    : "جربي تغيير كلمة البحث أو الفلتر."}
                 </p>
 
                 {plans.length === 0 && (
+
                   <button
                     onClick={() =>
                       navigate("/")
@@ -888,12 +683,16 @@ export default function Plans() {
                   >
                     إنشاء أول خطة
                   </button>
+
                 )}
 
               </div>
+
             )}
 
-          {/* Table */}
+          {/* =================================================
+              Table
+          ================================================= */}
 
           {!loading &&
             !error &&
@@ -904,16 +703,39 @@ export default function Plans() {
                 <table className="plans-table">
 
                   <thead>
+
                     <tr>
-                      <th>الخطة</th>
-                      <th>الفئة</th>
-                      <th>الفترة</th>
-                      <th>المشرفون</th>
-                      <th>التعيينات</th>
-                      <th>الحالة</th>
-                      <th>تاريخ الإنشاء</th>
-                      <th>الإجراءات</th>
+
+                      <th>
+                        الخطة
+                      </th>
+
+                      <th>
+                        الفترة
+                      </th>
+
+                      <th>
+                        المشرفون
+                      </th>
+
+                      <th>
+                        التعيينات
+                      </th>
+
+                      <th>
+                        الحالة
+                      </th>
+
+                      <th>
+                        تاريخ الإنشاء
+                      </th>
+
+                      <th>
+                        الإجراءات
+                      </th>
+
                     </tr>
+
                   </thead>
 
                   <tbody>
@@ -924,27 +746,21 @@ export default function Plans() {
                         const status =
                           getStatus(plan);
 
-                        const category =
-                          getCategory(plan);
-
-                        const categoryInfo =
-                          getCategoryInfo(
-                            category
-                          );
-
                         const supervisorCount =
-                          getSupervisorCount(
-                            plan
+                          Number(
+                            plan.supervisor_count ??
+                              plan.supervisors_count ??
+                              plan.selected_supervisors ??
+                              0
                           );
 
                         const assignmentCount =
-                          getAssignmentCount(
-                            plan
+                          Number(
+                            plan.assignment_count ??
+                              plan.assignments_count ??
+                              plan.assignmentCount ??
+                              0
                           );
-
-                        const isDownloading =
-                          downloadingExcelId ===
-                          plan.id;
 
                         return (
 
@@ -976,19 +792,6 @@ export default function Plans() {
                                 </div>
 
                               </div>
-
-                            </td>
-
-                            {/* Category */}
-
-                            <td>
-
-                              <span
-                                className={`category-badge ${categoryInfo.className}`}
-                              >
-                                <i />
-                                {categoryInfo.label}
-                              </span>
 
                             </td>
 
@@ -1050,10 +853,15 @@ export default function Plans() {
                             <td>
 
                               <span
-                                className={`plan-status ${status.className}`}
+                                className={
+                                  `plan-status ${status.className}`
+                                }
                               >
+
                                 <i />
+
                                 {status.label}
+
                               </span>
 
                             </td>
@@ -1077,7 +885,6 @@ export default function Plans() {
                               <div className="plan-actions">
 
                                 <button
-                                  type="button"
                                   className="action-view"
                                   onClick={() =>
                                     openPlan(
@@ -1086,44 +893,28 @@ export default function Plans() {
                                   }
                                   title="فتح الخطة"
                                 >
+
                                   {Icons.eye}
 
                                   <span>
                                     فتح
                                   </span>
+
                                 </button>
 
                                 <button
-                                  type="button"
-                                  className={`action-excel ${
-                                    isDownloading
-                                      ? "downloading"
-                                      : ""
-                                  }`}
+                                  className="action-excel"
                                   onClick={() =>
                                     downloadExcel(
-                                      plan
+                                      plan.id
                                     )
                                   }
                                   disabled={
-                                    assignmentCount ===
-                                      0 ||
-                                    isDownloading
+                                    assignmentCount === 0
                                   }
-                                  title={
-                                    assignmentCount ===
-                                    0
-                                      ? "الخطة لا تحتوي على تعيينات"
-                                      : "تحميل Excel"
-                                  }
+                                  title="تحميل Excel"
                                 >
                                   {Icons.excel}
-
-                                  {isDownloading && (
-                                    <span className="excel-loading-dot">
-                                      ...
-                                    </span>
-                                  )}
                                 </button>
 
                               </div>
@@ -1157,21 +948,12 @@ export default function Plans() {
             <div className="plans-footer">
 
               <span>
-                عرض{" "}
-                <strong>
-                  {filteredPlans.length}
-                </strong>{" "}
-                من{" "}
-                <strong>
-                  {plans.length}
-                </strong>{" "}
-                خطة
+                عرض {filteredPlans.length} من{" "}
+                {plans.length} خطة
               </span>
 
               <span>
-                {categoryFilter === "all"
-                  ? "جميع الفئات"
-                  : `الفئة: ${categoryFilter}`}
+                LectureFlow
               </span>
 
             </div>
@@ -1179,6 +961,7 @@ export default function Plans() {
           )}
 
       </main>
+
     </div>
   );
 }
