@@ -1066,3 +1066,65 @@
     animation-duration: 0.01ms !important;
   }
 }
+/* =========================================
+   PRINT STYLES
+   ========================================= */
+
+@media print {
+  /* إخفاء كل ما لا نريده في الطباعة */
+  .plan-bottom-actions,
+  .action-column,
+  .edit-btn,
+  .save-btn,
+  .cancel-btn,
+  .edit-actions,
+  button {
+    display: none !important;
+  }
+
+  /* إخفاء جدول الشاشة أثناء الطباعة */
+  .screen-plan-table {
+    display: none !important;
+  }
+
+  /* إظهار جدول الطباعة فقط */
+  .print-only-table {
+    display: block !important;
+  }
+
+  /* التأكد أن جدول الطباعة لا يحتوي على Session Group */
+  .print-table th:first-child,
+  .print-table td:first-child {
+    /* أول عمود هو CRN */
+    display: table-cell !important;
+  }
+
+  /* منع أي أعمدة إضافية من الظهور */
+  .print-table {
+    width: 100% !important;
+  }
+
+  /* لا تظهر عناصر الواجهة الخاصة بالشاشة */
+  .columns-panel,
+  .filters-panel,
+  .statistics-panel,
+  .selected-supervisor-banner,
+  .conflicts-panel,
+  .plan-header-actions {
+    display: none !important;
+  }
+}
+
+.print-only-table {
+  display: none;
+}
+
+@media print {
+  .screen-plan-table {
+    display: none !important;
+  }
+
+  .print-only-table {
+    display: block !important;
+  }
+}

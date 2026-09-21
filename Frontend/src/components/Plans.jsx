@@ -289,19 +289,6 @@ const filteredPlans = useMemo(() => {
   // Stats
   // ===================================================
   const totalPlans = acceptedPlans.length;
-
-  // ===================================================
-  // Excel
-  // ===================================================
-
-  function downloadExcel(planId) {
-    const url = `${API_BASE_URL}/exports/plan_${planId}.xlsx`;
-
-    console.log("📥 Download Excel:", url);
-
-    window.open(url, "_blank");
-  }
-
   // ===================================================
   // Open Plan
   // ===================================================
@@ -665,15 +652,6 @@ const filteredPlans = useMemo(() => {
                               {Icons.eye}
 
                               <span>فتح</span>
-                            </button>
-
-                            <button
-                              className="action-excel"
-                              onClick={() => downloadExcel(plan.id)}
-                              disabled={assignmentCount === 0}
-                              title="تحميل Excel"
-                            >
-                              {Icons.excel}
                             </button>
 
                             <button
