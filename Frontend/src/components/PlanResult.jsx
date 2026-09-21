@@ -5,13 +5,21 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useLocation, useParams } from "react-router-dom";
+
+import {
+  useLocation,
+  useNavigate,
+  useParams,
+} from "react-router-dom";
+
+import * as XLSX from "xlsx";
+
 import "../assets/planResult.css";
+
 import {
   getPlan,
   listSupervisors,
   moveAssignment,
-  getPlanExportUrl,
   updatePlanStatus,
 } from "../api.js";
 
@@ -250,13 +258,14 @@ const getPeriod = (assignment) =>
 
 export default function PlanResult() {
   const location = useLocation();
+  const navigate = useNavigate();
+
   const { planId: routePlanId } = useParams();
 
   const statePlanId = location.state?.planId;
 
   const planId = routePlanId || statePlanId;
 
-  const downloadUrl = location.state?.downloadUrl;
 
   // =====================================================
   // State
@@ -2070,40 +2079,151 @@ export default function PlanResult() {
   // Download Excel
   // =====================================================
 
-  const downloadExcel = () => {
-    const finalDownloadUrl =
-      downloadUrl ||
-      getPlanExportUrl(planId);
+// =====================================================
+// Download Excel - Current Filtered Data
+// =====================================================
 
-    if (!finalDownloadUrl) {
+const downloadExcel = () => {
+  try {
+    // =================================================
+    // نستخدم البيانات الموجودة حاليًا بعد الفلترة
+    // وليس كامل الخطة
+    // =================================================
+
+    const rowsToExport =
+      filteredPlanData.map(
+        (assignment) => ({
+          CRN:
+            assignment.crn ?? "-",
+
+          Professor:
+            getProfessorName(
+              assignment,
+            ),
+
+          Date:
+            formatDate(
+              assignment.date,
+            ),
+
+          Period:
+            getPeriod(
+              assignment,
+            ),
+
+          From:
+            formatTime(
+              getTimeFrom(
+                assignment,
+              ),
+            ),
+
+          To:
+            formatTime(
+              getTimeTo(
+                assignment,
+              ),
+            ),
+
+          Supervisor:
+            getSupervisorName(
+              assignment,
+            ),
+        }),
+      );
+
+    // =================================================
+    // لا توجد نتائج
+    // =================================================
+
+    if (
+      rowsToExport.length === 0
+    ) {
       alert(
-        "⚠️ Excel download link is not available.",
+        "⚠️ لا توجد بيانات لتنزيلها حسب الفلتر الحالي.",
       );
 
       return;
     }
 
-    const link =
-      document.createElement(
-        "a",
+    // =================================================
+    // إنشاء Worksheet
+    // =================================================
+
+    const worksheet =
+      XLSX.utils.json_to_sheet(
+        rowsToExport,
       );
 
-    link.href =
-      finalDownloadUrl;
+    // =================================================
+    // ترتيب وعرض الأعمدة
+    // =================================================
 
-    link.download = `plan_${planId}.xlsx`;
+    worksheet["!cols"] = [
+      {
+        wch: 15,
+      },
+      {
+        wch: 30,
+      },
+      {
+        wch: 15,
+      },
+      {
+        wch: 15,
+      },
+      {
+        wch: 12,
+      },
+      {
+        wch: 12,
+      },
+      {
+        wch: 30,
+      },
+    ];
 
-    document.body.appendChild(
-      link,
+    // =================================================
+    // إنشاء Workbook
+    // =================================================
+
+    const workbook =
+      XLSX.utils.book_new();
+
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Plan",
     );
 
-    link.click();
+    // =================================================
+    // اسم الملف
+    // =================================================
 
-    document.body.removeChild(
-      link,
+    const fileName =
+      filterSupervisor
+        ? `plan_${planId}_${filterSupervisor}.xlsx`
+        : `plan_${planId}_filtered.xlsx`;
+
+    // =================================================
+    // تنزيل الملف
+    // =================================================
+
+    XLSX.writeFile(
+      workbook,
+      fileName,
     );
-  };
+  } catch (err) {
+    console.error(
+      "❌ Excel download error:",
+      err,
+    );
 
+    alert(
+      "❌ حدث خطأ أثناء إنشاء ملف Excel.",
+    );
+  }
+};
   // =====================================================
   // No Plan
   // =====================================================
@@ -2199,26 +2319,38 @@ export default function PlanResult() {
           ================================================= */}
 
           <div className="plan-header-actions">
-            <span
-              className={
-                planStatus ===
-                "accepted"
-                  ? "status-badge status-accepted"
-                  : planStatus ===
-                    "rejected"
-                    ? "status-badge status-rejected"
-                    : "status-badge status-draft"
-              }
-            >
-              {planStatus ===
-              "accepted"
-                ? "✅ مقبولة"
-                : planStatus ===
-                  "rejected"
-                  ? "❌ مرفوضة"
-                  : "📝 مسودة"}
-            </span>
-          </div>
+
+  {/* زر الرجوع للصفحة الرئيسية */}
+  <button
+    type="button"
+    className="back-home-btn"
+    onClick={() => navigate("/")}
+  >
+    🏠 الصفحة الرئيسية
+  </button>
+
+  {/* حالة الخطة */}
+  <span
+    className={
+      planStatus ===
+      "accepted"
+        ? "status-badge status-accepted"
+        : planStatus ===
+          "rejected"
+          ? "status-badge status-rejected"
+          : "status-badge status-draft"
+    }
+  >
+    {planStatus ===
+    "accepted"
+      ? "✅ مقبولة"
+      : planStatus ===
+        "rejected"
+        ? "❌ مرفوضة"
+        : "📝 مسودة"}
+  </span>
+
+</div>
         </div>
       </header>
 

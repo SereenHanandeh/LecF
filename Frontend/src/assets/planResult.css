@@ -1128,3 +1128,146 @@
     display: block !important;
   }
 }
+
+/* =====================================================
+   PRINT
+   ===================================================== */
+
+/* جدول الطباعة مخفي أثناء الاستخدام العادي */
+.print-only-table {
+  display: none;
+}
+
+
+/* =====================================================
+   Print Mode
+   ===================================================== */
+
+@media print {
+
+  /* ---------------------------------------------
+     إخفاء العناصر التي لا نريد طباعتها
+     --------------------------------------------- */
+
+  .plan-bottom-actions,
+  .action-column,
+  .edit-btn,
+  .save-btn,
+  .cancel-btn,
+  .edit-actions,
+  button,
+  .filters-panel,
+  .statistics-panel,
+  .columns-panel,
+  .selected-supervisor-banner,
+  .conflicts-panel,
+  .plan-header-actions,
+  .assignment-count {
+    display: none !important;
+  }
+
+
+  /* ---------------------------------------------
+     إخفاء جدول الشاشة
+     --------------------------------------------- */
+
+  .screen-plan-table {
+    display: none !important;
+  }
+
+
+  /* ---------------------------------------------
+     إظهار جدول الطباعة
+     --------------------------------------------- */
+
+  .print-only-table {
+    display: block !important;
+  }
+
+  .print-only-table .print-table {
+    display: table !important;
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+
+  /* ---------------------------------------------
+     تنسيق جدول الطباعة
+     --------------------------------------------- */
+
+  .print-table th,
+  .print-table td {
+    border: 1px solid #000 !important;
+    padding: 6px !important;
+    text-align: center !important;
+  }
+
+  .print-table th {
+    font-weight: bold !important;
+  }
+
+
+  /* ---------------------------------------------
+     إخفاء Session Group
+     ---------------------------------------------
+     
+     جدول الطباعة عندك أصلاً لا يحتوي عليه،
+     لكن هذه حماية إضافية.
+     --------------------------------------------- */
+
+
+  /* ---------------------------------------------
+     إخفاء أشياء إضافية من الصفحة
+     --------------------------------------------- */
+
+  .plan-header-actions {
+    display: none !important;
+  }
+
+
+  /* ---------------------------------------------
+     الصفحة بعرض كامل
+     --------------------------------------------- */
+
+  .plan-page,
+  .plan-content,
+  .assignments-panel,
+  .table-container {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+
+  /* ---------------------------------------------
+     منع بعض العناصر من أخذ مساحة
+     --------------------------------------------- */
+
+  .plan-bottom-actions {
+    height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+
+  /* ---------------------------------------------
+     عنوان الصفحة
+     --------------------------------------------- */
+
+  .plan-header {
+    box-shadow: none !important;
+    margin-bottom: 15px !important;
+  }
+
+
+  /* ---------------------------------------------
+     تحسين الطباعة
+     --------------------------------------------- */
+
+  @page {
+    size: landscape;
+    margin: 10mm;
+  }
+
+}
