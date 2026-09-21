@@ -1070,43 +1070,31 @@ export default function PlanResult() {
   // Start Editing
   // =====================================================
 
-  const startEditing = (assignment) => {
-    const id = getSessionGroupId(assignment);
 
-    console.log("=================================");
-    console.log("✏️ EDIT BUTTON CLICKED");
-    console.log("📦 assignment:", assignment);
-    console.log("🆔 sessionGroupId:", id);
-    console.log("👤 current supervisor:", getSupervisorId(assignment));
+const startEditing = (assignment) => {
+  const id = getSessionGroupId(assignment);
 
-    const affinitySupervisorId = getProfessorAffinitySupervisorId(assignment);
-
-    console.log("🔗 affinity supervisor:", affinitySupervisorId);
-
-    if (id === null || id === undefined || id === "") {
-      console.error("❌ Cannot edit: Session Group ID is missing", assignment);
-
-      alert("❌ لا يمكن تعديل هذا السجل لأن Session Group ID غير موجود.");
-
-      return;
-    }
-
-    const supervisorId = affinitySupervisorId ?? getSupervisorId(assignment);
-
-    console.log("🎯 supervisor selected for editing:", supervisorId);
-
-    setEditingId(String(id));
-
-    setEditingSupervisor(
-      supervisorId !== null && supervisorId !== undefined
-        ? String(supervisorId)
-        : "",
+  if (id === null || id === undefined || id === "") {
+    alert(
+      "❌ لا يمكن تعديل هذا السجل لأن Session Group ID غير موجود."
     );
+    return;
+  }
 
-    console.log("✅ Editing started for:", String(id));
+  // المشرف الحالي فقط
+  const supervisorId = getSupervisorId(assignment);
 
-    console.log("=================================");
-  };
+  setEditingId(String(id));
+
+  // مهم جدًا: نخزن ID وليس اسم المشرف
+  setEditingSupervisor(
+    supervisorId !== null && supervisorId !== undefined
+      ? String(supervisorId)
+      : ""
+  );
+};
+
+
 
   // =====================================================
   // Cancel Editing
