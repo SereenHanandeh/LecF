@@ -1075,33 +1075,63 @@ export default function PlanResult() {
 
   // =====================================================
   // Start Editing
-  // =====================================================
 
+  const startEditing = (assignment) => {
+    const sessionGroupId =
+      assignment?.session_group_id ??
+      assignment?.sessionGroupId ??
+      assignment?.group_id ??
+      assignment?.groupId;
 
-const startEditing = (assignment) => {
-  const sessionGroupId =
-    assignment?.session_group_id ??
-    assignment?.sessionGroupId;
+    const currentSupervisorId =
+      assignment?.supervisor_id ?? assignment?.supervisorId ?? null;
 
-  const currentSupervisorId =
-    assignment?.supervisor_id ??
-    assignment?.supervisorId ??
-    null;
+    console.log("=================================");
+    console.log("✏️ EDIT BUTTON CLICKED");
+    console.log("📦 assignment FULL:", JSON.stringify(assignment, null, 2));
+    console.log("🆔 sessionGroupId:", sessionGroupId);
+    console.log(
+      "👤 currentSupervisorId:",
+      currentSupervisorId,
+      typeof currentSupervisorId,
+    );
 
-  console.log("🟢 BEFORE SET");
-  console.log("sessionGroupId:", sessionGroupId);
-  console.log("currentSupervisorId:", currentSupervisorId);
+    if (
+      sessionGroupId === null ||
+      sessionGroupId === undefined ||
+      sessionGroupId === ""
+    ) {
+      console.error("❌ Session Group ID is missing");
+      alert("❌ Session Group ID is missing.");
+      return;
+    }
 
-  setEditingId(String(sessionGroupId));
+    if (
+      currentSupervisorId === null ||
+      currentSupervisorId === undefined ||
+      currentSupervisorId === "" ||
+      !Number.isInteger(Number(currentSupervisorId))
+    ) {
+      console.error("❌ Supervisor ID is missing");
+      alert("❌ Current Supervisor ID is missing.");
+      return;
+    }
 
-  setEditingSupervisor(String(currentSupervisorId));
+    const supervisorIdString = String(currentSupervisorId);
+    const sessionGroupIdString = String(sessionGroupId);
 
-  // نتحقق بعد إعادة الـ render من القيمة الفعلية
-  console.log(
-    "🟢 SET editingSupervisor TO:",
-    String(currentSupervisorId)
-  );
-};
+    console.log(
+      "🎯 ABOUT TO SET editingSupervisor:",
+      supervisorIdString,
+      typeof supervisorIdString,
+    );
+
+    setEditingId(sessionGroupIdString);
+    setEditingSupervisor(supervisorIdString);
+
+    console.log("✅ editingSupervisor SHOULD BE:", supervisorIdString);
+    console.log("=================================");
+  };
 
   // =====================================================
   // Cancel Editing
@@ -1892,12 +1922,24 @@ const startEditing = (assignment) => {
                               {isEditing ? (
                                 <div>
                                   <select
+                                    className="edit-supervisor-select"
                                     value={editingSupervisor}
-                                    onChange={(e) =>
-                                      setEditingSupervisor(e.target.value)
+                                    onChange={(e) => {
+                                      console.log(
+                                        "🔵 SELECT onChange:",
+                                        e.target.value,
+                                        typeof e.target.value,
+                                      );
+
+                                      setEditingSupervisor(e.target.value);
+                                    }}
+                                    disabled={
+                                      isSaving || affinitySupervisorId !== null
                                     }
                                   >
-                                    <option value="">اختر المشرف</option>
+                                    <option value="">
+                                      -- Select Supervisor --
+                                    </option>
 
                                     {supervisors.map((supervisor) => (
                                       <option
@@ -1906,7 +1948,11 @@ const startEditing = (assignment) => {
                                       >
                                         {supervisor.name ??
                                           supervisor.supervisor_name ??
-                                          supervisor.full_name}
+                                          "-"}
+                                        {String(supervisor.id) ===
+                                        String(affinitySupervisorId)
+                                          ? " 🔗"
+                                          : ""}
                                       </option>
                                     ))}
                                   </select>
