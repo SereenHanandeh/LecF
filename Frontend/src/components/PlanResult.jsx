@@ -1101,7 +1101,6 @@ export default function PlanResult() {
       sessionGroupId === undefined ||
       sessionGroupId === ""
     ) {
-      console.error("❌ Session Group ID is missing");
       alert("❌ Session Group ID is missing.");
       return;
     }
@@ -1112,24 +1111,24 @@ export default function PlanResult() {
       currentSupervisorId === "" ||
       !Number.isInteger(Number(currentSupervisorId))
     ) {
-      console.error("❌ Supervisor ID is missing");
       alert("❌ Current Supervisor ID is missing.");
       return;
     }
 
-    const supervisorIdString = String(currentSupervisorId);
-    const sessionGroupIdString = String(sessionGroupId);
+    const newEditingId = String(sessionGroupId);
+    const newEditingSupervisor = String(currentSupervisorId);
 
+    console.log("🎯 SET editingId =", newEditingId);
     console.log(
-      "🎯 ABOUT TO SET editingSupervisor:",
-      supervisorIdString,
-      typeof supervisorIdString,
+      "🎯 SET editingSupervisor =",
+      newEditingSupervisor,
+      typeof newEditingSupervisor,
     );
 
-    setEditingId(sessionGroupIdString);
-    setEditingSupervisor(supervisorIdString);
+    setEditingId(newEditingId);
+    setEditingSupervisor(newEditingSupervisor);
 
-    console.log("✅ editingSupervisor SHOULD BE:", supervisorIdString);
+    console.log("✅ SETTERS EXECUTED");
     console.log("=================================");
   };
 
@@ -1149,39 +1148,38 @@ export default function PlanResult() {
   // =====================================================
 
   const saveAssignment = async (assignment) => {
-    const sessionGroupId = getSessionGroupId(assignment);
-
-    const currentSupervisorId = getSupervisorId(assignment);
-
-    const targetSupervisorId = Number(editingSupervisor);
-
     console.log("=================================");
-    console.log("💾 SAVE ASSIGNMENT");
-    console.log("=================================");
-
-    console.log("📌 planId:", planId);
-
-    console.log("📌 assignment FULL:", JSON.stringify(assignment, null, 2));
-
-    console.log("📌 sessionGroupId:", sessionGroupId);
+    console.log("💾 SAVE ASSIGNMENT START");
 
     console.log(
-      "📌 currentSupervisorId:",
-      currentSupervisorId,
-      typeof currentSupervisorId,
-    );
-
-    console.log(
-      "📌 editingSupervisor:",
-      editingSupervisor,
+      "STATE editingSupervisor:",
+      JSON.stringify(editingSupervisor),
       typeof editingSupervisor,
     );
 
     console.log(
-      "📌 targetSupervisorId:",
-      targetSupervisorId,
-      typeof targetSupervisorId,
+      "STATE editingId:",
+      JSON.stringify(editingId),
+      typeof editingId,
     );
+
+    console.log("STATE savingId:", JSON.stringify(savingId), typeof savingId);
+
+    console.log("=================================");
+
+    const sessionGroupId = getSessionGroupId(assignment);
+    const currentSupervisorId = getSupervisorId(assignment);
+
+    const targetSupervisorId = Number(editingSupervisor);
+
+    console.log("📌 sessionGroupId:", sessionGroupId);
+    console.log("📌 currentSupervisorId:", currentSupervisorId);
+    console.log(
+      "📌 editingSupervisor:",
+      JSON.stringify(editingSupervisor),
+      typeof editingSupervisor,
+    );
+    console.log("📌 targetSupervisorId:", targetSupervisorId);
 
     const affinitySupervisorId = getProfessorAffinitySupervisorId(assignment);
 
@@ -1923,15 +1921,17 @@ export default function PlanResult() {
                                 <div>
                                   <select
                                     className="edit-supervisor-select"
-                                    value={editingSupervisor}
+                                    value={editingSupervisor ?? ""}
                                     onChange={(e) => {
+                                      const value = e.target.value;
+
                                       console.log(
-                                        "🔵 SELECT onChange:",
-                                        e.target.value,
-                                        typeof e.target.value,
+                                        "🔵 SELECT CHANGED:",
+                                        value,
+                                        typeof value,
                                       );
 
-                                      setEditingSupervisor(e.target.value);
+                                      setEditingSupervisor(value);
                                     }}
                                     disabled={
                                       isSaving || affinitySupervisorId !== null
