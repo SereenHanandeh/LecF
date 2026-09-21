@@ -7,8 +7,6 @@ const api = axios.create({
 // Plans
 // ==============================
 
-
-
 export const createPlan = (payload) =>
   api.post("/plan", payload).then((res) => res.data);
 
@@ -28,7 +26,7 @@ export const generatePlan = (
 
 export const getPlan = async (planId) => {
   console.log("🔎 getPlan planId:", planId);
-  ``
+
   console.log(
     "🔎 getPlan URL:",
     `/plan/${planId}`
@@ -60,6 +58,35 @@ export const getPlans = () =>
 
 export const getStats = (planId) =>
   api.get(`/plan/${planId}/stats`).then((res) => res.data);
+
+// ==============================
+// Plan Status (Accept / Reject)
+// ==============================
+//
+// يفترض وجود Endpoint بالباك اند:
+// POST /plan/:id/status  Body: { status: "accepted" | "rejected" | "draft" }
+// يرجع { success: true, status }
+// ==============================
+
+export const updatePlanStatus = (planId, status) =>
+  api
+    .post(`/plan/${planId}/status`, { status })
+    .then((res) => res.data);
+
+export const acceptPlan = (planId) => updatePlanStatus(planId, "accepted");
+
+export const rejectPlan = (planId) => updatePlanStatus(planId, "rejected");
+
+// ==============================
+// Excel Export (Download)
+// ==============================
+//
+// يفترض وجود Endpoint بالباك اند:
+// GET /plan/:id/export  يرجع ملف الـ .xlsx مباشرة (res.download)
+// ==============================
+
+export const getPlanExportUrl = (planId) =>
+  `${api.defaults.baseURL}/plan/${planId}/export`;
 
 // ==============================
 // Duty Pool

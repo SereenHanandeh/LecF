@@ -1,7 +1,13 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useParams } from "react-router-dom";
 import "../assets/planResult.css";
-import { getPlan, listSupervisors, moveAssignment } from "../api.js";
+import {
+  getPlan,
+  listSupervisors,
+  moveAssignment,
+  getPlanExportUrl,
+  updatePlanStatus,
+} from "../api.js";
 
 // =====================================================
 // Date Helper
@@ -258,6 +264,14 @@ export default function PlanResult() {
   const [error, setError] = useState("");
 
   const [editingSupervisor, setEditingSupervisor] = useState("");
+
+  // =====================================================
+  // Plan Status (Accept / Reject)
+  // =====================================================
+
+  const [planStatus, setPlanStatus] = useState("draft");
+  const [statusSaving, setStatusSaving] = useState(false);
+
   // =====================================================
   // Search / Filters
   // =====================================================
@@ -296,6 +310,20 @@ export default function PlanResult() {
   const [editingId, setEditingId] = useState(null);
   const [savingId, setSavingId] = useState(null);
 
+  // =====================================================
+  // Mounted Ref (لتفادي تحديث state بعد فك الـ component)
+  // =====================================================
+
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   useEffect(() => {
     console.log(
       "🔴 editingSupervisor CHANGED:",
@@ -307,25 +335,36 @@ export default function PlanResult() {
   // =====================================================
   // Load Plan
   // =====================================================
+  //
+  // silent = true: يعيد جلب البيانات بدون إظهار شاشة
+  // Loading الكاملة (يستخدم بعد التعديل مباشرة حتى تتحدث
+  // الشاشة فورًا بدون الحاجة لعمل Refresh يدوي).
+  // =====================================================
 
-  useEffect(() => {
-    if (!planId) {
-      setLoading(false);
-      setError("لم يتم العثور على رقم الخطة.");
-      return;
-    }
+  const fetchPlan = useCallback(
+    async ({ silent = false } = {}) => {
+      if (!planId) {
+        if (isMountedRef.current) {
+          setLoading(false);
+          setError("لم يتم العثور على رقم الخطة.");
+        }
+        return;
+      }
 
-    let cancelled = false;
-
-    const fetchData = async () => {
       try {
-        setLoading(true);
-        setError("");
+        if (!silent && isMountedRef.current) {
+          setLoading(true);
+        }
+
+        if (isMountedRef.current) {
+          setError("");
+        }
 
         console.log("=================================");
         console.log("📥 FETCHING PLAN");
         console.log("📌 planId:", planId);
         console.log("📌 API:", `/plan/${planId}`);
+        console.log("📌 silent:", silent);
         console.log("=================================");
 
         const res = await getPlan(planId);
@@ -347,8 +386,9 @@ export default function PlanResult() {
 
         console.log("🔗 PLAN AFFINITIES:", planAffinities);
 
-        if (!cancelled) {
+        if (isMountedRef.current) {
           setAffinities(planAffinities);
+          setPlanStatus(data.status || "draft");
         }
 
         // =================================================
@@ -499,7 +539,7 @@ export default function PlanResult() {
         // Save plan data
         // =================================================
 
-        if (!cancelled) {
+        if (isMountedRef.current) {
           setPlanData(assignments);
           setConflicts(planConflicts);
         }
@@ -646,7 +686,7 @@ export default function PlanResult() {
 
           console.log("🎯 PLAN SUPERVISORS ONLY:", planSupervisors);
 
-          if (!cancelled) {
+          if (isMountedRef.current) {
             setSupervisors(
               Array.isArray(planSupervisors) ? planSupervisors : [],
             );
@@ -676,7 +716,7 @@ export default function PlanResult() {
             }
           });
 
-          if (!cancelled) {
+          if (isMountedRef.current) {
             setSupervisors(Array.from(map.values()));
           }
         }
@@ -685,7 +725,7 @@ export default function PlanResult() {
       } catch (err) {
         console.error("❌ Error fetching plan:", err?.response?.data || err);
 
-        if (!cancelled) {
+        if (isMountedRef.current) {
           setError(
             err?.response?.data?.error ||
               err?.response?.data?.message ||
@@ -693,30 +733,26 @@ export default function PlanResult() {
               "Error loading plan",
           );
 
-          setPlanData([]);
-          setConflicts([]);
-          setSupervisors([]);
+          if (!silent) {
+            setPlanData([]);
+            setConflicts([]);
+            setSupervisors([]);
+          }
         }
       } finally {
-        // =================================================
-        // IMPORTANT
-        // بدون هذا السطر الصفحة تظل Loading للأبد
-        // =================================================
-
-        if (!cancelled) {
+        if (isMountedRef.current && !silent) {
           setLoading(false);
 
           console.log("🏁 PLAN LOADING FINISHED");
         }
       }
-    };
+    },
+    [planId],
+  );
 
-    fetchData();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [planId]);
+  useEffect(() => {
+    fetchPlan();
+  }, [fetchPlan]);
 
   // =====================================================
   // Professor Options
@@ -1038,10 +1074,6 @@ export default function PlanResult() {
   };
 
   // =====================================================
-  // Start Editing
-  // =====================================================
-
-  // =====================================================
   // Get Affinity Supervisor
   // =====================================================
 
@@ -1071,6 +1103,7 @@ export default function PlanResult() {
 
   // =====================================================
   // Start Editing
+  // =====================================================
 
   const startEditing = (assignment) => {
     const supervisorId =
@@ -1271,7 +1304,8 @@ export default function PlanResult() {
       console.log("✅ Assignment moved successfully");
 
       // =========================================
-      // الحصول على اسم المشرف الجديد
+      // تحديث فوري ومؤقت (Optimistic Update)
+      // حتى يشوف المستخدم النتيجة فورًا بدون انتظار
       // =========================================
 
       const selectedSupervisor = supervisors.find(
@@ -1280,10 +1314,6 @@ export default function PlanResult() {
 
       const newSupervisorName =
         selectedSupervisor?.name ?? selectedSupervisor?.supervisor_name ?? "";
-
-      // =========================================
-      // تحديث الجدول مباشرة
-      // =========================================
 
       setPlanData((prev) =>
         prev.map((item) => {
@@ -1306,6 +1336,17 @@ export default function PlanResult() {
       );
 
       cancelEditing();
+
+      // =========================================
+      // إعادة تحميل صامتة من السيرفر
+      // =========================================
+      // مهم: نقل جلسة واحدة قد يسبب تعديلات إضافية
+      // خلف الكواليس (Rebalance/Swap Engine بالباك اند).
+      // إعادة الجلب هنا تضمن مطابقة الشاشة لأي تغييرات
+      // فعلية حصلت فورًا، بدون الحاجة لعمل Refresh يدوي.
+      // =========================================
+
+      fetchPlan({ silent: true });
     } catch (err) {
       console.error("❌ Error moving assignment:", err);
 
@@ -1323,34 +1364,53 @@ export default function PlanResult() {
   };
 
   // =====================================================
+  // Accept / Reject Plan
+  // =====================================================
+
+  const changePlanStatus = async (status) => {
+    if (!planId) return;
+
+    const labels = {
+      accepted: "قبول",
+      rejected: "رفض",
+    };
+
+    const confirmed = window.confirm(
+      `هل أنت متأكد من ${labels[status] || status} هذه الخطة؟`,
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setStatusSaving(true);
+
+      await updatePlanStatus(planId, status);
+
+      if (isMountedRef.current) {
+        setPlanStatus(status);
+      }
+    } catch (err) {
+      console.error("❌ Error updating plan status:", err);
+
+      alert(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "فشل تحديث حالة الخطة.",
+      );
+    } finally {
+      if (isMountedRef.current) {
+        setStatusSaving(false);
+      }
+    }
+  };
+
+  // =====================================================
   // Print
   // =====================================================
 
   const printPlan = () => {
     window.print();
-  };
-
-  // =====================================================
-  // Download Excel
-  // =====================================================
-
-  const downloadExcel = () => {
-    if (!downloadUrl) {
-      alert("⚠️ Excel download link is not available.");
-      return;
-    }
-
-    const link = document.createElement("a");
-
-    link.href = downloadUrl;
-
-    link.download = `plan_${planId}.xlsx`;
-
-    document.body.appendChild(link);
-
-    link.click();
-
-    document.body.removeChild(link);
   };
 
   // =====================================================
@@ -1422,6 +1482,22 @@ export default function PlanResult() {
           </div>
 
           <div className="plan-header-actions">
+            <span
+              className={
+                planStatus === "accepted"
+                  ? "status-badge status-accepted"
+                  : planStatus === "rejected"
+                  ? "status-badge status-rejected"
+                  : "status-badge status-draft"
+              }
+            >
+              {planStatus === "accepted"
+                ? "✅ مقبولة"
+                : planStatus === "rejected"
+                ? "❌ مرفوضة"
+                : "🕓 مسودة"}
+            </span>
+
             <button
               type="button"
               className="btn btn-secondary"
@@ -1431,16 +1507,34 @@ export default function PlanResult() {
               <span>Print Plan</span>
             </button>
 
-            {downloadUrl && (
-              <button
-                type="button"
-                className="btn btn-primary"
-                onClick={downloadExcel}
-              >
-                📥
-                <span>Download Excel</span>
-              </button>
-            )}
+            <a
+              href={downloadUrl || getPlanExportUrl(planId)}
+              className="btn btn-primary"
+              download={`plan_${planId}.xlsx`}
+            >
+              📥
+              <span>Download Excel</span>
+            </a>
+
+            <button
+              type="button"
+              className="btn btn-success"
+              disabled={statusSaving || planStatus === "accepted"}
+              onClick={() => changePlanStatus("accepted")}
+            >
+              ✅
+              <span>قبول الخطة</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn btn-danger"
+              disabled={statusSaving || planStatus === "rejected"}
+              onClick={() => changePlanStatus("rejected")}
+            >
+              ❌
+              <span>رفض الخطة</span>
+            </button>
           </div>
         </div>
       </header>
