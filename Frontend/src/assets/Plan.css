@@ -1,723 +1,460 @@
-/* =========================================================
-   Plans Page
-========================================================= */
+/* =====================================================
+   LectureFlow — Accepted Plans
+   Fonts: Almarai (display/numbers) + IBM Plex Sans Arabic (body)
+   ===================================================== */
 
-.plans-layout {
-  min-height: 100vh;
+@import url("https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap");
 
-  display: flex;
+:root {
+  /* Color */
+  --ink-900: #16233f;
+  --ink-700: #3d4a63;
+  --ink-500: #6b7690;
+  --ink-300: #a4acbe;
 
-  background: #f5f7fa;
+  --line: #e3e7ee;
+  --line-strong: #cfd6e2;
 
-  color: #172033;
+  --surface: #ffffff;
+  --bg: #f4f5f8;
+
+  --accent: #a9791f;
+  --accent-dark: #8a6218;
+  --accent-soft: #f4ead2;
+  --accent-soft-line: #e6d3a1;
+
+  --success: #2f7d5d;
+  --success-soft: #e3f2ea;
+  --success-line: #bfe1cf;
+
+  --danger: #b3413b;
+  --danger-soft: #fbeae9;
+  --danger-line: #eec7c4;
+
+  --info: #2e5aac;
+  --info-soft: #e9eefb;
+  --info-line: #c9d8f3;
+
+  --amber: #a9791f;
+  --amber-soft: #f8f0dc;
+
+  /* Type */
+  --font-display: "Almarai", "IBM Plex Sans Arabic", sans-serif;
+  --font-body: "IBM Plex Sans Arabic", "Almarai", sans-serif;
+
+  /* Radius */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+
+  /* Shadow */
+  --shadow-card: 0 1px 2px rgba(22, 35, 63, 0.04), 0 8px 24px -12px rgba(22, 35, 63, 0.10);
 }
 
+* {
+  box-sizing: border-box;
+}
 
-/* =========================================================
-   Main
-========================================================= */
+/* =====================================================
+   Layout
+   ===================================================== */
+
+.plans-layout {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg);
+  font-family: var(--font-body);
+  color: var(--ink-900);
+}
 
 .plans-main {
   flex: 1;
-
   min-width: 0;
-
-  padding: 32px 34px 25px;
-}
-
-/* =====================================================
-   CATEGORY SUMMARY
-===================================================== */
-
-.plans-category-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.category-summary-card {
-  border: 1px solid #e7eaf0;
-  background: #ffffff;
-  border-radius: 18px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 15px;
-  text-align: right;
-  cursor: pointer;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    border-color 0.2s ease;
-}
-
-.category-summary-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(20, 30, 50, 0.08);
-}
-
-.category-summary-card.selected {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
-}
-
-.category-summary-icon {
-  width: 52px;
-  height: 52px;
-  border-radius: 15px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 24px;
-  flex-shrink: 0;
-}
-
-.category-icon-merged {
-  background: #eef4ff;
-}
-
-.category-icon-diploma {
-  background: #f5efff;
-}
-
-.category-icon-requirements {
-  background: #fff5e8;
-}
-
-.category-summary-card > div:last-child {
+  padding: 36px 40px 56px;
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 28px;
 }
 
-.category-summary-card span {
-  color: #667085;
-  font-size: 13px;
-  font-weight: 600;
-}
-
-.category-summary-card strong {
-  color: #101828;
-  font-size: 25px;
-  line-height: 1;
-}
-
-.category-summary-card small {
-  color: #98a2b3;
-  font-size: 11px;
-}
-
-
-/* =====================================================
-   FILTER SECTIONS
-===================================================== */
-
-.plans-filter-section {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  flex-wrap: wrap;
-}
-
-.filter-title {
-  color: #667085;
-  font-size: 12px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.plans-filters {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.filter-button {
-  border: 1px solid #e4e7ec;
-  background: #fff;
-  color: #667085;
-  border-radius: 9px;
-  padding: 8px 13px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.filter-button:hover {
-  background: #f8fafc;
-  border-color: #cfd5df;
-}
-
-.filter-button.active {
-  background: #101828;
-  border-color: #101828;
-  color: #fff;
-}
-
-
-/* =====================================================
-   CATEGORY BADGES
-===================================================== */
-
-.category-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  border-radius: 999px;
-  padding: 6px 11px;
-  font-size: 11px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-.category-badge i {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  display: block;
-}
-
-.category-merged {
-  background: #eef4ff;
-  color: #175cd3;
-}
-
-.category-merged i {
-  background: #2970ff;
-}
-
-.category-diploma {
-  background: #f5efff;
-  color: #6941c6;
-}
-
-.category-diploma i {
-  background: #9e77ed;
-}
-
-.category-requirements {
-  background: #fff5e8;
-  color: #b54708;
-}
-
-.category-requirements i {
-  background: #f79009;
-}
-
-.category-unknown {
-  background: #f2f4f7;
-  color: #667085;
-}
-
-.category-unknown i {
-  background: #98a2b3;
-}
-
-
-/* =====================================================
-   EXCEL BUTTON
-===================================================== */
-
-.action-excel {
-  position: relative;
-}
-
-.action-excel.downloading {
-  opacity: 0.65;
-  cursor: wait;
-}
-
-.excel-loading-dot {
-  font-size: 10px;
-  margin-right: 2px;
-}
-
-
-/* =====================================================
-   HEADER
-===================================================== */
-
-.plans-header-content {
-  flex: 1;
-}
-
-
-/* =====================================================
-   TABLE IMPROVEMENTS
-===================================================== */
-
-.plans-table th {
-  white-space: nowrap;
-}
-
-.plans-table td {
-  vertical-align: middle;
-}
-
-.plan-name-cell {
-  min-width: 190px;
-}
-
-.plan-name-cell strong {
-  display: block;
-  margin-bottom: 3px;
-}
-
-.plan-name-cell span {
-  font-size: 11px;
-  color: #98a2b3;
-}
-
-.number-cell {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.number-cell strong {
-  font-size: 15px;
-}
-
-.assignment-count {
-  font-weight: 800;
-  color: #101828;
-}
-
-.plans-footer strong {
-  color: #101828;
-}
-
-
-/* =====================================================
-   RESPONSIVE
-===================================================== */
-
-@media (max-width: 1100px) {
-  .plans-category-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .plans-toolbar {
-    flex-wrap: wrap;
-  }
-
-  .plans-filter-section {
-    width: 100%;
-  }
-}
-
-@media (max-width: 800px) {
+@media (max-width: 900px) {
   .plans-main {
-    padding: 20px;
-  }
-
-  .plans-header {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 15px;
-  }
-
-  .new-plan-button {
-    width: 100%;
-    justify-content: center;
-  }
-
-  .plans-table-wrapper {
-    overflow-x: auto;
-  }
-
-  .plans-table {
-    min-width: 1000px;
+    padding: 24px 20px 40px;
+    gap: 22px;
   }
 }
-/* =========================================================
+
+/* =====================================================
    Header
-========================================================= */
+   ===================================================== */
 
 .plans-header {
   display: flex;
-
   align-items: flex-end;
-
   justify-content: space-between;
-
-  gap: 25px;
-
-  margin-bottom: 27px;
+  gap: 24px;
+  padding-bottom: 24px;
+  border-bottom: 2px solid var(--accent-soft-line);
 }
 
 .plans-breadcrumb {
   display: flex;
-
   align-items: center;
-
-  gap: 7px;
-
-  margin-bottom: 9px;
-
-  color: #8a94a5;
-
-  font-size: 10px;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink-500);
+  margin-bottom: 10px;
 }
 
 .plans-breadcrumb span {
-  color: #c2c8d1;
+  color: var(--ink-300);
 }
 
 .plans-header h1 {
-  margin: 0;
-
-  font-size: 27px;
-
+  margin: 0 0 8px;
+  font-family: var(--font-display);
   font-weight: 800;
-
-  letter-spacing: -0.7px;
-
-  color: #172033;
+  font-size: 28px;
+  color: var(--ink-900);
+  letter-spacing: -0.01em;
 }
 
 .plans-header p {
-  margin: 7px 0 0;
-
-  color: #788395;
-
-  font-size: 11px;
+  margin: 0;
+  font-size: 14.5px;
+  color: var(--ink-500);
+  max-width: 52ch;
+  line-height: 1.6;
 }
 
-
-/* =========================================================
-   New Plan Button
-========================================================= */
-
 .new-plan-button {
-  height: 40px;
-
-  padding: 0 15px;
-
-  display: flex;
-
+  display: inline-flex;
   align-items: center;
-
   gap: 8px;
-
-  border: 0;
-
-  border-radius: 8px;
-
-  background: #3157d5;
-
+  flex-shrink: 0;
+  background: var(--ink-900);
   color: #fff;
-
-  font-family: inherit;
-
-  font-size: 10px;
-
-  font-weight: 700;
-
+  border: none;
+  padding: 12px 20px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  font-weight: 600;
   cursor: pointer;
-
-  box-shadow:
-    0 5px 14px rgba(49, 87, 213, 0.18);
-
-  transition:
-    transform 0.15s ease,
-    background 0.15s ease;
+  transition: background 0.15s ease, transform 0.1s ease;
 }
 
 .new-plan-button:hover {
-  background: #294bbd;
+  background: #0e1830;
+}
 
-  transform: translateY(-1px);
+.new-plan-button:active {
+  transform: translateY(1px);
 }
 
 .button-icon {
-  width: 17px;
-  height: 17px;
-
-  display: grid;
-  place-items: center;
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
 }
 
 .button-icon svg {
-  width: 15px;
-  height: 15px;
-
+  width: 100%;
+  height: 100%;
   fill: none;
-
   stroke: currentColor;
-
-  stroke-width: 2;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
+/* =====================================================
+   Supervisor Stats
+   ===================================================== */
 
-/* =========================================================
-   Statistics
-========================================================= */
+.supervisor-total-stats {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  padding: 24px 26px 8px;
+}
+
+.supervisor-total-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding-bottom: 18px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--line);
+}
+
+.supervisor-total-header h2 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--ink-900);
+}
+
+.supervisor-total-header p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--ink-500);
+}
+
+.supervisor-stats-empty {
+  padding: 32px 0 28px;
+  text-align: center;
+  color: var(--ink-500);
+  font-size: 14px;
+}
+
+.supervisor-stats-table-wrapper {
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.supervisor-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.supervisor-stats-table thead th {
+  text-align: right;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-500);
+  padding: 14px 10px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.supervisor-stats-table thead th:first-child {
+  width: 44px;
+}
+
+.supervisor-stats-table tbody td {
+  padding: 14px 10px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-700);
+}
+
+.supervisor-stats-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.supervisor-stats-table tbody tr:hover td {
+  background: var(--bg);
+}
+
+.supervisor-stats-table strong {
+  color: var(--ink-900);
+  font-weight: 600;
+}
+
+.stats-period-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--amber-soft);
+  color: var(--accent-dark);
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+/* =====================================================
+   Stat Cards
+   ===================================================== */
 
 .plans-stat-grid {
   display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
 
-  grid-template-columns:
-    repeat(3, minmax(0, 1fr));
-
-  gap: 12px;
-
-  margin-bottom: 17px;
+@media (max-width: 720px) {
+  .plans-stat-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .plan-stat-card {
-  min-height: 78px;
-
-  padding: 15px 17px;
-
   display: flex;
-
   align-items: center;
-
-  gap: 12px;
-
-  background: #fff;
-
-  border: 1px solid #e5e9ef;
-
-  border-radius: 10px;
-
-  box-shadow:
-    0 1px 2px rgba(15, 23, 42, 0.02);
+  gap: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: 20px 22px;
 }
 
 .plan-stat-icon {
-  width: 38px;
-  height: 38px;
-
-  flex: 0 0 38px;
-
-  border-radius: 9px;
-
-  display: grid;
-  place-items: center;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .plan-stat-icon svg {
-  width: 18px;
-  height: 18px;
-
+  width: 20px;
+  height: 20px;
   fill: none;
-
-  stroke: currentColor;
-
-  stroke-width: 1.7;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .plan-stat-icon.blue {
-  background: #edf2ff;
-  color: #4967d8;
+  background: var(--info-soft);
+}
+.plan-stat-icon.blue svg {
+  stroke: var(--info);
 }
 
 .plan-stat-icon.green {
-  background: #eaf8f1;
-  color: #239362;
+  background: var(--success-soft);
+}
+.plan-stat-icon.green svg {
+  stroke: var(--success);
 }
 
 .plan-stat-icon.orange {
-  background: #fff5e8;
-  color: #c47a18;
+  background: var(--amber-soft);
+}
+.plan-stat-icon.orange svg {
+  stroke: var(--accent-dark);
+}
+
+.plan-stat-card > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .plan-stat-card span {
-  display: block;
-
-  color: #8993a3;
-
-  font-size: 9px;
-
-  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--ink-500);
+  font-weight: 500;
 }
 
 .plan-stat-card strong {
-  display: block;
-
-  font-size: 20px;
-
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--ink-900);
   line-height: 1;
-
-  color: #1d2738;
 }
 
-
-/* =========================================================
+/* =====================================================
    Toolbar
-========================================================= */
+   ===================================================== */
 
 .plans-toolbar {
-  min-height: 59px;
-
-  padding: 9px;
-
   display: flex;
-
   align-items: center;
-
   justify-content: space-between;
-
-  gap: 12px;
-
-  background: #fff;
-
-  border: 1px solid #e3e7ed;
-
-  border-bottom: 0;
-
-  border-radius: 11px 11px 0 0;
+  gap: 16px;
 }
 
 .plans-search {
-  height: 38px;
-
-  width: 330px;
-
-  display: flex;
-
-  align-items: center;
-
-  gap: 8px;
-
-  padding: 0 11px;
-
-  background: #f7f8fa;
-
-  border: 1px solid #e5e8ed;
-
-  border-radius: 7px;
+  position: relative;
+  flex: 1;
+  max-width: 380px;
 }
 
-.search-icon {
+.plans-search .search-icon {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  transform: translateY(-50%);
   width: 16px;
   height: 16px;
-
-  color: #8d97a7;
-
-  display: grid;
-  place-items: center;
+  display: flex;
+  color: var(--ink-300);
+  pointer-events: none;
 }
 
-.search-icon svg {
-  width: 15px;
-  height: 15px;
-
+.plans-search .search-icon svg {
+  width: 100%;
+  height: 100%;
   fill: none;
-
   stroke: currentColor;
-
-  stroke-width: 1.8;
+  stroke-width: 2.2;
+  stroke-linecap: round;
 }
 
 .plans-search input {
   width: 100%;
-
-  border: 0;
-
-  outline: 0;
-
-  background: transparent;
-
-  color: #273246;
-
-  font-family: inherit;
-
-  font-size: 10px;
+  padding: 11px 42px 11px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  font-family: var(--font-body);
+  font-size: 14px;
+  color: var(--ink-900);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .plans-search input::placeholder {
-  color: #a1a9b6;
+  color: var(--ink-300);
 }
 
-
-/* =========================================================
-   Filters
-========================================================= */
+.plans-search input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
 
 .plans-filters {
   display: flex;
-
-  align-items: center;
-
-  gap: 5px;
-}
-
-.filter-button {
-  height: 34px;
-
-  padding: 0 12px;
-
-  border: 1px solid #e4e8ee;
-
-  background: #fff;
-
-  color: #778194;
-
-  border-radius: 7px;
-
-  font-family: inherit;
-
-  font-size: 9px;
-
-  font-weight: 600;
-
-  cursor: pointer;
-}
-
-.filter-button:hover {
-  background: #f7f8fa;
-}
-
-.filter-button.active {
-  background: #edf2ff;
-
-  color: #3157d5;
-
-  border-color: #dbe3ff;
+  gap: 10px;
 }
 
 .refresh-button {
-  width: 34px;
-  height: 34px;
-
-  border: 1px solid #e4e8ee;
-
-  background: #fff;
-
-  color: #778194;
-
-  border-radius: 7px;
-
-  display: grid;
-  place-items: center;
-
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  border-radius: var(--r-sm);
+  color: var(--ink-700);
   cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.refresh-button:hover {
-  background: #f7f8fa;
+.refresh-button:hover:not(:disabled) {
+  background: var(--bg);
+  border-color: var(--ink-300);
+}
+
+.refresh-button:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 
 .refresh-button svg {
-  width: 15px;
-  height: 15px;
-
+  width: 17px;
+  height: 17px;
   fill: none;
-
   stroke: currentColor;
-
-  stroke-width: 1.8;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .refresh-spinning {
-  display: flex;
-
-  animation: spin 0.8s linear infinite;
+  display: inline-flex;
+  animation: spin 0.9s linear infinite;
 }
 
 @keyframes spin {
@@ -726,751 +463,424 @@
   }
 }
 
-
-/* =========================================================
-   Table Card
-========================================================= */
+/* =====================================================
+   Table Card — states
+   ===================================================== */
 
 .plans-table-card {
-  background: #fff;
-
-  border: 1px solid #e3e7ed;
-
-  border-radius: 0 0 11px 11px;
-
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-card);
   overflow: hidden;
-
-  min-height: 280px;
 }
 
-.plans-table-wrapper {
-  width: 100%;
-
-  overflow-x: auto;
+.plans-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 72px 20px;
+  color: var(--ink-500);
+  font-size: 14px;
 }
 
-
-/* =========================================================
-   Table
-========================================================= */
-
-.plans-table {
-  width: 100%;
-
-  min-width: 950px;
-
-  border-collapse: collapse;
-
-  table-layout: auto;
+.loading-spinner {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  animation: spin 0.8s linear infinite;
 }
 
-.plans-table thead {
-  background: #f8f9fb;
+.plans-error {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 26px 28px;
+  margin: 20px;
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-line);
+  border-radius: var(--r-md);
 }
 
-.plans-table th {
-  padding: 12px 15px;
-
-  text-align: right;
-
-  color: #8992a1;
-
-  font-size: 8px;
-
+.error-symbol {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--danger);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: 800;
-
-  white-space: nowrap;
-
-  border-bottom: 1px solid #e8ebef;
+  font-family: var(--font-display);
 }
 
-.plans-table td {
-  padding: 13px 15px;
-
-  border-bottom: 1px solid #edf0f3;
-
-  color: #3c4657;
-
-  font-size: 9px;
-
-  white-space: nowrap;
+.plans-error > div {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
-.plans-table tbody tr {
+.plans-error strong {
+  color: var(--ink-900);
+  font-size: 14.5px;
+}
+
+.plans-error span {
+  color: var(--ink-700);
+  font-size: 13.5px;
+}
+
+.plans-error button {
+  flex-shrink: 0;
+  background: var(--surface);
+  border: 1px solid var(--danger-line);
+  color: var(--danger);
+  padding: 9px 18px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-body);
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
   transition: background 0.15s ease;
 }
 
-.plans-table tbody tr:hover {
-  background: #fafbfc;
+.plans-error button:hover {
+  background: #fff;
+  border-color: var(--danger);
+}
+
+.plans-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 72px 20px 64px;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 34px;
+  margin-bottom: 6px;
+  opacity: 0.7;
+}
+
+.plans-empty h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.plans-empty p {
+  margin: 0 0 8px;
+  font-size: 14px;
+  color: var(--ink-500);
+  max-width: 40ch;
+}
+
+.plans-empty button {
+  margin-top: 6px;
+  background: var(--ink-900);
+  color: #fff;
+  border: none;
+  padding: 11px 22px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-body);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.plans-empty button:hover {
+  background: #0e1830;
+}
+
+/* =====================================================
+   Table
+   ===================================================== */
+
+.plans-table-wrapper {
+  overflow-x: auto;
+}
+
+.plans-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.plans-table thead th {
+  text-align: right;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-500);
+  padding: 16px 18px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.plans-table tbody td {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-700);
+  vertical-align: middle;
 }
 
 .plans-table tbody tr:last-child td {
-  border-bottom: 0;
+  border-bottom: none;
 }
 
-
-/* =========================================================
-   Plan Name
-========================================================= */
+.plans-table tbody tr:hover td {
+  background: #fafbfc;
+}
 
 .plan-name-cell {
   display: flex;
-
   align-items: center;
-
-  gap: 9px;
+  gap: 12px;
 }
 
 .plan-mini-icon {
-  width: 31px;
-  height: 31px;
-
-  flex: 0 0 31px;
-
-  border-radius: 7px;
-
-  background: #edf2ff;
-
-  color: #4967d8;
-
-  display: grid;
-  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-sm);
+  background: var(--info-soft);
+  color: var(--info);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .plan-mini-icon svg {
-  width: 15px;
-  height: 15px;
-
+  width: 17px;
+  height: 17px;
   fill: none;
-
   stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 
-  stroke-width: 1.7;
+.plan-name-cell > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .plan-name-cell strong {
-  display: block;
-
-  color: #263145;
-
-  font-size: 10px;
-
-  font-weight: 700;
+  color: var(--ink-900);
+  font-weight: 600;
+  font-size: 14.5px;
 }
 
 .plan-name-cell span {
-  display: block;
-
-  margin-top: 3px;
-
-  color: #9ba3b0;
-
-  font-size: 8px;
-
-  direction: ltr;
-
-  text-align: right;
+  color: var(--ink-300);
+  font-size: 12.5px;
 }
-
-
-/* =========================================================
-   Date
-========================================================= */
 
 .date-cell {
   display: flex;
-
   align-items: center;
-
-  gap: 7px;
-
-  color: #687386;
+  gap: 8px;
+  white-space: nowrap;
 }
 
 .date-icon {
   width: 15px;
   height: 15px;
-
-  color: #8994a6;
-
-  display: grid;
-  place-items: center;
+  display: flex;
+  color: var(--ink-300);
+  flex-shrink: 0;
 }
 
 .date-icon svg {
-  width: 14px;
-  height: 14px;
-
+  width: 100%;
+  height: 100%;
   fill: none;
-
   stroke: currentColor;
-
-  stroke-width: 1.6;
+  stroke-width: 2;
 }
-
-
-/* =========================================================
-   Numbers
-========================================================= */
 
 .number-cell {
   display: flex;
-
   align-items: center;
-
-  gap: 5px;
+  gap: 6px;
 }
 
 .number-icon {
   width: 15px;
   height: 15px;
-
-  color: #7c8799;
-
-  display: grid;
-  place-items: center;
+  display: flex;
+  color: var(--ink-300);
 }
 
 .number-icon svg {
-  width: 14px;
-  height: 14px;
-
+  width: 100%;
+  height: 100%;
   fill: none;
-
   stroke: currentColor;
-
-  stroke-width: 1.6;
+  stroke-width: 2;
 }
 
 .number-cell strong {
-  color: #273246;
-
-  font-size: 10px;
-}
-
-.number-cell > span:last-child {
-  color: #9ba3b0;
-
-  font-size: 8px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--ink-900);
 }
 
 .assignment-count {
-  width: fit-content;
-
-  min-width: 34px;
-
-  padding: 4px 7px;
-
-  border-radius: 5px;
-
-  background: #f3f5f8;
-
-  color: #4d596c;
-
-  text-align: center;
-
-  font-size: 9px;
-
+  font-family: var(--font-display);
   font-weight: 700;
+  color: var(--ink-900);
 }
 
-
-/* =========================================================
-   Status
-========================================================= */
+/* Status pills */
 
 .plan-status {
   display: inline-flex;
-
   align-items: center;
-
   gap: 6px;
-
-  padding: 5px 8px;
-
-  border-radius: 6px;
-
-  font-size: 8px;
-
-  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .plan-status i {
-  width: 5px;
-  height: 5px;
-
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
 }
 
 .status-complete {
-  background: #eaf8f1;
-
-  color: #21875c;
+  background: var(--success-soft);
+  color: var(--success);
+  border: 1px solid var(--success-line);
 }
 
-.status-complete i {
-  background: #28a66d;
+.status-rejected {
+  background: var(--danger-soft);
+  color: var(--danger);
+  border: 1px solid var(--danger-line);
 }
 
 .status-pending {
-  background: #fff5e7;
-
-  color: #ae701c;
-}
-
-.status-pending i {
-  background: #d9942c;
+  background: var(--amber-soft);
+  color: var(--accent-dark);
+  border: 1px solid var(--accent-soft-line);
 }
 
 .created-date {
-  color: #7f8999;
-
-  font-size: 8px;
+  color: var(--ink-500);
+  font-size: 13.5px;
+  white-space: nowrap;
 }
 
-/* =====================================================
-   Plan Bottom Actions
-===================================================== */
-
-.plan-bottom-actions {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  flex-wrap: wrap;
-  margin-top: 24px;
-  padding: 22px 20px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.plan-bottom-actions .btn {
-  min-width: 150px;
-  min-height: 46px;
-  border: none;
-  border-radius: 10px;
-  padding: 11px 20px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-
-  font-size: 14px;
-  font-weight: 700;
-
-  text-decoration: none;
-  cursor: pointer;
-
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease,
-    opacity 0.2s ease;
-}
-
-.plan-bottom-actions .btn:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
-}
-
-.plan-bottom-actions .btn:active:not(:disabled) {
-  transform: translateY(0);
-}
-
-.plan-bottom-actions .btn:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.plan-bottom-actions .btn-success {
-  background: #16a34a;
-  color: #ffffff;
-}
-
-.plan-bottom-actions .btn-danger {
-  background: #dc2626;
-  color: #ffffff;
-}
-
-.plan-bottom-actions .btn-secondary {
-  background: #475569;
-  color: #ffffff;
-}
-
-.plan-bottom-actions .btn-primary {
-  background: #2563eb;
-  color: #ffffff;
-}
-
-@media (max-width: 700px) {
-  .plan-bottom-actions {
-    flex-direction: column;
-  }
-
-  .plan-bottom-actions .btn {
-    width: 100%;
-  }
-}
-
-
-/* =========================================================
-   Actions
-========================================================= */
+/* Actions */
 
 .plan-actions {
   display: flex;
-
   align-items: center;
-
-  gap: 5px;
+  gap: 8px;
 }
 
-.action-view,
-.action-excel {
-  height: 30px;
-
-  border-radius: 6px;
-
-  display: flex;
-
+.plan-actions button {
+  display: inline-flex;
   align-items: center;
-
-  justify-content: center;
-
-  gap: 5px;
-
-  font-family: inherit;
-
-  font-size: 8px;
-
-  font-weight: 700;
-
+  gap: 6px;
+  padding: 8px 13px;
+  border-radius: var(--r-sm);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  white-space: nowrap;
+}
 
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
+.plan-actions button svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .action-view {
-  padding: 0 9px;
-
-  border: 1px solid #dce3f8;
-
-  background: #f3f6ff;
-
-  color: #3c5bc7;
+  background: var(--info-soft);
+  color: var(--info);
 }
 
 .action-view:hover {
-  background: #e9eeff;
+  border-color: var(--info-line);
 }
 
-.action-view svg {
-  width: 13px;
-  height: 13px;
-
-  fill: none;
-
-  stroke: currentColor;
-
-  stroke-width: 1.7;
+.action-delete {
+  background: var(--surface);
+  color: var(--danger);
+  border-color: var(--line-strong);
 }
 
-.action-excel {
-  width: 30px;
-
-  border: 1px solid #dcefe5;
-
-  background: #eff9f4;
-
-  color: #25845b;
+.action-delete:hover:not(:disabled) {
+  background: var(--danger-soft);
+  border-color: var(--danger-line);
 }
 
-.action-excel:hover {
-  background: #e4f5ec;
+.action-delete:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
 
-.action-excel svg {
-  width: 14px;
-  height: 14px;
-
-  fill: none;
-
-  stroke: currentColor;
-
-  stroke-width: 1.6;
-}
-
-.action-excel:disabled {
-  opacity: 0.35;
-
-  cursor: not-allowed;
-}
-
-
-/* =========================================================
-   Loading
-========================================================= */
-
-.plans-loading {
-  min-height: 280px;
-
-  display: flex;
-
-  flex-direction: column;
-
-  align-items: center;
-
-  justify-content: center;
-
-  gap: 11px;
-
-  color: #8993a3;
-
-  font-size: 10px;
-}
-
-.loading-spinner {
-  width: 27px;
-  height: 27px;
-
-  border: 3px solid #e8ecf3;
-
-  border-top-color: #4967d8;
-
-  border-radius: 50%;
-
-  animation: spin 0.8s linear infinite;
-}
-
-
-/* =========================================================
-   Error
-========================================================= */
-
-.plans-error {
-  min-height: 280px;
-
-  padding: 30px;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  gap: 12px;
-}
-
-.error-symbol {
-  width: 37px;
-  height: 37px;
-
-  border-radius: 9px;
-
-  background: #fff0f0;
-
-  color: #d84b4b;
-
-  display: grid;
-  place-items: center;
-
-  font-size: 16px;
-
-  font-weight: 800;
-}
-
-.plans-error strong {
-  display: block;
-
-  color: #303a4b;
-
-  font-size: 11px;
-}
-
-.plans-error span {
-  display: block;
-
-  margin-top: 4px;
-
-  color: #8a94a3;
-
-  font-size: 9px;
-}
-
-.plans-error button {
-  height: 32px;
-
-  padding: 0 11px;
-
-  border: 1px solid #e0e4ea;
-
-  background: #fff;
-
-  border-radius: 6px;
-
-  font-family: inherit;
-
-  font-size: 9px;
-
-  cursor: pointer;
-}
-
-
-/* =========================================================
-   Empty
-========================================================= */
-
-.plans-empty {
-  min-height: 300px;
-
-  display: flex;
-
-  flex-direction: column;
-
-  align-items: center;
-
-  justify-content: center;
-
-  text-align: center;
-}
-
-.empty-icon {
-  width: 55px;
-  height: 55px;
-
-  display: grid;
-  place-items: center;
-
-  border-radius: 13px;
-
-  background: #eef2ff;
-
-  font-size: 23px;
-
-  margin-bottom: 13px;
-}
-
-.plans-empty h2 {
-  margin: 0;
-
-  color: #293346;
-
-  font-size: 14px;
-}
-
-.plans-empty p {
-  margin: 6px 0 15px;
-
-  color: #8b95a4;
-
-  font-size: 9px;
-}
-
-.plans-empty button {
-  height: 34px;
-
-  padding: 0 13px;
-
-  border: 0;
-
-  border-radius: 7px;
-
-  background: #3157d5;
-
-  color: #fff;
-
-  font-family: inherit;
-
-  font-size: 9px;
-
-  font-weight: 700;
-
-  cursor: pointer;
-}
-
-
-/* =========================================================
+/* =====================================================
    Footer
-========================================================= */
+   ===================================================== */
 
 .plans-footer {
   display: flex;
-
   align-items: center;
-
   justify-content: space-between;
-
-  padding: 10px 3px;
-
-  color: #929baa;
-
-  font-size: 8px;
+  padding: 4px 4px 0;
+  font-size: 12.5px;
+  color: var(--ink-300);
 }
 
-
-/* =========================================================
-   Responsive
-========================================================= */
-
-@media (max-width: 1000px) {
-  .plans-main {
-    padding: 25px 20px;
-  }
-
-  .plans-header {
-    align-items: flex-start;
-
-    flex-direction: column;
-  }
-
-  .plans-stat-grid {
-    grid-template-columns:
-      repeat(3, minmax(0, 1fr));
-  }
+.plans-footer span:last-child {
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--ink-500);
+  letter-spacing: 0.02em;
 }
 
+/* =====================================================
+   Accessibility
+   ===================================================== */
 
-@media (max-width: 760px) {
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
 
-  .plans-layout {
-    display: block;
-  }
-
-  .plans-main {
-    padding: 20px 12px;
-  }
-
-  .plans-stat-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .plans-toolbar {
-    align-items: stretch;
-
-    flex-direction: column;
-  }
-
-  .plans-search {
-    width: 100%;
-  }
-
-  .plans-filters {
-    justify-content: flex-start;
-  }
-
-  .new-plan-button {
-    width: 100%;
-
-    justify-content: center;
-  }
-
-  .plans-header {
-    margin-bottom: 20px;
-  }
-
-  .plans-header h1 {
-    font-size: 23px;
+@media (prefers-reduced-motion: reduce) {
+  .refresh-spinning,
+  .loading-spinner {
+    animation: none;
   }
 }
