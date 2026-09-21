@@ -257,6 +257,7 @@ export default function PlanResult() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [editingSupervisor, setEditingSupervisor] = useState("");
   // =====================================================
   // Search / Filters
   // =====================================================
@@ -293,20 +294,15 @@ export default function PlanResult() {
   // =====================================================
 
   const [editingId, setEditingId] = useState(null);
-  const [editingSupervisor, setEditingSupervisor] = useState("");
   const [savingId, setSavingId] = useState(null);
 
-  console.log("=================================");
-  console.log("🔎 PLAN RESULT DEBUG");
-  console.log("🔎 routePlanId:", routePlanId);
-  console.log("🔎 statePlanId:", statePlanId);
-  console.log("🔎 final planId:", planId);
-  console.log("🔎 API URL:", `/plan/${planId}`);
-  console.log("=================================");
-
-  // =====================================================
-  // Load Plan
-  // =====================================================
+  useEffect(() => {
+    console.log(
+      "🔴 editingSupervisor CHANGED:",
+      JSON.stringify(editingSupervisor),
+      typeof editingSupervisor,
+    );
+  }, [editingSupervisor]);
 
   // =====================================================
   // Load Plan
@@ -1076,75 +1072,48 @@ export default function PlanResult() {
   // =====================================================
   // Start Editing
 
- 
-const startEditing = (assignment) => {
-  console.log("=================================");
-  console.log("✏️ EDIT CLICK");
+  const startEditing = (assignment) => {
+    const supervisorId =
+      assignment?.supervisor_id ?? assignment?.supervisorId ?? null;
 
-  const sessionGroupId =
-    assignment?.session_group_id ??
-    assignment?.sessionGroupId;
+    const sessionGroupId =
+      assignment?.session_group_id ?? assignment?.sessionGroupId ?? null;
 
-  const currentSupervisorId =
-    assignment?.supervisor_id ??
-    assignment?.supervisorId;
+    console.log("=================================");
+    console.log("🟢 EDIT CLICK");
+    console.log("📦 assignment:", assignment);
+    console.log("🟢 supervisorId =", supervisorId);
+    console.log("🟢 sessionGroupId =", sessionGroupId);
 
-  console.log(
-    "🆔 sessionGroupId:",
-    sessionGroupId
-  );
-
-  console.log(
-    "👤 currentSupervisorId:",
-    currentSupervisorId,
-    typeof currentSupervisorId
-  );
-
-  if (
-    sessionGroupId === null ||
-    sessionGroupId === undefined
-  ) {
-    alert("Session Group ID is missing");
-    return;
-  }
-
-  if (
-    currentSupervisorId === null ||
-    currentSupervisorId === undefined
-  ) {
-    alert("Supervisor ID is missing");
-    return;
-  }
-
-  const editId = String(sessionGroupId);
-  const supervisorId = String(currentSupervisorId);
-
-  console.log(
-    "🟢 BEFORE setEditingId:",
-    editId
-  );
-
-  console.log(
-    "🟢 BEFORE setEditingSupervisor:",
-    supervisorId
-  );
-
-  setEditingId(editId);
-
-  setEditingSupervisor(supervisorId);
-
-  console.log(
-    "🟢 AFTER setters:",
-    {
-      editId,
-      supervisorId,
+    if (sessionGroupId === null || sessionGroupId === undefined) {
+      console.error("🔴 sessionGroupId is missing");
+      alert("Session Group ID is missing");
+      return;
     }
-  );
 
-  console.log("=================================");
-};
+    // التأكد أن Supervisor ID موجود
+    if (supervisorId === null || supervisorId === undefined) {
+      console.error("🔴 supervisorId is missing");
+      alert("Supervisor ID is missing");
+      return;
+    }
 
+    const editId = String(sessionGroupId);
+    const editSupervisorId = String(supervisorId);
 
+    console.log("🟢 SETTING editingId TO:", editId);
+    console.log("🟢 SETTING editingSupervisor TO:", editSupervisorId);
+
+    setEditingId(editId);
+    setEditingSupervisor(editSupervisorId);
+
+    console.log("🟢 AFTER SETTERS:", {
+      editId,
+      editSupervisorId,
+    });
+
+    console.log("=================================");
+  };
 
   // =====================================================
   // Cancel Editing
@@ -1161,226 +1130,197 @@ const startEditing = (assignment) => {
   // Save Assignment
   // =====================================================
 
-  
-const saveAssignment = async (assignment) => {
-  const sessionGroupId = getSessionGroupId(assignment);
-  const currentSupervisorId = getSupervisorId(assignment);
+  const saveAssignment = async (assignment) => {
+    const sessionGroupId = getSessionGroupId(assignment);
+    const currentSupervisorId = getSupervisorId(assignment);
 
-  console.log("=================================");
-  console.log("💾 SAVE ASSIGNMENT START");
-  console.log("📦 assignment:", assignment);
-  console.log("📌 editingId:", editingId);
-  console.log(
-    "📌 editingSupervisor:",
-    JSON.stringify(editingSupervisor),
-    typeof editingSupervisor
-  );
-  console.log("📌 sessionGroupId:", sessionGroupId);
-  console.log("📌 currentSupervisorId:", currentSupervisorId);
-
-  // =========================================
-  // التحقق من Session Group ID
-  // =========================================
-
-  if (
-    sessionGroupId === null ||
-    sessionGroupId === undefined ||
-    sessionGroupId === ""
-  ) {
-    alert("❌ Session Group ID is missing.");
-    return;
-  }
-
-  // =========================================
-  // التحقق من المشرف الحالي
-  // =========================================
-
-  if (
-    currentSupervisorId === null ||
-    currentSupervisorId === undefined ||
-    currentSupervisorId === "" ||
-    !Number.isInteger(Number(currentSupervisorId))
-  ) {
-    alert("❌ Current Supervisor ID is missing.");
-    return;
-  }
-
-  // =========================================
-  // تنظيف قيمة المشرف المختار
-  // =========================================
-
-  const rawSupervisorId = editingSupervisor;
-
-  console.log(
-    "🔎 rawSupervisorId:",
-    JSON.stringify(rawSupervisorId),
-    typeof rawSupervisorId
-  );
-
-  // إذا كانت القيمة undefined/null كنص
-  if (
-    rawSupervisorId === undefined ||
-    rawSupervisorId === null ||
-    rawSupervisorId === "" ||
-    rawSupervisorId === "undefined" ||
-    rawSupervisorId === "null"
-  ) {
-    console.error(
-      "❌ editingSupervisor contains invalid value:",
-      rawSupervisorId
+    console.log("=================================");
+    console.log("💾 SAVE ASSIGNMENT START");
+    console.log("📦 assignment:", assignment);
+    console.log("📌 editingId:", editingId);
+    console.log(
+      "📌 editingSupervisor:",
+      JSON.stringify(editingSupervisor),
+      typeof editingSupervisor,
     );
-
-    alert("⚠️ Please select a valid supervisor.");
-    return;
-  }
-
-  const targetSupervisorId = Number(rawSupervisorId);
-
-  console.log(
-    "🎯 targetSupervisorId:",
-    targetSupervisorId,
-    typeof targetSupervisorId
-  );
-
-  // =========================================
-  // التحقق من أن ID رقم صحيح
-  // =========================================
-
-  if (!Number.isInteger(targetSupervisorId)) {
-    console.error(
-      "❌ Invalid target supervisor ID:",
-      rawSupervisorId
-    );
-
-    alert("⚠️ Please select a valid supervisor.");
-    return;
-  }
-
-  // =========================================
-  // Affinity
-  // =========================================
-
-  const affinitySupervisorId =
-    getProfessorAffinitySupervisorId(assignment);
-
-  console.log(
-    "🔗 affinitySupervisorId:",
-    affinitySupervisorId
-  );
-
-  if (
-    affinitySupervisorId !== null &&
-    affinitySupervisorId !== undefined &&
-    String(targetSupervisorId) !== String(affinitySupervisorId)
-  ) {
-    alert(
-      "⚠️ هذا الأستاذ مرتبط بمشرف محدد ولا يمكن تغييره إلى مشرف آخر."
-    );
-
-    setEditingSupervisor(String(affinitySupervisorId));
-    return;
-  }
-
-  // =========================================
-  // إذا لم يتغير المشرف
-  // =========================================
-
-  if (
-    String(currentSupervisorId) ===
-    String(targetSupervisorId)
-  ) {
-    console.log("ℹ️ Supervisor did not change.");
-    cancelEditing();
-    return;
-  }
-
-  // =========================================
-  // إرسال الطلب للـ backend
-  // =========================================
-
-  try {
-    setSavingId(sessionGroupId);
-
-    const payload = {
-      sessionGroupId: Number(sessionGroupId),
-      fromSupervisorId: Number(currentSupervisorId),
-      toSupervisorId: targetSupervisorId,
-    };
-
-    console.log("📤 SENDING PAYLOAD:");
-    console.log(JSON.stringify(payload, null, 2));
-
-    await moveAssignment(planId, payload);
-
-    console.log("✅ Assignment moved successfully");
+    console.log("📌 sessionGroupId:", sessionGroupId);
+    console.log("📌 currentSupervisorId:", currentSupervisorId);
 
     // =========================================
-    // الحصول على اسم المشرف الجديد
+    // التحقق من Session Group ID
     // =========================================
 
-    const selectedSupervisor = supervisors.find(
-      (supervisor) =>
-        String(supervisor.id) ===
-        String(targetSupervisorId)
-    );
-
-    const newSupervisorName =
-      selectedSupervisor?.name ??
-      selectedSupervisor?.supervisor_name ??
-      "";
+    if (
+      sessionGroupId === null ||
+      sessionGroupId === undefined ||
+      sessionGroupId === ""
+    ) {
+      alert("❌ Session Group ID is missing.");
+      return;
+    }
 
     // =========================================
-    // تحديث الجدول مباشرة
+    // التحقق من المشرف الحالي
     // =========================================
 
-    setPlanData((prev) =>
-      prev.map((item) => {
-        const itemId = getSessionGroupId(item);
+    if (
+      currentSupervisorId === null ||
+      currentSupervisorId === undefined ||
+      currentSupervisorId === "" ||
+      !Number.isInteger(Number(currentSupervisorId))
+    ) {
+      alert("❌ Current Supervisor ID is missing.");
+      return;
+    }
 
-        if (
-          String(itemId) !==
-          String(sessionGroupId)
-        ) {
-          return item;
-        }
+    // =========================================
+    // تنظيف قيمة المشرف المختار
+    // =========================================
 
-        return {
-          ...item,
+    const rawSupervisorId = editingSupervisor;
 
-          supervisor_id: targetSupervisorId,
-          supervisorId: targetSupervisorId,
-
-          supervisor_name: newSupervisorName,
-          supervisor: newSupervisorName,
-        };
-      })
+    console.log(
+      "🔎 rawSupervisorId:",
+      JSON.stringify(rawSupervisorId),
+      typeof rawSupervisorId,
     );
 
-    cancelEditing();
+    // إذا كانت القيمة undefined/null كنص
+    if (
+      rawSupervisorId === undefined ||
+      rawSupervisorId === null ||
+      rawSupervisorId === "" ||
+      rawSupervisorId === "undefined" ||
+      rawSupervisorId === "null"
+    ) {
+      console.error(
+        "❌ editingSupervisor contains invalid value:",
+        rawSupervisorId,
+      );
 
-  } catch (err) {
-    console.error(
-      "❌ Error moving assignment:",
-      err
+      alert("⚠️ Please select a valid supervisor.");
+      return;
+    }
+
+    const targetSupervisorId = Number(rawSupervisorId);
+
+    console.log(
+      "🎯 targetSupervisorId:",
+      targetSupervisorId,
+      typeof targetSupervisorId,
     );
 
-    console.error(
-      "📦 Backend response:",
-      err?.response?.data
-    );
+    // =========================================
+    // التحقق من أن ID رقم صحيح
+    // =========================================
 
-    alert(
-      err?.response?.data?.error ||
-        err?.response?.data?.message ||
-        err?.message ||
-        "Failed to update assignment."
-    );
+    if (!Number.isInteger(targetSupervisorId)) {
+      console.error("❌ Invalid target supervisor ID:", rawSupervisorId);
 
-  } finally {
-    setSavingId(null);
-  }
-};
+      alert("⚠️ Please select a valid supervisor.");
+      return;
+    }
 
+    // =========================================
+    // Affinity
+    // =========================================
+
+    const affinitySupervisorId = getProfessorAffinitySupervisorId(assignment);
+
+    console.log("🔗 affinitySupervisorId:", affinitySupervisorId);
+
+    if (
+      affinitySupervisorId !== null &&
+      affinitySupervisorId !== undefined &&
+      String(targetSupervisorId) !== String(affinitySupervisorId)
+    ) {
+      alert("⚠️ هذا الأستاذ مرتبط بمشرف محدد ولا يمكن تغييره إلى مشرف آخر.");
+
+      setEditingSupervisor(String(affinitySupervisorId));
+      return;
+    }
+
+    // =========================================
+    // إذا لم يتغير المشرف
+    // =========================================
+
+    if (String(currentSupervisorId) === String(targetSupervisorId)) {
+      console.log("ℹ️ Supervisor did not change.");
+      cancelEditing();
+      return;
+    }
+
+    // =========================================
+    // إرسال الطلب للـ backend
+    // =========================================
+
+    try {
+      setSavingId(sessionGroupId);
+
+      const payload = {
+        sessionGroupId: Number(sessionGroupId),
+        fromSupervisorId: Number(currentSupervisorId),
+        toSupervisorId: targetSupervisorId,
+      };
+
+      console.log("📤 SENDING PAYLOAD:");
+      console.log(JSON.stringify(payload, null, 2));
+
+      await moveAssignment(planId, payload);
+
+      console.log("✅ Assignment moved successfully");
+
+      // =========================================
+      // الحصول على اسم المشرف الجديد
+      // =========================================
+
+      const selectedSupervisor = supervisors.find(
+        (supervisor) => String(supervisor.id) === String(targetSupervisorId),
+      );
+
+      const newSupervisorName =
+        selectedSupervisor?.name ?? selectedSupervisor?.supervisor_name ?? "";
+
+      // =========================================
+      // تحديث الجدول مباشرة
+      // =========================================
+
+      setPlanData((prev) =>
+        prev.map((item) => {
+          const itemId = getSessionGroupId(item);
+
+          if (String(itemId) !== String(sessionGroupId)) {
+            return item;
+          }
+
+          return {
+            ...item,
+
+            supervisor_id: targetSupervisorId,
+            supervisorId: targetSupervisorId,
+
+            supervisor_name: newSupervisorName,
+            supervisor: newSupervisorName,
+          };
+        }),
+      );
+
+      cancelEditing();
+    } catch (err) {
+      console.error("❌ Error moving assignment:", err);
+
+      console.error("📦 Backend response:", err?.response?.data);
+
+      alert(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "Failed to update assignment.",
+      );
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   // =====================================================
   // Print
