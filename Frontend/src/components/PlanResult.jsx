@@ -1077,26 +1077,49 @@ export default function PlanResult() {
   // Start Editing
   // =====================================================
 
-  const startEditing = (assignment) => {
-    const id = getSessionGroupId(assignment);
+ const startEditing = (assignment) => {
+  const sessionGroupId =
+    assignment?.session_group_id ??
+    assignment?.sessionGroupId ??
+    assignment?.id;
 
-    if (id === null || id === undefined || id === "") {
-      alert("❌ لا يمكن تعديل هذا السجل لأن Session Group ID غير موجود.");
-      return;
-    }
+  const currentSupervisorId =
+    assignment?.supervisor_id ??
+    assignment?.supervisorId ??
+    null;
 
-    // المشرف الحالي فقط
-    const supervisorId = getSupervisorId(assignment);
-
-    setEditingId(String(id));
-
-    // مهم جدًا: نخزن ID وليس اسم المشرف
-    setEditingSupervisor(
-      supervisorId !== null && supervisorId !== undefined
-        ? String(supervisorId)
-        : "",
+  if (
+    sessionGroupId === null ||
+    sessionGroupId === undefined ||
+    sessionGroupId === ""
+  ) {
+    alert(
+      "❌ لا يمكن تعديل هذا السجل لأن Session Group ID غير موجود."
     );
-  };
+    return;
+  }
+
+  console.log("🟢 START EDITING");
+  console.log("📌 sessionGroupId:", sessionGroupId);
+  console.log(
+    "📌 currentSupervisorId:",
+    currentSupervisorId,
+    typeof currentSupervisorId
+  );
+
+  setEditingId(String(sessionGroupId));
+
+  // مهم جدًا:
+  // نخزن ID المشرف وليس اسمه
+  setEditingSupervisor(
+    currentSupervisorId !== null &&
+    currentSupervisorId !== undefined
+      ? String(currentSupervisorId)
+      : ""
+  );
+};
+
+
 
   // =====================================================
   // Cancel Editing
