@@ -184,14 +184,14 @@ async function loadPlans(showRefresh = false) {
 
     setError("");
 
-    const [response, statsResponse] = await Promise.all([
-      getPlans(),
-      getAcceptedSupervisorStats(),
-    ]);
+    console.log("➡️ Calling getPlans...");
+    const response = await getPlans();
+    console.log("✅ getPlans response:", response);
 
-    console.log("🟢 getPlans response:", response);
+    console.log("➡️ Calling getAcceptedSupervisorStats...");
+    const statsResponse = await getAcceptedSupervisorStats();
     console.log(
-      "🟢 accepted supervisor stats:",
+      "✅ getAcceptedSupervisorStats response:",
       statsResponse
     );
 
@@ -213,11 +213,19 @@ async function loadPlans(showRefresh = false) {
       receivedStats = statsResponse.data;
     }
 
+    console.log("📋 Received plans:", receivedPlans);
+    console.log("📊 Received stats:", receivedStats);
+
     setPlans(receivedPlans);
     setSupervisorStats(receivedStats);
 
   } catch (err) {
-    console.error("ERROR LOADING PLANS:", err);
+    console.error("🔴 ERROR LOADING PLANS:", err);
+    console.error("🔴 error message:", err?.message);
+    console.error("🔴 error response:", err?.response);
+    console.error("🔴 response data:", err?.response?.data);
+    console.error("🔴 response status:", err?.response?.status);
+    console.error("🔴 error config:", err?.config);
 
     let errorMessage = "تعذر تحميل الخطط المقبولة.";
 
