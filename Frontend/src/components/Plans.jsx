@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Sidebar from "../components/Sidebar.jsx";
-import { getPlans, deletePlan,   getAcceptedSupervisorStats } from "../api.js";
+import { getPlans, deletePlan, getAcceptedSupervisorStats } from "../api.js";
 
 import "../assets/Plan.css";
 
@@ -167,85 +167,86 @@ export default function Plans() {
 
   const [supervisorStats, setSupervisorStats] = useState([]);
 
-
   // ===================================================
   // Load Plans
   // ===================================================
 
-async function loadPlans(showRefresh = false) {
-  console.log("Loading plans...");
+  async function loadPlans(showRefresh = false) {
+    console.log("Loading plans...");
 
-  try {
-    if (showRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
+    try {
+      if (showRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+
+      setError("");
+
+      console.log("➡️ Calling getPlans...");
+      const response = await getPlans();
+
+      let statsResponse = null;
+
+      try {
+        statsResponse = await getAcceptedSupervisorStats();
+      } catch (statsError) {
+        console.error("⚠️ Failed to load supervisor statistics:", statsError);
+
+        statsResponse = {
+          data: [],
+        };
+      }
+
+      let receivedPlans = [];
+
+      if (Array.isArray(response)) {
+        receivedPlans = response;
+      } else if (Array.isArray(response?.data)) {
+        receivedPlans = response.data;
+      } else if (Array.isArray(response?.plans)) {
+        receivedPlans = response.plans;
+      }
+
+      let receivedStats = [];
+
+      if (Array.isArray(statsResponse)) {
+        receivedStats = statsResponse;
+      } else if (Array.isArray(statsResponse?.data)) {
+        receivedStats = statsResponse.data;
+      }
+
+      console.log("📋 Received plans:", receivedPlans);
+      console.log("📊 Received stats:", receivedStats);
+
+      setPlans(receivedPlans);
+      setSupervisorStats(receivedStats);
+    } catch (err) {
+      console.error("🔴 ERROR LOADING PLANS:", err);
+      console.error("🔴 error message:", err?.message);
+      console.error("🔴 error response:", err?.response);
+      console.error("🔴 response data:", err?.response?.data);
+      console.error("🔴 response status:", err?.response?.status);
+      console.error("🔴 error config:", err?.config);
+
+      let errorMessage = "تعذر تحميل الخطط المقبولة.";
+
+      if (err?.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err?.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err?.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
+      setPlans([]);
+      setSupervisorStats([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    setError("");
-
-    console.log("➡️ Calling getPlans...");
-    const response = await getPlans();
-    console.log("✅ getPlans response:", response);
-
-    console.log("➡️ Calling getAcceptedSupervisorStats...");
-    const statsResponse = await getAcceptedSupervisorStats();
-    console.log(
-      "✅ getAcceptedSupervisorStats response:",
-      statsResponse
-    );
-
-    let receivedPlans = [];
-
-    if (Array.isArray(response)) {
-      receivedPlans = response;
-    } else if (Array.isArray(response?.data)) {
-      receivedPlans = response.data;
-    } else if (Array.isArray(response?.plans)) {
-      receivedPlans = response.plans;
-    }
-
-    let receivedStats = [];
-
-    if (Array.isArray(statsResponse)) {
-      receivedStats = statsResponse;
-    } else if (Array.isArray(statsResponse?.data)) {
-      receivedStats = statsResponse.data;
-    }
-
-    console.log("📋 Received plans:", receivedPlans);
-    console.log("📊 Received stats:", receivedStats);
-
-    setPlans(receivedPlans);
-    setSupervisorStats(receivedStats);
-
-  } catch (err) {
-    console.error("🔴 ERROR LOADING PLANS:", err);
-    console.error("🔴 error message:", err?.message);
-    console.error("🔴 error response:", err?.response);
-    console.error("🔴 response data:", err?.response?.data);
-    console.error("🔴 response status:", err?.response?.status);
-    console.error("🔴 error config:", err?.config);
-
-    let errorMessage = "تعذر تحميل الخطط المقبولة.";
-
-    if (err?.response?.data?.error) {
-      errorMessage = err.response.data.error;
-    } else if (err?.response?.data?.message) {
-      errorMessage = err.response.data.message;
-    } else if (err?.message) {
-      errorMessage = err.message;
-    }
-
-    setError(errorMessage);
-    setPlans([]);
-    setSupervisorStats([]);
-
-  } finally {
-    setLoading(false);
-    setRefreshing(false);
   }
-}
   // ===================================================
   // Initial Load
   // ===================================================
@@ -258,37 +259,29 @@ async function loadPlans(showRefresh = false) {
   // Accepted Plans Only
   // ===================================================
 
- const acceptedPlans = useMemo(() => {
-  return plans.filter((plan) => {
-    const status = getPlanStatus(plan);
+  const acceptedPlans = useMemo(() => {
+    return plans.filter((plan) => {
+      const status = getPlanStatus(plan);
 
-    return status === "accepted";
-  });
-}, [plans]);
+      return status === "accepted";
+    });
+  }, [plans]);
 
   // ===================================================
   // Filter
   // ===================================================
 
-const filteredPlans = useMemo(() => {
-  const query = search.trim().toLowerCase();
+  const filteredPlans = useMemo(() => {
+    const query = search.trim().toLowerCase();
 
-  return acceptedPlans.filter((plan) => {
-    const name = String(
-      plan.name || ""
-    ).toLowerCase();
+    return acceptedPlans.filter((plan) => {
+      const name = String(plan.name || "").toLowerCase();
 
-    const id = String(
-      plan.id || ""
-    ).toLowerCase();
+      const id = String(plan.id || "").toLowerCase();
 
-    return (
-      !query ||
-      name.includes(query) ||
-      id.includes(query)
-    );
-  });
-}, [acceptedPlans, search]);
+      return !query || name.includes(query) || id.includes(query);
+    });
+  }, [acceptedPlans, search]);
 
   // ===================================================
   // Stats
@@ -354,8 +347,6 @@ const filteredPlans = useMemo(() => {
 
   return (
     <div className="plans-layout" dir="rtl">
-
-
       <Sidebar />
 
       {/* =================================================
@@ -386,68 +377,58 @@ const filteredPlans = useMemo(() => {
           </button>
         </header>
 
-<section className="supervisor-total-stats">
-  <div className="supervisor-total-header">
-    <div>
-      <h2>إحصائيات المشرفين</h2>
-      <p>
-        إجمالي الفترات التي حصل عليها كل مشرف في جميع الخطط المقبولة.
-      </p>
-    </div>
-  </div>
+        <section className="supervisor-total-stats">
+          <div className="supervisor-total-header">
+            <div>
+              <h2>إحصائيات المشرفين</h2>
+              <p>
+                إجمالي الفترات التي حصل عليها كل مشرف في جميع الخطط المقبولة.
+              </p>
+            </div>
+          </div>
 
-  {supervisorStats.length === 0 ? (
-    <div className="supervisor-stats-empty">
-      لا توجد بيانات إحصائية للخطط المقبولة.
-    </div>
-  ) : (
-    <div className="supervisor-stats-table-wrapper">
-      <table className="supervisor-stats-table">
-        <thead>
-          <tr>
-            <th>#</th>
-            <th>المشرف</th>
-            <th>الفترات</th>
-            <th>التعيينات</th>
-            <th>عدد الخطط</th>
-          </tr>
-        </thead>
+          {supervisorStats.length === 0 ? (
+            <div className="supervisor-stats-empty">
+              لا توجد بيانات إحصائية للخطط المقبولة.
+            </div>
+          ) : (
+            <div className="supervisor-stats-table-wrapper">
+              <table className="supervisor-stats-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>المشرف</th>
+                    <th>الفترات</th>
+                    <th>التعيينات</th>
+                    <th>عدد الخطط</th>
+                  </tr>
+                </thead>
 
-        <tbody>
-          {supervisorStats.map((supervisor, index) => (
-            <tr key={supervisor.supervisor_id}>
-              <td>{index + 1}</td>
+                <tbody>
+                  {supervisorStats.map((supervisor, index) => (
+                    <tr key={supervisor.supervisor_id}>
+                      <td>{index + 1}</td>
 
-              <td>
-                <strong>
-                  {supervisor.supervisor_name}
-                </strong>
-              </td>
+                      <td>
+                        <strong>{supervisor.supervisor_name}</strong>
+                      </td>
 
-              <td>
-                <span className="stats-period-count">
-                  {Number(supervisor.total_periods || 0)}
-                </span>
-              </td>
+                      <td>
+                        <span className="stats-period-count">
+                          {Number(supervisor.total_periods || 0)}
+                        </span>
+                      </td>
 
-              <td>
-                {Number(
-                  supervisor.total_assignments || 0
-                )}
-              </td>
+                      <td>{Number(supervisor.total_assignments || 0)}</td>
 
-              <td>
-                {Number(
-                  supervisor.accepted_plans || 0
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )}
-</section>
+                      <td>{Number(supervisor.accepted_plans || 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
         {/* =================================================
             Statistics
         ================================================= */}
@@ -488,47 +469,31 @@ const filteredPlans = useMemo(() => {
             Toolbar
         ================================================= */}
 
-       <section className="plans-toolbar">
+        <section className="plans-toolbar">
+          <div className="plans-search">
+            <span className="search-icon">{Icons.search}</span>
 
-  <div className="plans-search">
+            <input
+              type="text"
+              placeholder="ابحث باسم الخطة أو رقمها..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
 
-    <span className="search-icon">
-      {Icons.search}
-    </span>
-
-    <input
-      type="text"
-      placeholder="ابحث باسم الخطة أو رقمها..."
-      value={search}
-      onChange={(e) =>
-        setSearch(e.target.value)
-      }
-    />
-
-  </div>
-
-  <div className="plans-filters">
-
-    <button
-      className="refresh-button"
-      onClick={() => loadPlans(true)}
-      disabled={refreshing}
-      title="تحديث"
-    >
-      <span
-        className={
-          refreshing
-            ? "refresh-spinning"
-            : ""
-        }
-      >
-        {Icons.refresh}
-      </span>
-    </button>
-
-  </div>
-
-</section>
+          <div className="plans-filters">
+            <button
+              className="refresh-button"
+              onClick={() => loadPlans(true)}
+              disabled={refreshing}
+              title="تحديث"
+            >
+              <span className={refreshing ? "refresh-spinning" : ""}>
+                {Icons.refresh}
+              </span>
+            </button>
+          </div>
+        </section>
 
         {/* =================================================
             Content
