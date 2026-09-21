@@ -25,7 +25,313 @@
   padding: 32px 34px 25px;
 }
 
+/* =====================================================
+   CATEGORY SUMMARY
+===================================================== */
 
+.plans-category-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.category-summary-card {
+  border: 1px solid #e7eaf0;
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  text-align: right;
+  cursor: pointer;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.category-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(20, 30, 50, 0.08);
+}
+
+.category-summary-card.selected {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.08);
+}
+
+.category-summary-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.category-icon-merged {
+  background: #eef4ff;
+}
+
+.category-icon-diploma {
+  background: #f5efff;
+}
+
+.category-icon-requirements {
+  background: #fff5e8;
+}
+
+.category-summary-card > div:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.category-summary-card span {
+  color: #667085;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.category-summary-card strong {
+  color: #101828;
+  font-size: 25px;
+  line-height: 1;
+}
+
+.category-summary-card small {
+  color: #98a2b3;
+  font-size: 11px;
+}
+
+
+/* =====================================================
+   FILTER SECTIONS
+===================================================== */
+
+.plans-filter-section {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.filter-title {
+  color: #667085;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.plans-filters {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.filter-button {
+  border: 1px solid #e4e7ec;
+  background: #fff;
+  color: #667085;
+  border-radius: 9px;
+  padding: 8px 13px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-button:hover {
+  background: #f8fafc;
+  border-color: #cfd5df;
+}
+
+.filter-button.active {
+  background: #101828;
+  border-color: #101828;
+  color: #fff;
+}
+
+
+/* =====================================================
+   CATEGORY BADGES
+===================================================== */
+
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border-radius: 999px;
+  padding: 6px 11px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.category-badge i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  display: block;
+}
+
+.category-merged {
+  background: #eef4ff;
+  color: #175cd3;
+}
+
+.category-merged i {
+  background: #2970ff;
+}
+
+.category-diploma {
+  background: #f5efff;
+  color: #6941c6;
+}
+
+.category-diploma i {
+  background: #9e77ed;
+}
+
+.category-requirements {
+  background: #fff5e8;
+  color: #b54708;
+}
+
+.category-requirements i {
+  background: #f79009;
+}
+
+.category-unknown {
+  background: #f2f4f7;
+  color: #667085;
+}
+
+.category-unknown i {
+  background: #98a2b3;
+}
+
+
+/* =====================================================
+   EXCEL BUTTON
+===================================================== */
+
+.action-excel {
+  position: relative;
+}
+
+.action-excel.downloading {
+  opacity: 0.65;
+  cursor: wait;
+}
+
+.excel-loading-dot {
+  font-size: 10px;
+  margin-right: 2px;
+}
+
+
+/* =====================================================
+   HEADER
+===================================================== */
+
+.plans-header-content {
+  flex: 1;
+}
+
+
+/* =====================================================
+   TABLE IMPROVEMENTS
+===================================================== */
+
+.plans-table th {
+  white-space: nowrap;
+}
+
+.plans-table td {
+  vertical-align: middle;
+}
+
+.plan-name-cell {
+  min-width: 190px;
+}
+
+.plan-name-cell strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.plan-name-cell span {
+  font-size: 11px;
+  color: #98a2b3;
+}
+
+.number-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.number-cell strong {
+  font-size: 15px;
+}
+
+.assignment-count {
+  font-weight: 800;
+  color: #101828;
+}
+
+.plans-footer strong {
+  color: #101828;
+}
+
+
+/* =====================================================
+   RESPONSIVE
+===================================================== */
+
+@media (max-width: 1100px) {
+  .plans-category-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .plans-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .plans-filter-section {
+    width: 100%;
+  }
+}
+
+@media (max-width: 800px) {
+  .plans-main {
+    padding: 20px;
+  }
+
+  .plans-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 15px;
+  }
+
+  .new-plan-button {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .plans-table-wrapper {
+    overflow-x: auto;
+  }
+
+  .plans-table {
+    min-width: 1000px;
+  }
+}
 /* =========================================================
    Header
 ========================================================= */
