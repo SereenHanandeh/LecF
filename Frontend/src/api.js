@@ -163,7 +163,21 @@ export const unlockAssignment = (planId, sgId) =>
     .then((res) => res.data);
 
 
-export const deletePlan = (planId) =>
-  api.delete(`/plan/${planId}`).then((res) => res.data);
+export const deletePlan = (planId) => {
+  const id = Number(planId);
+
+  if (!Number.isInteger(id) || id <= 0) {
+    return Promise.reject(new Error("رقم الخطة غير صحيح."));
+  }
+
+  return api
+    .delete(`/plan/${id}`)
+    .then((res) => res.data);
+};
+
+export const getAcceptedSupervisorStats = () =>
+  api
+    .get("/plan/accepted-supervisor-stats")
+    .then((res) => res.data);
 
 export default api;

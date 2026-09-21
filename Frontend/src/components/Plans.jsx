@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Sidebar from "../components/Sidebar.jsx";
-import { getPlans, deletePlan } from "../api.js";
+import { getPlans, deletePlan,   getAcceptedSupervisorStats } from "../api.js";
 
 import "../assets/Plan.css";
 
@@ -165,71 +165,79 @@ export default function Plans() {
 
   const [deletingPlanId, setDeletingPlanId] = useState(null);
 
+  const [supervisorStats, setSupervisorStats] = useState([]);
+
+
   // ===================================================
   // Load Plans
   // ===================================================
 
-  async function loadPlans(showRefresh = false) {
-    console.log(" Loading plans...");
+async function loadPlans(showRefresh = false) {
+  console.log("Loading plans...");
 
-    try {
-      if (showRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
-      }
-
-      setError("");
-
-      const response = await getPlans();
-
-      console.log("🟢 getPlans response:");
-      console.log(response);
-
-      let receivedPlans = [];
-
-      if (Array.isArray(response)) {
-        receivedPlans = response;
-      } else if (Array.isArray(response?.data)) {
-        receivedPlans = response.data;
-      } else if (Array.isArray(response?.plans)) {
-        receivedPlans = response.plans;
-      }
-
-      console.log("Received plans:", receivedPlans);
-
-      setPlans(receivedPlans);
-    } catch (err) {
-      console.error("ERROR LOADING PLANS");
-      console.error("Full error:", err);
-      console.error("Response:", err?.response);
-      console.error("Response data:", err?.response?.data);
-      console.error("Status:", err?.response?.status);
-      console.error("Message:", err?.message);
-
-      let errorMessage = "تعذر تحميل الخطط المقبولة.";
-
-      if (err?.code === "ECONNABORTED") {
-        errorMessage = "الخادم لم يستجب خلال الوقت المحدد.";
-      } else if (err?.response?.data?.error) {
-        errorMessage = err.response.data.error;
-      } else if (err?.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err?.message) {
-        errorMessage = err.message;
-      }
-
-      setError(errorMessage);
-
-      setPlans([]);
-    } finally {
-      console.log("⚪ Finished loading plans");
-
-      setLoading(false);
-      setRefreshing(false);
+  try {
+    if (showRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
     }
-  }
 
+    setError("");
+
+    const [response, statsResponse] = await Promise.all([
+      getPlans(),
+      getAcceptedSupervisorStats(),
+    ]);
+
+    console.log("🟢 getPlans response:", response);
+    console.log(
+      "🟢 accepted supervisor stats:",
+      statsResponse
+    );
+
+    let receivedPlans = [];
+
+    if (Array.isArray(response)) {
+      receivedPlans = response;
+    } else if (Array.isArray(response?.data)) {
+      receivedPlans = response.data;
+    } else if (Array.isArray(response?.plans)) {
+      receivedPlans = response.plans;
+    }
+
+    let receivedStats = [];
+
+    if (Array.isArray(statsResponse)) {
+      receivedStats = statsResponse;
+    } else if (Array.isArray(statsResponse?.data)) {
+      receivedStats = statsResponse.data;
+    }
+
+    setPlans(receivedPlans);
+    setSupervisorStats(receivedStats);
+
+  } catch (err) {
+    console.error("ERROR LOADING PLANS:", err);
+
+    let errorMessage = "تعذر تحميل الخطط المقبولة.";
+
+    if (err?.response?.data?.error) {
+      errorMessage = err.response.data.error;
+    } else if (err?.response?.data?.message) {
+      errorMessage = err.response.data.message;
+    } else if (err?.message) {
+      errorMessage = err.message;
+    }
+
+    setError(errorMessage);
+    setPlans([]);
+    setSupervisorStats([]);
+
+  } finally {
+    setLoading(false);
+    setRefreshing(false);
+  }
+}
   // ===================================================
   // Initial Load
   // ===================================================
@@ -338,9 +346,7 @@ const filteredPlans = useMemo(() => {
 
   return (
     <div className="plans-layout" dir="rtl">
-      {/* =================================================
-          Sidebar
-      ================================================= */}
+
 
       <Sidebar />
 
@@ -372,6 +378,68 @@ const filteredPlans = useMemo(() => {
           </button>
         </header>
 
+<section className="supervisor-total-stats">
+  <div className="supervisor-total-header">
+    <div>
+      <h2>إحصائيات المشرفين</h2>
+      <p>
+        إجمالي الفترات التي حصل عليها كل مشرف في جميع الخطط المقبولة.
+      </p>
+    </div>
+  </div>
+
+  {supervisorStats.length === 0 ? (
+    <div className="supervisor-stats-empty">
+      لا توجد بيانات إحصائية للخطط المقبولة.
+    </div>
+  ) : (
+    <div className="supervisor-stats-table-wrapper">
+      <table className="supervisor-stats-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>المشرف</th>
+            <th>الفترات</th>
+            <th>التعيينات</th>
+            <th>عدد الخطط</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {supervisorStats.map((supervisor, index) => (
+            <tr key={supervisor.supervisor_id}>
+              <td>{index + 1}</td>
+
+              <td>
+                <strong>
+                  {supervisor.supervisor_name}
+                </strong>
+              </td>
+
+              <td>
+                <span className="stats-period-count">
+                  {Number(supervisor.total_periods || 0)}
+                </span>
+              </td>
+
+              <td>
+                {Number(
+                  supervisor.total_assignments || 0
+                )}
+              </td>
+
+              <td>
+                {Number(
+                  supervisor.accepted_plans || 0
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )}
+</section>
         {/* =================================================
             Statistics
         ================================================= */}
