@@ -245,13 +245,21 @@ export default function Plans() {
   // Accepted Plans Only
   // ===================================================
 
-  const acceptedPlans = useMemo(() => {
-    return plans.filter((plan) => {
-      const status = getPlanStatus(plan);
+ const acceptedPlans = useMemo(() => {
+  console.log("🟡 ALL PLANS:", plans);
 
-      return status === "accepted";
+  return plans.filter((plan) => {
+    const status = getPlanStatus(plan);
+
+    console.log("🔵 PLAN:", {
+      id: plan.id,
+      name: plan.name,
+      status,
     });
-  }, [plans]);
+
+    return status === "accepted";
+  });
+}, [plans]);
 
   // ===================================================
   // Filter
