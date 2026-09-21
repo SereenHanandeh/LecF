@@ -1,4 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useLocation, useParams } from "react-router-dom";
 import "../assets/planResult.css";
 import {
@@ -1487,15 +1493,15 @@ export default function PlanResult() {
                 planStatus === "accepted"
                   ? "status-badge status-accepted"
                   : planStatus === "rejected"
-                  ? "status-badge status-rejected"
-                  : "status-badge status-draft"
+                    ? "status-badge status-rejected"
+                    : "status-badge status-draft"
               }
             >
               {planStatus === "accepted"
                 ? "✅ مقبولة"
                 : planStatus === "rejected"
-                ? "❌ مرفوضة"
-                : "🕓 مسودة"}
+                  ? "❌ مرفوضة"
+                  : ""}
             </span>
 
             <button
@@ -1522,8 +1528,7 @@ export default function PlanResult() {
               disabled={statusSaving || planStatus === "accepted"}
               onClick={() => changePlanStatus("accepted")}
             >
-              ✅
-              <span>قبول الخطة</span>
+              ✅<span>قبول الخطة</span>
             </button>
 
             <button
@@ -1532,8 +1537,7 @@ export default function PlanResult() {
               disabled={statusSaving || planStatus === "rejected"}
               onClick={() => changePlanStatus("rejected")}
             >
-              ❌
-              <span>رفض الخطة</span>
+              ❌<span>رفض الخطة</span>
             </button>
           </div>
         </div>
