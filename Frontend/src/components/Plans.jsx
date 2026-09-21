@@ -120,12 +120,7 @@ function formatDateRange(from, to) {
 // =====================================================
 
 function getPlanStatus(plan) {
-  return (
-    plan.status ??
-    plan.plan_status ??
-    plan.planStatus ??
-    "draft"
-  );
+  return plan.status ?? plan.plan_status ?? plan.planStatus ?? "draft";
 }
 
 function getStatus(plan) {
@@ -168,8 +163,6 @@ export default function Plans() {
 
   const [search, setSearch] = useState("");
 
-  const [statusFilter, setStatusFilter] = useState("all");
-
   const [deletingPlanId, setDeletingPlanId] = useState(null);
 
   // ===================================================
@@ -177,9 +170,7 @@ export default function Plans() {
   // ===================================================
 
   async function loadPlans(showRefresh = false) {
-    console.log("====================================");
-    console.log("🔵 Loading plans...");
-    console.log("====================================");
+    console.log(" Loading plans...");
 
     try {
       if (showRefresh) {
@@ -219,21 +210,16 @@ export default function Plans() {
       console.error("Status:", err?.response?.status);
       console.error("Message:", err?.message);
 
-      let errorMessage =
-        "تعذر تحميل الخطط المقبولة.";
+      let errorMessage = "تعذر تحميل الخطط المقبولة.";
 
       if (err?.code === "ECONNABORTED") {
-        errorMessage =
-          "الخادم لم يستجب خلال الوقت المحدد.";
+        errorMessage = "الخادم لم يستجب خلال الوقت المحدد.";
       } else if (err?.response?.data?.error) {
-        errorMessage =
-          err.response.data.error;
+        errorMessage = err.response.data.error;
       } else if (err?.response?.data?.message) {
-        errorMessage =
-          err.response.data.message;
+        errorMessage = err.response.data.message;
       } else if (err?.message) {
-        errorMessage =
-          err.message;
+        errorMessage = err.message;
       }
 
       setError(errorMessage);
@@ -271,52 +257,39 @@ export default function Plans() {
   // Filter
   // ===================================================
 
-  const filteredPlans = useMemo(() => {
-    const query = search.trim().toLowerCase();
+const filteredPlans = useMemo(() => {
+  const query = search.trim().toLowerCase();
 
-    return acceptedPlans.filter((plan) => {
-      const name = String(
-        plan.name || ""
-      ).toLowerCase();
+  return acceptedPlans.filter((plan) => {
+    const name = String(
+      plan.name || ""
+    ).toLowerCase();
 
-      const id = String(
-        plan.id || ""
-      ).toLowerCase();
+    const id = String(
+      plan.id || ""
+    ).toLowerCase();
 
-      const matchesSearch =
-        !query ||
-        name.includes(query) ||
-        id.includes(query);
-
-      return matchesSearch;
-    });
-  }, [
-    acceptedPlans,
-    search,
-  ]);
+    return (
+      !query ||
+      name.includes(query) ||
+      id.includes(query)
+    );
+  });
+}, [acceptedPlans, search]);
 
   // ===================================================
   // Stats
   // ===================================================
-
   const totalPlans = acceptedPlans.length;
-
-  const generatedPlans = acceptedPlans.length;
-
-  const pendingPlans = 0;
 
   // ===================================================
   // Excel
   // ===================================================
 
   function downloadExcel(planId) {
-    const url =
-      `${API_BASE_URL}/exports/plan_${planId}.xlsx`;
+    const url = `${API_BASE_URL}/exports/plan_${planId}.xlsx`;
 
-    console.log(
-      "📥 Download Excel:",
-      url
-    );
+    console.log("📥 Download Excel:", url);
 
     window.open(url, "_blank");
   }
@@ -326,14 +299,9 @@ export default function Plans() {
   // ===================================================
 
   function openPlan(planId) {
-    console.log(
-      "👁 Opening plan:",
-      planId
-    );
+    console.log("👁 Opening plan:", planId);
 
-    navigate(
-      `/plan-result/${planId}`
-    );
+    navigate(`/plan-result/${planId}`);
   }
 
   // ===================================================
@@ -342,7 +310,7 @@ export default function Plans() {
 
   async function handleDeletePlan(planId) {
     const confirmed = window.confirm(
-      "هل أنت متأكد من حذف هذه الخطة؟\n\nلا يمكن التراجع عن عملية الحذف."
+      "هل أنت متأكد من حذف هذه الخطة؟\n\nلا يمكن التراجع عن عملية الحذف.",
     );
 
     if (!confirmed) {
@@ -353,30 +321,18 @@ export default function Plans() {
       setDeletingPlanId(planId);
       setError("");
 
-      console.log(
-        "🗑️ Deleting plan:",
-        planId
-      );
+      console.log("🗑️ Deleting plan:", planId);
 
       await deletePlan(planId);
 
       // إزالة الخطة مباشرة من الواجهة
       setPlans((prevPlans) =>
-        prevPlans.filter(
-          (plan) =>
-            Number(plan.id) !== Number(planId)
-        )
+        prevPlans.filter((plan) => Number(plan.id) !== Number(planId)),
       );
 
-      console.log(
-        "🟢 Plan deleted successfully:",
-        planId
-      );
+      console.log("🟢 Plan deleted successfully:", planId);
     } catch (err) {
-      console.error(
-        "🔴 DELETE PLAN ERROR:",
-        err
-      );
+      console.error("🔴 DELETE PLAN ERROR:", err);
 
       const errorMessage =
         err?.response?.data?.error ??
@@ -397,10 +353,7 @@ export default function Plans() {
   // ===================================================
 
   return (
-    <div
-      className="plans-layout"
-      dir="rtl"
-    >
+    <div className="plans-layout" dir="rtl">
       {/* =================================================
           Sidebar
       ================================================= */}
@@ -412,47 +365,27 @@ export default function Plans() {
       ================================================= */}
 
       <main className="plans-main">
-
         {/* =================================================
             Header
         ================================================= */}
 
         <header className="plans-header">
-
           <div>
-
             <div className="plans-breadcrumb">
               LectureFlow
-
               <span>/</span>
-
               الخطط المقبولة
             </div>
 
-            <h1>
-              الخطط المقبولة
-            </h1>
+            <h1>الخطط المقبولة</h1>
 
-            <p>
-              عرض وإدارة جميع خطط توزيع
-              المشرفين التي تم قبولها.
-            </p>
-
+            <p>عرض وإدارة جميع خطط توزيع المشرفين التي تم قبولها.</p>
           </div>
 
-          <button
-            className="new-plan-button"
-            onClick={() =>
-              navigate("/")
-            }
-          >
-            <span className="button-icon">
-              {Icons.plus}
-            </span>
-
+          <button className="new-plan-button" onClick={() => navigate("/")}>
+            <span className="button-icon">{Icons.plus}</span>
             إنشاء خطة جديدة
           </button>
-
         </header>
 
         {/* =================================================
@@ -460,150 +393,98 @@ export default function Plans() {
         ================================================= */}
 
         <section className="plans-stat-grid">
-
           <div className="plan-stat-card">
-
-            <div className="plan-stat-icon blue">
-              {Icons.assignments}
-            </div>
+            <div className="plan-stat-icon blue">{Icons.assignments}</div>
 
             <div>
+              <span>إجمالي الخطط المقبولة</span>
 
-              <span>
-                إجمالي الخطط المقبولة
-              </span>
-
-              <strong>
-                {totalPlans}
-              </strong>
-
+              <strong>{totalPlans}</strong>
             </div>
-
           </div>
 
           <div className="plan-stat-card">
-
-            <div className="plan-stat-icon green">
-              {Icons.calendar}
-            </div>
+            <div className="plan-stat-icon green">{Icons.calendar}</div>
 
             <div>
+              <span>الخطط المقبولة</span>
 
-              <span>
-                خطط مقبولة
-              </span>
-
-              <strong>
-                {generatedPlans}
-              </strong>
-
+              <strong>{acceptedPlans.length}</strong>
             </div>
-
           </div>
 
           <div className="plan-stat-card">
-
-            <div className="plan-stat-icon orange">
-              {Icons.refresh}
-            </div>
+            <div className="plan-stat-icon orange">{Icons.refresh}</div>
 
             <div>
+              <span>الخطط المعروضة</span>
 
-              <span>
-                الخطط المعروضة
-              </span>
-
-              <strong>
-                {filteredPlans.length}
-              </strong>
-
+              <strong>{filteredPlans.length}</strong>
             </div>
-
           </div>
-
         </section>
 
         {/* =================================================
             Toolbar
         ================================================= */}
 
-        <section className="plans-toolbar">
+       <section className="plans-toolbar">
 
-          <div className="plans-search">
+  <div className="plans-search">
 
-            <span className="search-icon">
-              {Icons.search}
-            </span>
+    <span className="search-icon">
+      {Icons.search}
+    </span>
 
-            <input
-              type="text"
-              placeholder="ابحث باسم الخطة أو رقمها..."
-              value={search}
-              onChange={(e) =>
-                setSearch(
-                  e.target.value
-                )
-              }
-            />
+    <input
+      type="text"
+      placeholder="ابحث باسم الخطة أو رقمها..."
+      value={search}
+      onChange={(e) =>
+        setSearch(e.target.value)
+      }
+    />
 
-          </div>
+  </div>
 
-          <div className="plans-filters">
+  <div className="plans-filters">
 
-            <button
-              className="filter-button active"
-              onClick={() =>
-                setStatusFilter("all")
-              }
-            >
-              المقبولة
-            </button>
+    <button
+      className="refresh-button"
+      onClick={() => loadPlans(true)}
+      disabled={refreshing}
+      title="تحديث"
+    >
+      <span
+        className={
+          refreshing
+            ? "refresh-spinning"
+            : ""
+        }
+      >
+        {Icons.refresh}
+      </span>
+    </button>
 
-            <button
-              className="refresh-button"
-              onClick={() =>
-                loadPlans(true)
-              }
-              disabled={refreshing}
-              title="تحديث"
-            >
-              <span
-                className={
-                  refreshing
-                    ? "refresh-spinning"
-                    : ""
-                }
-              >
-                {Icons.refresh}
-              </span>
-            </button>
+  </div>
 
-          </div>
-
-        </section>
+</section>
 
         {/* =================================================
             Content
         ================================================= */}
 
         <section className="plans-table-card">
-
           {/* =================================================
               Loading
           ================================================= */}
 
           {loading && (
-
             <div className="plans-loading">
-
               <div className="loading-spinner" />
 
-              <span>
-                جاري تحميل الخطط المقبولة...
-              </span>
-
+              <span>جاري تحميل الخطط المقبولة...</span>
             </div>
-
           )}
 
           {/* =================================================
@@ -611,374 +492,219 @@ export default function Plans() {
           ================================================= */}
 
           {!loading && error && (
-
             <div className="plans-error">
-
-              <div className="error-symbol">
-                !
-              </div>
+              <div className="error-symbol">!</div>
 
               <div>
+                <strong>حدث خطأ أثناء تحميل الخطط</strong>
 
-                <strong>
-                  حدث خطأ أثناء تحميل الخطط
-                </strong>
-
-                <span>
-                  {error}
-                </span>
-
+                <span>{error}</span>
               </div>
 
-              <button
-                onClick={() =>
-                  loadPlans()
-                }
-              >
-                إعادة المحاولة
-              </button>
-
+              <button onClick={() => loadPlans()}>إعادة المحاولة</button>
             </div>
-
           )}
 
           {/* =================================================
               Empty
           ================================================= */}
 
-          {!loading &&
-            !error &&
-            filteredPlans.length === 0 && (
+          {!loading && !error && filteredPlans.length === 0 && (
+            <div className="plans-empty">
+              <div className="empty-icon">📋</div>
 
-              <div className="plans-empty">
+              <h2>
+                {acceptedPlans.length === 0
+                  ? "لا توجد خطط مقبولة حتى الآن"
+                  : "لا توجد نتائج مطابقة"}
+              </h2>
 
-                <div className="empty-icon">
-                  📋
-                </div>
+              <p>
+                {acceptedPlans.length === 0
+                  ? "عند قبول أي خطة ستظهر هنا."
+                  : "جربي تغيير كلمة البحث."}
+              </p>
 
-                <h2>
-                  {acceptedPlans.length === 0
-                    ? "لا توجد خطط مقبولة حتى الآن"
-                    : "لا توجد نتائج مطابقة"}
-                </h2>
-
-                <p>
-                  {acceptedPlans.length === 0
-                    ? "عند قبول أي خطة ستظهر هنا."
-                    : "جربي تغيير كلمة البحث."}
-                </p>
-
-                {acceptedPlans.length === 0 && (
-
-                  <button
-                    onClick={() =>
-                      navigate("/")
-                    }
-                  >
-                    إنشاء خطة جديدة
-                  </button>
-
-                )}
-
-              </div>
-
-            )}
+              {acceptedPlans.length === 0 && (
+                <button onClick={() => navigate("/")}>إنشاء خطة جديدة</button>
+              )}
+            </div>
+          )}
 
           {/* =================================================
               Table
           ================================================= */}
 
-          {!loading &&
-            !error &&
-            filteredPlans.length > 0 && (
+          {!loading && !error && filteredPlans.length > 0 && (
+            <div className="plans-table-wrapper">
+              <table className="plans-table">
+                <thead>
+                  <tr>
+                    <th>الخطة</th>
 
-              <div className="plans-table-wrapper">
+                    <th>الفترة</th>
 
-                <table className="plans-table">
+                    <th>المشرفون</th>
 
-                  <thead>
+                    <th>التعيينات</th>
 
-                    <tr>
+                    <th>الحالة</th>
 
-                      <th>
-                        الخطة
-                      </th>
+                    <th>تاريخ الإنشاء</th>
 
-                      <th>
-                        الفترة
-                      </th>
+                    <th>الإجراءات</th>
+                  </tr>
+                </thead>
 
-                      <th>
-                        المشرفون
-                      </th>
+                <tbody>
+                  {filteredPlans.map((plan) => {
+                    const status = getStatus(plan);
 
-                      <th>
-                        التعيينات
-                      </th>
+                    const supervisorCount = Number(
+                      plan.supervisor_count ??
+                        plan.supervisors_count ??
+                        plan.selected_supervisors ??
+                        0,
+                    );
 
-                      <th>
-                        الحالة
-                      </th>
+                    const assignmentCount = Number(
+                      plan.assignment_count ??
+                        plan.assignments_count ??
+                        plan.assignmentCount ??
+                        0,
+                    );
 
-                      <th>
-                        تاريخ الإنشاء
-                      </th>
+                    const isDeleting =
+                      Number(deletingPlanId) === Number(plan.id);
 
-                      <th>
-                        الإجراءات
-                      </th>
+                    return (
+                      <tr key={plan.id}>
+                        {/* Plan */}
 
-                    </tr>
+                        <td>
+                          <div className="plan-name-cell">
+                            <div className="plan-mini-icon">
+                              {Icons.assignments}
+                            </div>
 
-                  </thead>
+                            <div>
+                              <strong>{plan.name || `Plan ${plan.id}`}</strong>
 
-                  <tbody>
+                              <span>#{plan.id}</span>
+                            </div>
+                          </div>
+                        </td>
 
-                    {filteredPlans.map(
-                      (plan) => {
+                        {/* Date */}
 
-                        const status =
-                          getStatus(plan);
+                        <td>
+                          <div className="date-cell">
+                            <span className="date-icon">{Icons.calendar}</span>
 
-                        const supervisorCount =
-                          Number(
-                            plan.supervisor_count ??
-                              plan.supervisors_count ??
-                              plan.selected_supervisors ??
-                              0
-                          );
+                            <span>
+                              {formatDateRange(plan.date_from, plan.date_to)}
+                            </span>
+                          </div>
+                        </td>
 
-                        const assignmentCount =
-                          Number(
-                            plan.assignment_count ??
-                              plan.assignments_count ??
-                              plan.assignmentCount ??
-                              0
-                          );
+                        {/* Supervisors */}
 
-                        const isDeleting =
-                          Number(deletingPlanId) ===
-                          Number(plan.id);
+                        <td>
+                          <div className="number-cell">
+                            <span className="number-icon">{Icons.users}</span>
 
-                        return (
+                            <strong>{supervisorCount}</strong>
 
-                          <tr
-                            key={plan.id}
-                          >
+                            <span>مشرف</span>
+                          </div>
+                        </td>
 
-                            {/* Plan */}
+                        {/* Assignments */}
 
-                            <td>
+                        <td>
+                          <div className="assignment-count">
+                            {assignmentCount}
+                          </div>
+                        </td>
 
-                              <div className="plan-name-cell">
+                        {/* Status */}
 
-                                <div className="plan-mini-icon">
-                                  {Icons.assignments}
-                                </div>
+                        <td>
+                          <span className={`plan-status ${status.className}`}>
+                            <i />
 
-                                <div>
+                            {status.label}
+                          </span>
+                        </td>
 
-                                  <strong>
-                                    {plan.name ||
-                                      `Plan ${plan.id}`}
-                                  </strong>
+                        {/* Created */}
 
-                                  <span>
-                                    #{plan.id}
-                                  </span>
+                        <td>
+                          <span className="created-date">
+                            {formatDate(plan.created_at)}
+                          </span>
+                        </td>
 
-                                </div>
+                        {/* Actions */}
 
-                              </div>
+                        <td>
+                          <div className="plan-actions">
+                            <button
+                              className="action-view"
+                              onClick={() => openPlan(plan.id)}
+                              title="فتح الخطة"
+                            >
+                              {Icons.eye}
 
-                            </td>
+                              <span>فتح</span>
+                            </button>
 
-                            {/* Date */}
+                            <button
+                              className="action-excel"
+                              onClick={() => downloadExcel(plan.id)}
+                              disabled={assignmentCount === 0}
+                              title="تحميل Excel"
+                            >
+                              {Icons.excel}
+                            </button>
 
-                            <td>
+                            <button
+                              className="action-delete"
+                              onClick={() => handleDeletePlan(plan.id)}
+                              disabled={isDeleting}
+                              title="حذف الخطة"
+                            >
+                              {Icons.trash}
 
-                              <div className="date-cell">
-
-                                <span className="date-icon">
-                                  {Icons.calendar}
-                                </span>
-
-                                <span>
-                                  {formatDateRange(
-                                    plan.date_from,
-                                    plan.date_to
-                                  )}
-                                </span>
-
-                              </div>
-
-                            </td>
-
-                            {/* Supervisors */}
-
-                            <td>
-
-                              <div className="number-cell">
-
-                                <span className="number-icon">
-                                  {Icons.users}
-                                </span>
-
-                                <strong>
-                                  {supervisorCount}
-                                </strong>
-
-                                <span>
-                                  مشرف
-                                </span>
-
-                              </div>
-
-                            </td>
-
-                            {/* Assignments */}
-
-                            <td>
-
-                              <div className="assignment-count">
-                                {assignmentCount}
-                              </div>
-
-                            </td>
-
-                            {/* Status */}
-
-                            <td>
-
-                              <span
-                                className={
-                                  `plan-status ${status.className}`
-                                }
-                              >
-
-                                <i />
-
-                                {status.label}
-
+                              <span>
+                                {isDeleting ? "جاري الحذف..." : "حذف"}
                               </span>
-
-                            </td>
-
-                            {/* Created */}
-
-                            <td>
-
-                              <span className="created-date">
-                                {formatDate(
-                                  plan.created_at
-                                )}
-                              </span>
-
-                            </td>
-
-                            {/* Actions */}
-
-                            <td>
-
-                              <div className="plan-actions">
-
-                                <button
-                                  className="action-view"
-                                  onClick={() =>
-                                    openPlan(
-                                      plan.id
-                                    )
-                                  }
-                                  title="فتح الخطة"
-                                >
-
-                                  {Icons.eye}
-
-                                  <span>
-                                    فتح
-                                  </span>
-
-                                </button>
-
-                                <button
-                                  className="action-excel"
-                                  onClick={() =>
-                                    downloadExcel(
-                                      plan.id
-                                    )
-                                  }
-                                  disabled={
-                                    assignmentCount === 0
-                                  }
-                                  title="تحميل Excel"
-                                >
-                                  {Icons.excel}
-                                </button>
-
-                                <button
-                                  className="action-delete"
-                                  onClick={() =>
-                                    handleDeletePlan(
-                                      plan.id
-                                    )
-                                  }
-                                  disabled={isDeleting}
-                                  title="حذف الخطة"
-                                >
-                                  {Icons.trash}
-
-                                  <span>
-                                    {isDeleting
-                                      ? "جاري الحذف..."
-                                      : "حذف"}
-                                  </span>
-                                </button>
-
-                              </div>
-
-                            </td>
-
-                          </tr>
-
-                        );
-                      }
-                    )}
-
-                  </tbody>
-
-                </table>
-
-              </div>
-
-            )}
-
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </section>
 
         {/* =================================================
             Footer
         ================================================= */}
 
-        {!loading &&
-          !error &&
-          filteredPlans.length > 0 && (
+        {!loading && !error && filteredPlans.length > 0 && (
+          <div className="plans-footer">
+            <span>
+              عرض {filteredPlans.length} من {acceptedPlans.length} خطة مقبولة
+            </span>
 
-            <div className="plans-footer">
-
-              <span>
-                عرض {filteredPlans.length} من{" "}
-                {acceptedPlans.length} خطة مقبولة
-              </span>
-
-              <span>
-                LectureFlow
-              </span>
-
-            </div>
-
-          )}
-
+            <span>LectureFlow</span>
+          </div>
+        )}
       </main>
-
     </div>
   );
 }
