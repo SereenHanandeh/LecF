@@ -164,14 +164,12 @@ export const unlockAssignment = (planId, sgId) =>
 
 
 export const deletePlan = (planId) => {
-  const id = Number(planId);
-
-  if (!Number.isInteger(id) || id <= 0) {
-    return Promise.reject(new Error("رقم الخطة غير صحيح."));
+  if (!planId || typeof planId !== "string") {
+    return Promise.reject(new Error("معرف الخطة غير صحيح."));
   }
 
   return api
-    .delete(`/plan/${id}`)
+    .delete(`/plan/${planId}`)
     .then((res) => res.data);
 };
 
