@@ -221,8 +221,6 @@ export default function Dashboard() {
   const [affinitySupervisor, setAffinitySupervisor] = useState("");
   const [affinities, setAffinitiesState] = useState([]);
 
-  const [roomSupervisorProfessors, setRoomProfessors] = useState([]);
-  const [selectedRoom, setSelectedRoom] = useState("");
   const [roomAssignments, setRoomAssignmentsState] = useState([]);
 
   const MINIMUM_PERIODS = 4;
@@ -275,14 +273,14 @@ export default function Dashboard() {
   }, [rows, selectedDate, dateMode]);
 
   const professors = useMemo(() => {
-  const names = selectedDateRows.map(getProfessorName).filter(Boolean);
+    const names = selectedDateRows.map(getProfessorName).filter(Boolean);
 
-  return [...new Set(names)].sort((a, b) => a.localeCompare(b, "ar"));
-}, [selectedDateRows]);
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b, "ar"));
+  }, [selectedDateRows]);
 
-const selectedDateProfessors = useMemo(() => {
-  return new Set(selectedDateRows.map(getProfessorName).filter(Boolean)).size;
-}, [selectedDateRows]);
+  const selectedDateProfessors = useMemo(() => {
+    return new Set(selectedDateRows.map(getProfessorName).filter(Boolean)).size;
+  }, [selectedDateRows]);
 
   const invalidRows = useMemo(
     () => rows.filter((row) => row?.__invalid).length,
@@ -356,11 +354,9 @@ const selectedDateProfessors = useMemo(() => {
     loadSupervisors();
   }, []);
 
-
   useEffect(() => {
-  setSelectedProfessors([]);
-  setRoomProfessors([]);
-}, [selectedDate, dateMode]);
+    setSelectedProfessors([]);
+  }, [selectedDate, dateMode]);
   /* =========================================================
      Upload
   ========================================================= */
@@ -393,8 +389,7 @@ const selectedDateProfessors = useMemo(() => {
       setAffinitySupervisor("");
 
       setRoomAssignmentsState([]);
-setRoomProfessors([]);
-setSelectedRoom("");
+      
 
       setMinimumPeriodsEnabled(false);
       setPlanCategory("");
@@ -487,50 +482,6 @@ setSelectedRoom("");
     );
   };
 
-  const addRoomAssignment = () => {
-    if (!roomSupervisorProfessors.length) {
-      setErrorMessage("اختر أستاذًا واحدًا على الأقل.");
-      return;
-    }
-
-    if (!selectedRoom) {
-      setErrorMessage("اختر رقم القاعة.");
-      return;
-    }
-
-    const newItems = roomSupervisorProfessors.map((professorName) => {
-      const professorRow = rows.find(
-        (row) => getProfessorName(row) === professorName,
-      );
-
-      const professorId =
-        professorRow?.professor_id ?? professorRow?.professorId ?? null;
-
-      return {
-        professorId,
-        professorName,
-        roomNumber: selectedRoom,
-      };
-    });
-
-    setRoomAssignmentsState((current) => {
-      const filtered = current.filter(
-        (item) => !roomSupervisorProfessors.includes(item.professorName),
-      );
-
-      return [...filtered, ...newItems];
-    });
-
-    setRoomProfessors([]);
-    setSelectedRoom("");
-    setErrorMessage("");
-  };
-
-  const removeRoomAssignment = (professorName) => {
-    setRoomAssignmentsState((current) =>
-      current.filter((item) => item.professorName !== professorName),
-    );
-  };
 
   /* =========================================================
      Generate
@@ -647,6 +598,40 @@ setSelectedRoom("");
     }
   };
 
+  /* =========================================================
+   Auto Room Assignment
+========================================================= */
+
+  const autoAssignRooms = () => {
+    if (!professors.length) {
+      setRoomAssignmentsState([]);
+      return;
+    }
+
+    const newAssignments = professors.map((professorName, index) => {
+      const professorRow = rows.find(
+        (row) => getProfessorName(row) === professorName,
+      );
+
+      const professorId =
+        professorRow?.professor_id ?? professorRow?.professorId ?? null;
+
+      const roomNumber = VALID_ROOMS[index % VALID_ROOMS.length];
+
+      return {
+        professorId,
+        professorName,
+        roomNumber,
+      };
+    });
+
+    setRoomAssignmentsState(newAssignments);
+  };
+
+  useEffect(() => {
+    autoAssignRooms();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [professors.join("|")]);
   /* =========================================================
      UI
   ========================================================= */
@@ -1314,60 +1299,28 @@ setSelectedRoom("");
             </div>
             {/* Room Assignment */}
 
+            {/* Room Assignment */}
+
             <div className="side-panel">
               <div className="side-panel-title">
                 <div className="mini-icon violet">{Icons.dashboard}</div>
 
                 <div>
                   <h3>تخصيص القاعات</h3>
-                  <p>حدد قاعة ثابتة لكل أستاذ ضمن هذه الخطة.</p>
+                  <p>يتم توزيع الأساتذة على القاعات تلقائيًا.</p>
                 </div>
-              </div>
-
-              <select
-                className="side-select"
-                value={selectedRoom}
-                onChange={(e) => setSelectedRoom(e.target.value)}
-              >
-                <option value="">اختر رقم القاعة</option>
-
-                {VALID_ROOMS.map((room) => (
-                  <option key={room} value={room}>
-                    قاعة {room}
-                  </option>
-                ))}
-              </select>
-
-              <div className="professor-select">
-                <select
-                  multiple
-                  value={roomSupervisorProfessors}
-                  onChange={(e) => {
-                    const values = Array.from(
-                      e.target.selectedOptions,
-                      (option) => option.value,
-                    );
-
-                    setRoomProfessors(values);
-                  }}
-                >
-                  {professors.map((professor) => (
-                    <option key={professor} value={professor}>
-                      {professor}
-                    </option>
-                  ))}
-                </select>
               </div>
 
               <button
                 type="button"
                 className="secondary-action"
-                onClick={addRoomAssignment}
+                onClick={autoAssignRooms}
+                disabled={!professors.length}
               >
-                إضافة القاعة
+                {Icons.spark} إعادة التوزيع التلقائي
               </button>
 
-              {roomAssignments.length > 0 && (
+              {roomAssignments.length > 0 ? (
                 <div className="affinity-list">
                   {roomAssignments.map((item) => (
                     <div
@@ -1378,15 +1331,12 @@ setSelectedRoom("");
                         <strong>{item.professorName}</strong>
                         <span>← قاعة {item.roomNumber}</span>
                       </div>
-
-                      <button
-                        type="button"
-                        onClick={() => removeRoomAssignment(item.professorName)}
-                      >
-                        {Icons.trash}
-                      </button>
                     </div>
                   ))}
+                </div>
+              ) : (
+                <div className="minimum-period-disabled">
+                  لا يوجد أساتذة لتوزيعهم على القاعات بعد
                 </div>
               )}
             </div>
