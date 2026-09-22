@@ -223,6 +223,8 @@ export default function Dashboard() {
 
   const [roomAssignments, setRoomAssignmentsState] = useState([]);
 
+  const [selectedRoomsForAuto, setSelectedRoomsForAuto] = useState([]);
+
   const MINIMUM_PERIODS = 4;
 
   const [minimumPeriodsEnabled, setMinimumPeriodsEnabled] = useState(false);
@@ -357,7 +359,7 @@ export default function Dashboard() {
   useEffect(() => {
     setSelectedProfessors([]);
   }, [selectedDate, dateMode]);
-  
+
   /* =========================================================
      Upload
   ========================================================= */
@@ -390,6 +392,7 @@ export default function Dashboard() {
       setAffinitySupervisor("");
 
       setRoomAssignmentsState([]);
+      setSelectedRoomsForAuto([]);
       
 
       setMinimumPeriodsEnabled(false);
@@ -604,35 +607,41 @@ export default function Dashboard() {
 ========================================================= */
 
   const autoAssignRooms = () => {
-    if (!professors.length) {
-      setRoomAssignmentsState([]);
-      return;
-    }
+  if (!professors.length) {
+    setRoomAssignmentsState([]);
+    return;
+  }
 
-    const newAssignments = professors.map((professorName, index) => {
-      const professorRow = rows.find(
-        (row) => getProfessorName(row) === professorName,
-      );
+  const roomsPool = selectedRoomsForAuto.length
+    ? selectedRoomsForAuto
+    : VALID_ROOMS;
 
-      const professorId =
-        professorRow?.professor_id ?? professorRow?.professorId ?? null;
+  const newAssignments = professors.map((professorName, index) => {
+    const professorRow = rows.find(
+      (row) => getProfessorName(row) === professorName,
+    );
 
-      const roomNumber = VALID_ROOMS[index % VALID_ROOMS.length];
+    const professorId =
+      professorRow?.professor_id ?? professorRow?.professorId ?? null;
 
-      return {
-        professorId,
-        professorName,
-        roomNumber,
-      };
-    });
+    const roomNumber = roomsPool[index % roomsPool.length];
 
-    setRoomAssignmentsState(newAssignments);
-  };
+    return {
+      professorId,
+      professorName,
+      roomNumber,
+    };
+  });
 
-  useEffect(() => {
-    autoAssignRooms();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [professors.join("|")]);
+  setRoomAssignmentsState(newAssignments);
+};
+ 
+
+useEffect(() => {
+  autoAssignRooms();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, [professors.join("|"), selectedRoomsForAuto.join("|")]);
+
   /* =========================================================
      UI
   ========================================================= */
@@ -1298,49 +1307,93 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
-            {/* Room Assignment */}
+       
+{/* Room Assignment */}
 
-            {/* Room Assignment */}
+<div className="side-panel">
+  <div className="side-panel-title">
+    <div className="mini-icon violet">{Icons.dashboard}</div>
 
-            <div className="side-panel">
-              <div className="side-panel-title">
-                <div className="mini-icon violet">{Icons.dashboard}</div>
+    <div>
+      <h3>تخصيص القاعات</h3>
+      <p>
+        اختر القاعات التي تريدين التوزيع عليها (اختياري)، وإلا سيتم
+        التوزيع تلقائيًا على كل القاعات المتاحة.
+      </p>
+    </div>
+  </div>
 
-                <div>
-                  <h3>تخصيص القاعات</h3>
-                  <p>يتم توزيع الأساتذة على القاعات تلقائيًا.</p>
-                </div>
-              </div>
+  <div className="professor-select">
+    <select
+      multiple
+      value={selectedRoomsForAuto}
+      onChange={(e) => {
+        const values = Array.from(
+          e.target.selectedOptions,
+          (option) => option.value,
+        );
 
-              <button
-                type="button"
-                className="secondary-action"
-                onClick={autoAssignRooms}
-                disabled={!professors.length}
-              >
-                {Icons.spark} إعادة التوزيع التلقائي
-              </button>
+        setSelectedRoomsForAuto(values);
+      }}
+    >
+      {VALID_ROOMS.map((room) => (
+        <option key={room} value={room}>
+          قاعة {room}
+        </option>
+      ))}
+    </select>
+  </div>
 
-              {roomAssignments.length > 0 ? (
-                <div className="affinity-list">
-                  {roomAssignments.map((item) => (
-                    <div
-                      className="affinity-row"
-                      key={`${item.professorId ?? item.professorName}-${item.roomNumber}`}
-                    >
-                      <div>
-                        <strong>{item.professorName}</strong>
-                        <span>← قاعة {item.roomNumber}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="minimum-period-disabled">
-                  لا يوجد أساتذة لتوزيعهم على القاعات بعد
-                </div>
-              )}
-            </div>
+  {selectedRoomsForAuto.length > 0 && (
+    <div
+      className="minimum-period-summary active"
+      style={{ marginTop: "8px" }}
+    >
+      <strong>{selectedRoomsForAuto.length}</strong>
+      <span>قاعة محددة للتوزيع عليها</span>
+    </div>
+  )}
+
+  <button
+    type="button"
+    className="secondary-action"
+    onClick={autoAssignRooms}
+    disabled={!professors.length}
+  >
+    {Icons.spark} إعادة التوزيع التلقائي
+  </button>
+
+  {selectedRoomsForAuto.length > 0 && (
+    <button
+      type="button"
+      className="secondary-action"
+      onClick={() => setSelectedRoomsForAuto([])}
+      style={{ marginTop: "6px" }}
+    >
+      مسح التحديد (توزيع على كل القاعات)
+    </button>
+  )}
+
+  {roomAssignments.length > 0 ? (
+    <div className="affinity-list">
+      {roomAssignments.map((item) => (
+        <div
+          className="affinity-row"
+          key={`${item.professorId ?? item.professorName}-${item.roomNumber}`}
+        >
+          <div>
+            <strong>{item.professorName}</strong>
+            <span>← قاعة {item.roomNumber}</span>
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div className="minimum-period-disabled">
+      لا يوجد أساتذة لتوزيعهم على القاعات بعد
+    </div>
+  )}
+</div>
           </aside>
         </section>
 
