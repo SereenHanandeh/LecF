@@ -26,6 +26,8 @@ export default function Settings() {
           <span>
             ستتم إضافة إعدادات النظام هنا.
           </span>
+
+          <span className="coming-soon-badge"> سيتم الإضافة قريبًا</span>
         </div>
       </main>
     </div>
