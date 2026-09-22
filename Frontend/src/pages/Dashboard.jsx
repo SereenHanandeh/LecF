@@ -606,15 +606,24 @@ export default function Dashboard() {
    Auto Room Assignment
 ========================================================= */
 
-  const autoAssignRooms = () => {
+const autoAssignRooms = () => {
   if (!professors.length) {
     setRoomAssignmentsState([]);
+    setErrorMessage("");
     return;
   }
 
   const roomsPool = selectedRoomsForAuto.length
     ? selectedRoomsForAuto
     : VALID_ROOMS;
+
+  if (roomsPool.length < professors.length) {
+    setErrorMessage(
+      `عدد القاعات المتاحة (${roomsPool.length}) أقل من عدد الأساتذة (${professors.length})، اختاري قاعات أكثر ليحصل كل أستاذ على قاعة مستقلة.`,
+    );
+    setRoomAssignmentsState([]);
+    return;
+  }
 
   const newAssignments = professors.map((professorName, index) => {
     const professorRow = rows.find(
@@ -624,7 +633,8 @@ export default function Dashboard() {
     const professorId =
       professorRow?.professor_id ?? professorRow?.professorId ?? null;
 
-    const roomNumber = roomsPool[index % roomsPool.length];
+    // كل أستاذ ياخذ قاعة مختلفة، بدون تكرار
+    const roomNumber = roomsPool[index];
 
     return {
       professorId,
@@ -634,6 +644,7 @@ export default function Dashboard() {
   });
 
   setRoomAssignmentsState(newAssignments);
+  setErrorMessage("");
 };
  
 
