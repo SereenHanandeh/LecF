@@ -245,12 +245,6 @@ export default function Dashboard() {
     [selectedSupervisors],
   );
 
-  const professors = useMemo(() => {
-    const names = rows.map(getProfessorName).filter(Boolean);
-
-    return [...new Set(names)].sort((a, b) => a.localeCompare(b, "ar"));
-  }, [rows]);
-
   const dates = useMemo(() => {
     const values = rows
       .map((row) => normalizeDate(getDateValue(row)))
@@ -280,9 +274,15 @@ export default function Dashboard() {
     );
   }, [rows, selectedDate, dateMode]);
 
-  const selectedDateProfessors = useMemo(() => {
-    return new Set(selectedDateRows.map(getProfessorName).filter(Boolean)).size;
-  }, [selectedDateRows]);
+  const professors = useMemo(() => {
+  const names = selectedDateRows.map(getProfessorName).filter(Boolean);
+
+  return [...new Set(names)].sort((a, b) => a.localeCompare(b, "ar"));
+}, [selectedDateRows]);
+
+const selectedDateProfessors = useMemo(() => {
+  return new Set(selectedDateRows.map(getProfessorName).filter(Boolean)).size;
+}, [selectedDateRows]);
 
   const invalidRows = useMemo(
     () => rows.filter((row) => row?.__invalid).length,
@@ -356,6 +356,11 @@ export default function Dashboard() {
     loadSupervisors();
   }, []);
 
+
+  useEffect(() => {
+  setSelectedProfessors([]);
+  setRoomProfessors([]);
+}, [selectedDate, dateMode]);
   /* =========================================================
      Upload
   ========================================================= */
