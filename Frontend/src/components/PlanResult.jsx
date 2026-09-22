@@ -2629,7 +2629,6 @@ export default function PlanResult() {
               onClick={downloadExcelFiltered}
               disabled={!filteredPlanData.length}
             >
-              <span>🔎</span>
               <span>تحميل حسب الفلتر الحالي</span>
             </button>
           </div>
