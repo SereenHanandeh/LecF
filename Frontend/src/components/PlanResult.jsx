@@ -60,6 +60,9 @@ const formatDate = (value) => {
   return `${day}/${month}/${year}`;
 };
 
+
+const getRoomNumber = (assignment) =>
+  assignment.room_number ?? assignment.roomNumber ?? "-";
 // =====================================================
 // Date Value Helper
 // =====================================================
@@ -317,6 +320,7 @@ export default function PlanResult() {
     crn: true,
     courseName: true,
     professor: true,
+    room: true,   
     date: true,
     period: true,
     timeFrom: true,
@@ -1506,6 +1510,7 @@ export default function PlanResult() {
         { header: "CRN", key: "crn", width: 14 },
         { header: "Course Name", key: "courseName", width: 32 },
         { header: "Professor", key: "professor", width: 28 },
+        { header: "Room", key: "room", width: 12 },
         { header: "Date", key: "date", width: 14 },
         { header: "Period", key: "period", width: 14 },
         { header: "From", key: "from", width: 12 },
@@ -1517,6 +1522,7 @@ export default function PlanResult() {
         crn: assignment.crn ?? "-",
         courseName: getCourseName(assignment),
         professor: getProfessorName(assignment),
+        room: getRoomNumber(assignment),
         date: formatDate(assignment.date),
         period: getPeriod(assignment),
         from: formatTime(getTimeFrom(assignment)),
@@ -1686,6 +1692,7 @@ export default function PlanResult() {
         { header: "CRN", key: "crn", width: 14 },
         { header: "Course Name", key: "courseName", width: 32 },
         { header: "Professor", key: "professor", width: 28 },
+        { header: "Room", key: "room", width: 12 },
         { header: "Date", key: "date", width: 14 },
         { header: "Period", key: "period", width: 14 },
         { header: "From", key: "from", width: 12 },
@@ -1710,6 +1717,7 @@ export default function PlanResult() {
           crn: assignment.crn ?? "-",
           courseName: getCourseName(assignment),
           professor: getProfessorName(assignment),
+          room: getRoomNumber(assignment),
           date: formatDate(assignment.date),
           period: getPeriod(assignment),
           from: formatTime(getTimeFrom(assignment)),
@@ -2170,6 +2178,7 @@ export default function PlanResult() {
                 ["crn", "CRN"],
                 ["courseName", "Course name"],
                 ["professor", "Professor"],
+                ["room", "Room"],
                 ["date", "Date"],
                 ["period", "Period"],
                 ["timeFrom", "From"],
@@ -2232,6 +2241,8 @@ export default function PlanResult() {
                     {visibleColumns.courseName && <th>Course name</th>}
 
                     {visibleColumns.professor && <th>Professor</th>}
+
+                    {visibleColumns.room && <th>Room</th>}
 
                     {visibleColumns.date && <th>Date</th>}
 
@@ -2303,6 +2314,11 @@ export default function PlanResult() {
                             </td>
                           )}
 
+{visibleColumns.room && (
+  <td>
+    <span className="period-badge">{getRoomNumber(assignment)}</span>
+  </td>
+)}
                           {/* Date */}
                           {visibleColumns.date && (
                             <td>

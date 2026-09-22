@@ -112,6 +112,10 @@ export const setAffinities = (planId, items) =>
     .post(`/plan/${planId}/affinities`, items)
     .then((res) => res.data);
 
+    export async function setRoomAssignments(planId, rooms) {
+  const response = await api.post(`/plan/${planId}/rooms`, { rooms });
+  return response.data;
+}
 // ==============================
 // Excel
 // ==============================
