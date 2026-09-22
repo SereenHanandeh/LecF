@@ -8,7 +8,7 @@ import React, {
 
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
 
 import "../assets/planResult.css";
 
@@ -1485,105 +1485,298 @@ export default function PlanResult() {
   };
 
   // =====================================================
-  // Download Excel
-  // =====================================================
-
-  // =====================================================
   // Download Excel - Current Filtered Data
   // =====================================================
 
-  const downloadExcel = () => {
+  const downloadExcel = async () => {
     try {
-      // =================================================
-      // نستخدم البيانات الموجودة حاليًا بعد الفلترة
-      // وليس كامل الخطة
-      // =================================================
+      // نستخدم كامل بيانات الخطة (بدون فلترة) للشيت الرئيسي وتقسيم المشرفين
+      const dataToExport = planData;
 
-      const rowsToExport = filteredPlanData.map((assignment) => ({
-        CRN: assignment.crn ?? "-",
-
-        Professor: getProfessorName(assignment),
-
-        Date: formatDate(assignment.date),
-
-        Period: getPeriod(assignment),
-
-        From: formatTime(getTimeFrom(assignment)),
-
-        To: formatTime(getTimeTo(assignment)),
-
-        Supervisor: getSupervisorName(assignment),
-      }));
-
-      // =================================================
-      // لا توجد نتائج
-      // =================================================
-
-      if (rowsToExport.length === 0) {
-        alert("⚠️ لا توجد بيانات لتنزيلها حسب الفلتر الحالي.");
-
+      if (!dataToExport.length) {
+        alert("⚠️ لا توجد بيانات لتنزيلها.");
         return;
       }
 
-      // =================================================
-      // إنشاء Worksheet
-      // =================================================
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "Lecture Supervisor System";
+      workbook.created = new Date();
 
-      const worksheet = XLSX.utils.json_to_sheet(rowsToExport);
-
-      // =================================================
-      // ترتيب وعرض الأعمدة
-      // =================================================
-
-      worksheet["!cols"] = [
-        {
-          wch: 15,
-        },
-        {
-          wch: 30,
-        },
-        {
-          wch: 15,
-        },
-        {
-          wch: 15,
-        },
-        {
-          wch: 12,
-        },
-        {
-          wch: 12,
-        },
-        {
-          wch: 30,
-        },
+      const columns = [
+        { header: "CRN", key: "crn", width: 14 },
+        { header: "Course Name", key: "courseName", width: 32 },
+        { header: "Professor", key: "professor", width: 28 },
+        { header: "Date", key: "date", width: 14 },
+        { header: "Period", key: "period", width: 14 },
+        { header: "From", key: "from", width: 12 },
+        { header: "To", key: "to", width: 12 },
+        { header: "Supervisor", key: "supervisor", width: 28 },
       ];
 
-      // =================================================
-      // إنشاء Workbook
-      // =================================================
+      const toRow = (assignment) => ({
+        crn: assignment.crn ?? "-",
+        courseName: getCourseName(assignment),
+        professor: getProfessorName(assignment),
+        date: formatDate(assignment.date),
+        period: getPeriod(assignment),
+        from: formatTime(getTimeFrom(assignment)),
+        to: formatTime(getTimeTo(assignment)),
+        supervisor: getSupervisorName(assignment),
+      });
 
-      const workbook = XLSX.utils.book_new();
+      const styleHeader = (worksheet) => {
+        const headerRow = worksheet.getRow(1);
 
-      XLSX.utils.book_append_sheet(workbook, worksheet, "Plan");
+        headerRow.font = {
+          bold: true,
+          color: { argb: "FFFFFFFF" },
+          size: 12,
+        };
 
-      // =================================================
-      // اسم الملف
-      // =================================================
+        headerRow.alignment = {
+          vertical: "middle",
+          horizontal: "center",
+        };
 
-      const fileName = filterSupervisor
+        headerRow.height = 24;
+
+        headerRow.eachCell((cell) => {
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: "FF2563EB" },
+          };
+
+          cell.border = {
+            top: { style: "thin", color: { argb: "FFB0B0B0" } },
+            bottom: { style: "thin", color: { argb: "FFB0B0B0" } },
+            left: { style: "thin", color: { argb: "FFB0B0B0" } },
+            right: { style: "thin", color: { argb: "FFB0B0B0" } },
+          };
+        });
+      };
+
+      const styleBody = (worksheet) => {
+        worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber === 1) return;
+
+          row.eachCell((cell) => {
+            cell.alignment = { vertical: "middle", horizontal: "center" };
+            cell.border = {
+              bottom: { style: "hair", color: { argb: "FFE5E7EB" } },
+            };
+          });
+        });
+      };
+
+      // =========================================
+      // شيت 1: الخطة الكاملة
+      // =========================================
+
+      const mainSheet = workbook.addWorksheet("الخطة الكاملة", {
+        views: [{ rightToLeft: true }],
+      });
+
+      mainSheet.columns = columns;
+      dataToExport.forEach((a) => mainSheet.addRow(toRow(a)));
+      styleHeader(mainSheet);
+      styleBody(mainSheet);
+
+      // =========================================
+      // تجميع البيانات حسب المشرف
+      // =========================================
+
+      const bySupervisor = new Map();
+
+      dataToExport.forEach((assignment) => {
+        const name = getSupervisorName(assignment);
+
+        if (!name || name === "-") return;
+
+        if (!bySupervisor.has(name)) {
+          bySupervisor.set(name, []);
+        }
+
+        bySupervisor.get(name).push(assignment);
+      });
+
+      // =========================================
+      // تنظيف أسماء الشيتات (حد 31 حرف + منع رموز محظورة + منع التكرار)
+      // =========================================
+
+      const usedSheetNames = new Set(["الخطة الكاملة"]);
+
+      const sanitizeSheetName = (name) => {
+        let clean = String(name)
+          .replace(/[:\\/?*[\]]/g, "")
+          .trim();
+
+        if (!clean) clean = "مشرف";
+        if (clean.length > 31) clean = clean.slice(0, 31);
+
+        let finalName = clean;
+        let counter = 2;
+
+        while (usedSheetNames.has(finalName)) {
+          const suffix = `_${counter}`;
+          finalName = clean.slice(0, 31 - suffix.length) + suffix;
+          counter++;
+        }
+
+        usedSheetNames.add(finalName);
+        return finalName;
+      };
+
+      // =========================================
+      // شيت لكل مشرف
+      // =========================================
+
+      for (const [supervisorName, rows] of bySupervisor.entries()) {
+        const sheetName = sanitizeSheetName(supervisorName);
+
+        const sheet = workbook.addWorksheet(sheetName, {
+          views: [{ rightToLeft: true }],
+        });
+
+        sheet.columns = columns;
+        rows.forEach((a) => sheet.addRow(toRow(a)));
+        styleHeader(sheet);
+        styleBody(sheet);
+      }
+
+      // =========================================
+      // تنزيل الملف
+      // =========================================
+
+      const buffer = await workbook.xlsx.writeBuffer();
+
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `plan_${planId}_full.xlsx`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("❌ Excel download error:", err);
+      alert("❌ حدث خطأ أثناء إنشاء ملف Excel.");
+    }
+  };
+
+  const downloadExcelFiltered = async () => {
+    try {
+      if (!filteredPlanData.length) {
+        alert("⚠️ لا توجد بيانات لتنزيلها حسب الفلتر الحالي.");
+        return;
+      }
+
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "Lecture Supervisor System";
+      workbook.created = new Date();
+
+      const columns = [
+        { header: "CRN", key: "crn", width: 14 },
+        { header: "Course Name", key: "courseName", width: 32 },
+        { header: "Professor", key: "professor", width: 28 },
+        { header: "Date", key: "date", width: 14 },
+        { header: "Period", key: "period", width: 14 },
+        { header: "From", key: "from", width: 12 },
+        { header: "To", key: "to", width: 12 },
+        { header: "Supervisor", key: "supervisor", width: 28 },
+      ];
+
+      const sheetTitle = filterSupervisor
+        ? `مشرف - ${filterSupervisor}`
+        : "الخطة (مفلترة)";
+
+      const cleanTitle = sheetTitle.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
+
+      const sheet = workbook.addWorksheet(cleanTitle || "الخطة", {
+        views: [{ rightToLeft: true }],
+      });
+
+      sheet.columns = columns;
+
+      filteredPlanData.forEach((assignment) => {
+        sheet.addRow({
+          crn: assignment.crn ?? "-",
+          courseName: getCourseName(assignment),
+          professor: getProfessorName(assignment),
+          date: formatDate(assignment.date),
+          period: getPeriod(assignment),
+          from: formatTime(getTimeFrom(assignment)),
+          to: formatTime(getTimeTo(assignment)),
+          supervisor: getSupervisorName(assignment),
+        });
+      });
+
+      const headerRow = sheet.getRow(1);
+
+      headerRow.font = {
+        bold: true,
+        color: { argb: "FFFFFFFF" },
+        size: 12,
+      };
+
+      headerRow.alignment = { vertical: "middle", horizontal: "center" };
+      headerRow.height = 24;
+
+      headerRow.eachCell((cell) => {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: "FF2563EB" },
+        };
+
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFB0B0B0" } },
+          bottom: { style: "thin", color: { argb: "FFB0B0B0" } },
+          left: { style: "thin", color: { argb: "FFB0B0B0" } },
+          right: { style: "thin", color: { argb: "FFB0B0B0" } },
+        };
+      });
+
+      sheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return;
+
+        row.eachCell((cell) => {
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+          cell.border = {
+            bottom: { style: "hair", color: { argb: "FFE5E7EB" } },
+          };
+        });
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = filterSupervisor
         ? `plan_${planId}_${filterSupervisor}.xlsx`
         : `plan_${planId}_filtered.xlsx`;
 
-      // =================================================
-      // تنزيل الملف
-      // =================================================
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
 
-      XLSX.writeFile(workbook, fileName);
+      URL.revokeObjectURL(url);
     } catch (err) {
-      console.error("❌ Excel download error:", err);
-
-      alert("❌ حدث خطأ أثناء إنشاء ملف Excel.");
+      console.error("❌ Excel filtered download error:", err);
+      alert("❌ حدث خطأ أثناء إنشاء ملف Excel المفلتر.");
     }
   };
   // =====================================================
@@ -1639,1024 +1832,839 @@ export default function PlanResult() {
   // =====================================================
 
   return (
-  <div className="plan-page">
-
-    {/* =================================================
+    <div className="plan-page">
+      {/* =================================================
         Header
     ================================================= */}
-    <header className="plan-header">
-      <div className="plan-header-content">
+      <header className="plan-header">
+        <div className="plan-header-content">
+          <div>
+            <div className="plan-eyebrow">LECTURE SUPERVISOR SYSTEM</div>
 
-        <div>
-          <div className="plan-eyebrow">
-            LECTURE SUPERVISOR SYSTEM
+            <h1>📅 Plan Result</h1>
+
+            <p>Generated supervision schedule</p>
           </div>
 
-          <h1>📅 Plan Result</h1>
-
-          <p>Generated supervision schedule</p>
-        </div>
-
-        {/* =================================================
+          {/* =================================================
             Header Actions
         ================================================= */}
-        <div className="plan-header-actions">
-
-          {/* زر الرجوع للصفحة الرئيسية */}
-          <button
-            type="button"
-            className="back-home-btn"
-            onClick={() => navigate("/")}
-          >
-            🏠 الصفحة الرئيسية
-          </button>
-
-          {/* حالة الخطة */}
-          <span
-            className={
-              planStatus === "accepted"
-                ? "status-badge status-accepted"
-                : planStatus === "rejected"
-                  ? "status-badge status-rejected"
-                  : "status-badge status-draft"
-            }
-          >
-            {planStatus === "accepted"
-              ? "✅ مقبولة"
-              : planStatus === "rejected"
-                ? "❌ مرفوضة"
-                : "📝 مسودة"}
-          </span>
-
-        </div>
-      </div>
-    </header>
-
-    <main className="plan-content">
-
-      {/* =================================================
-          Selected Supervisor Banner
-      ================================================= */}
-      {selectedStatsSupervisor && (
-        <div className="selected-supervisor-banner">
-
-          <div className="selected-supervisor-info">
-
-            <span className="selected-icon">
-              👤
-            </span>
-
-            <div>
-              <span>
-                Showing assignments for
-              </span>
-
-              <strong>
-                {selectedStatsSupervisor}
-              </strong>
-            </div>
-
-          </div>
-
-          <button
-            type="button"
-            onClick={clearSupervisorSelection}
-          >
-            ✕ Show All Supervisors
-          </button>
-
-        </div>
-      )}
-
-      {/* =================================================
-          Summary Cards
-      ================================================= */}
-      <section className="summary-grid">
-
-        <div className="summary-card blue">
-          <div className="summary-icon">
-            📋
-          </div>
-
-          <div>
-            <span>Total Assignments</span>
-            <strong>{planData.length}</strong>
-          </div>
-        </div>
-
-        <div className="summary-card purple">
-          <div className="summary-icon">
-            👨‍🏫
-          </div>
-
-          <div>
-            <span>Professors</span>
-            <strong>{totalProfessors}</strong>
-          </div>
-        </div>
-
-        <div className="summary-card green">
-          <div className="summary-icon">
-            👥
-          </div>
-
-          <div>
-            <span>Supervisors</span>
-            <strong>{supervisorStats.length}</strong>
-          </div>
-        </div>
-
-        <div className="summary-card orange">
-          <div className="summary-icon">
-            📅
-          </div>
-
-          <div>
-            <span>Plan Days</span>
-            <strong>{totalDays}</strong>
-          </div>
-        </div>
-
-        <div className="summary-card teal">
-          <div className="summary-icon">
-            ⚖️
-          </div>
-
-          <div>
-            <span>Fairness Difference</span>
-            <strong>{fairness.difference}</strong>
-          </div>
-        </div>
-
-      </section>
-
-      {/* =================================================
-          Filters
-      ================================================= */}
-      {planData.length > 0 && (
-        <section className="panel filters-panel">
-
-          <div className="panel-heading">
-
-            <div>
-              <h2>🔎 Search & Filters</h2>
-              <p>
-                Find and filter plan assignments
-              </p>
-            </div>
-
+          <div className="plan-header-actions">
+            {/* زر الرجوع للصفحة الرئيسية */}
             <button
               type="button"
-              className="clear-btn"
-              onClick={clearFilters}
+              className="back-home-btn"
+              onClick={() => navigate("/")}
             >
-              ✕ Clear
+              🏠 الصفحة الرئيسية
             </button>
 
-          </div>
-
-          <div className="search-wrapper">
-
-            <span className="search-icon">
-              🔍
-            </span>
-
-            <input
-              type="text"
-              value={search}
-              onChange={(e) =>
-                setSearch(e.target.value)
+            {/* حالة الخطة */}
+            <span
+              className={
+                planStatus === "accepted"
+                  ? "status-badge status-accepted"
+                  : planStatus === "rejected"
+                    ? "status-badge status-rejected"
+                    : "status-badge status-draft"
               }
-              placeholder="Search by Session Group, CRN, Course Name, Professor, Supervisor..."
-            />
-
-            {search && (
-              <button
-                type="button"
-                className="search-clear"
-                onClick={() => setSearch("")}
-              >
-                ×
-              </button>
-            )}
-
+            >
+              {planStatus === "accepted"
+                ? "✅ مقبولة"
+                : planStatus === "rejected"
+                  ? "❌ مرفوضة"
+                  : "📝 مسودة"}
+            </span>
           </div>
+        </div>
+      </header>
 
-          <div className="filters-grid">
-
-            {/* Supervisor */}
-            <div className="filter-field">
-
-              <label>
-                👥 Supervisor
-              </label>
-
-              <select
-                value={filterSupervisor}
-                onChange={(e) => {
-                  setFilterSupervisor(e.target.value);
-                  setSelectedStatsSupervisor(
-                    e.target.value
-                  );
-                }}
-              >
-                <option value="">
-                  All Selected Supervisors
-                </option>
-
-                {supervisorOptions.map((name) => (
-                  <option
-                    key={name}
-                    value={name}
-                  >
-                    {name}
-                  </option>
-                ))}
-              </select>
-
-            </div>
-
-            {/* Professor */}
-            <div className="filter-field">
-
-              <label>
-                👨‍🏫 Professor
-              </label>
-
-              <select
-                value={filterProfessor}
-                onChange={(e) =>
-                  setFilterProfessor(e.target.value)
-                }
-              >
-                <option value="">
-                  All Professors
-                </option>
-
-                {professorOptions.map((name) => (
-                  <option
-                    key={name}
-                    value={name}
-                  >
-                    {name}
-                  </option>
-                ))}
-              </select>
-
-            </div>
-
-            {/* Date */}
-            <div className="filter-field">
-
-              <label>
-                📅 Date
-              </label>
-
-              <input
-                type="date"
-                value={filterDate}
-                onChange={(e) =>
-                  setFilterDate(e.target.value)
-                }
-              />
-
-            </div>
-
-            {/* Period */}
-            <div className="filter-field">
-
-              <label>
-                🕐 Period
-              </label>
-
-              <select
-                value={filterPeriod}
-                onChange={(e) =>
-                  setFilterPeriod(e.target.value)
-                }
-              >
-                <option value="">
-                  All Periods
-                </option>
-
-                {periodOptions.map((period) => (
-                  <option
-                    key={period}
-                    value={period}
-                  >
-                    {period}
-                  </option>
-                ))}
-              </select>
-
-            </div>
-
-          </div>
-
-          <div className="filter-result">
-            Showing{" "}
-            <strong>
-              {filteredPlanData.length}
-            </strong>{" "}
-            of{" "}
-            <strong>
-              {planData.length}
-            </strong>{" "}
-            assignments
-          </div>
-
-        </section>
-      )}
-
-      {/* =================================================
-          Supervisor Statistics
+      <main className="plan-content">
+        {/* =================================================
+          Selected Supervisor Banner
       ================================================= */}
-      {supervisorStats.length > 0 && (
-        <section className="panel statistics-panel">
+        {selectedStatsSupervisor && (
+          <div className="selected-supervisor-banner">
+            <div className="selected-supervisor-info">
+              <span className="selected-icon">👤</span>
 
-          <div className="panel-heading">
+              <div>
+                <span>Showing assignments for</span>
+
+                <strong>{selectedStatsSupervisor}</strong>
+              </div>
+            </div>
+
+            <button type="button" onClick={clearSupervisorSelection}>
+              ✕ Show All Supervisors
+            </button>
+          </div>
+        )}
+
+        {/* =================================================
+          Summary Cards
+      ================================================= */}
+        <section className="summary-grid">
+          <div className="summary-card blue">
+            <div className="summary-icon">📋</div>
 
             <div>
-              <h2>
-                👥 Supervisor Statistics
-              </h2>
-
-              <p>
-                Click a supervisor to view only
-                their assignments
-              </p>
+              <span>Total Assignments</span>
+              <strong>{planData.length}</strong>
             </div>
-
-            <div className="fairness-badge">
-              Difference:
-              <strong>
-                {fairness.difference}
-              </strong>
-            </div>
-
           </div>
 
-          <div className="stats-table-wrapper">
+          <div className="summary-card purple">
+            <div className="summary-icon">👨‍🏫</div>
 
-            <table className="stats-table">
+            <div>
+              <span>Professors</span>
+              <strong>{totalProfessors}</strong>
+            </div>
+          </div>
 
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>Supervisor</th>
-                  <th>Periods</th>
-                  <th>View</th>
-                </tr>
-              </thead>
+          <div className="summary-card green">
+            <div className="summary-icon">👥</div>
 
-              <tbody>
+            <div>
+              <span>Supervisors</span>
+              <strong>{supervisorStats.length}</strong>
+            </div>
+          </div>
 
-                {supervisorStats.map(
-                  (item, index) => {
+          <div className="summary-card orange">
+            <div className="summary-icon">📅</div>
 
-                    const isSelected =
-                      selectedStatsSupervisor ===
-                      item.name;
+            <div>
+              <span>Plan Days</span>
+              <strong>{totalDays}</strong>
+            </div>
+          </div>
+
+          <div className="summary-card teal">
+            <div className="summary-icon">⚖️</div>
+
+            <div>
+              <span>Fairness Difference</span>
+              <strong>{fairness.difference}</strong>
+            </div>
+          </div>
+        </section>
+
+        {/* =================================================
+          Filters
+      ================================================= */}
+        {planData.length > 0 && (
+          <section className="panel filters-panel">
+            <div className="panel-heading">
+              <div>
+                <h2>🔎 Search & Filters</h2>
+                <p>Find and filter plan assignments</p>
+              </div>
+
+              <button
+                type="button"
+                className="clear-btn"
+                onClick={clearFilters}
+              >
+                ✕ Clear
+              </button>
+            </div>
+
+            <div className="search-wrapper">
+              <span className="search-icon">🔍</span>
+
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by Session Group, CRN, Course Name, Professor, Supervisor..."
+              />
+
+              {search && (
+                <button
+                  type="button"
+                  className="search-clear"
+                  onClick={() => setSearch("")}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+            <div className="filters-grid">
+              {/* Supervisor */}
+              <div className="filter-field">
+                <label>👥 Supervisor</label>
+
+                <select
+                  value={filterSupervisor}
+                  onChange={(e) => {
+                    setFilterSupervisor(e.target.value);
+                    setSelectedStatsSupervisor(e.target.value);
+                  }}
+                >
+                  <option value="">All Selected Supervisors</option>
+
+                  {supervisorOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Professor */}
+              <div className="filter-field">
+                <label>👨‍🏫 Professor</label>
+
+                <select
+                  value={filterProfessor}
+                  onChange={(e) => setFilterProfessor(e.target.value)}
+                >
+                  <option value="">All Professors</option>
+
+                  {professorOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Date */}
+              <div className="filter-field">
+                <label>📅 Date</label>
+
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={(e) => setFilterDate(e.target.value)}
+                />
+              </div>
+
+              {/* Period */}
+              <div className="filter-field">
+                <label>🕐 Period</label>
+
+                <select
+                  value={filterPeriod}
+                  onChange={(e) => setFilterPeriod(e.target.value)}
+                >
+                  <option value="">All Periods</option>
+
+                  {periodOptions.map((period) => (
+                    <option key={period} value={period}>
+                      {period}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="filter-result">
+              Showing <strong>{filteredPlanData.length}</strong> of{" "}
+              <strong>{planData.length}</strong> assignments
+            </div>
+          </section>
+        )}
+
+        {/* =================================================
+          Supervisor Statistics
+      ================================================= */}
+        {supervisorStats.length > 0 && (
+          <section className="panel statistics-panel">
+            <div className="panel-heading">
+              <div>
+                <h2>👥 Supervisor Statistics</h2>
+
+                <p>Click a supervisor to view only their assignments</p>
+              </div>
+
+              <div className="fairness-badge">
+                Difference:
+                <strong>{fairness.difference}</strong>
+              </div>
+            </div>
+
+            <div className="stats-table-wrapper">
+              <table className="stats-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Supervisor</th>
+                    <th>Periods</th>
+                    <th>View</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {supervisorStats.map((item, index) => {
+                    const isSelected = selectedStatsSupervisor === item.name;
 
                     return (
                       <tr
-                        key={
-                          item.id ?? item.name
-                        }
-                        className={
-                          isSelected
-                            ? "selected-stat-row"
-                            : ""
-                        }
+                        key={item.id ?? item.name}
+                        className={isSelected ? "selected-stat-row" : ""}
                       >
-
                         <td>
-                          <span className="rank-number">
-                            {index + 1}
-                          </span>
+                          <span className="rank-number">{index + 1}</span>
                         </td>
 
                         <td>
-
                           <button
                             type="button"
                             className="supervisor-name-button"
                             onClick={() =>
-                              handleSupervisorStatsClick(
-                                item.name
-                              )
+                              handleSupervisorStatsClick(item.name)
                             }
                           >
-
                             <span className="avatar">
-                              {String(
-                                item.name
-                              ).charAt(0)}
+                              {String(item.name).charAt(0)}
                             </span>
 
-                            <span>
-                              {item.name}
-                            </span>
-
+                            <span>{item.name}</span>
                           </button>
-
                         </td>
 
                         <td>
-                          <span className="period-count">
-                            {item.count}
-                          </span>
+                          <span className="period-count">{item.count}</span>
                         </td>
 
                         <td>
-
                           <button
                             type="button"
                             className={
-                              isSelected
-                                ? "view-btn active"
-                                : "view-btn"
+                              isSelected ? "view-btn active" : "view-btn"
                             }
                             onClick={() =>
-                              handleSupervisorStatsClick(
-                                item.name
-                              )
+                              handleSupervisorStatsClick(item.name)
                             }
                           >
-                            {isSelected
-                              ? "✓ Viewing"
-                              : "View Plan"}
+                            {isSelected ? "✓ Viewing" : "View Plan"}
                           </button>
-
                         </td>
-
                       </tr>
                     );
-                  }
-                )}
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
 
-              </tbody>
-
-            </table>
-
-          </div>
-        </section>
-      )}
-
-      {/* =================================================
+        {/* =================================================
           Columns
           Session Group removed
       ================================================= */}
-      {planData.length > 0 && (
-        <section className="panel columns-panel">
-
-          <div className="panel-heading compact">
-
-            <div>
-              <h2>
-                👁️ Table Columns
-              </h2>
+        {planData.length > 0 && (
+          <section className="panel columns-panel">
+            <div className="panel-heading compact">
+              <div>
+                <h2>👁️ Table Columns</h2>
+              </div>
             </div>
 
-          </div>
-
-          <div className="column-options">
-
-            {[
-              ["crn", "CRN"],
-              ["courseName", "Course name"],
-              ["professor", "Professor"],
-              ["date", "Date"],
-              ["period", "Period"],
-              ["timeFrom", "From"],
-              ["timeTo", "To"],
-              ["supervisor", "Supervisor"],
-            ].map(([key, label]) => (
-
-              <label
-                key={key}
-                className={
-                  visibleColumns[key]
-                    ? "column-option active"
-                    : "column-option"
-                }
-              >
-
-                <input
-                  type="checkbox"
-                  checked={
+            <div className="column-options">
+              {[
+                ["crn", "CRN"],
+                ["courseName", "Course name"],
+                ["professor", "Professor"],
+                ["date", "Date"],
+                ["period", "Period"],
+                ["timeFrom", "From"],
+                ["timeTo", "To"],
+                ["supervisor", "Supervisor"],
+              ].map(([key, label]) => (
+                <label
+                  key={key}
+                  className={
                     visibleColumns[key]
+                      ? "column-option active"
+                      : "column-option"
                   }
-                  onChange={() =>
-                    toggleColumn(key)
-                  }
-                />
+                >
+                  <input
+                    type="checkbox"
+                    checked={visibleColumns[key]}
+                    onChange={() => toggleColumn(key)}
+                  />
 
-                <span>
-                  {label}
-                </span>
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          </section>
+        )}
 
-              </label>
-
-            ))}
-
-          </div>
-
-        </section>
-      )}
-
-      {/* =================================================
+        {/* =================================================
           Assignments
       ================================================= */}
-      <section
-        id="assignments-section"
-        className="panel assignments-panel print-plan-table"
-      >
+        <section
+          id="assignments-section"
+          className="panel assignments-panel print-plan-table"
+        >
+          <div className="panel-heading">
+            <div>
+              <h2>📋 Assignments</h2>
 
-        <div className="panel-heading">
+              <p>
+                {selectedStatsSupervisor
+                  ? `Assignments for ${selectedStatsSupervisor}`
+                  : "Complete supervision plan"}
+              </p>
+            </div>
 
-          <div>
-
-            <h2>
-              📋 Assignments
-            </h2>
-
-            <p>
-              {selectedStatsSupervisor
-                ? `Assignments for ${selectedStatsSupervisor}`
-                : "Complete supervision plan"}
-            </p>
-
+            <div className="assignment-count">{filteredPlanData.length}</div>
           </div>
 
-          <div className="assignment-count">
-            {filteredPlanData.length}
-          </div>
-
-        </div>
-
-        {planData.length > 0 ? (
-
-          <div className="table-container">
-
-            {/* =================================================
+          {planData.length > 0 ? (
+            <div className="table-container">
+              {/* =================================================
                 SCREEN TABLE
                 Session Group removed
             ================================================= */}
-            <table className="assignments-table screen-plan-table">
+              <table className="assignments-table screen-plan-table">
+                <thead>
+                  <tr>
+                    {visibleColumns.crn && <th>CRN</th>}
 
-              <thead>
+                    {visibleColumns.courseName && <th>Course name</th>}
 
-                <tr>
+                    {visibleColumns.professor && <th>Professor</th>}
 
-                  {visibleColumns.crn && (
-                    <th>CRN</th>
-                  )}
+                    {visibleColumns.date && <th>Date</th>}
 
-                  {visibleColumns.courseName && (
-                    <th>Course name</th>
-                  )}
+                    {visibleColumns.period && <th>Period</th>}
 
-                  {visibleColumns.professor && (
-                    <th>Professor</th>
-                  )}
+                    {visibleColumns.timeFrom && <th>From</th>}
 
-                  {visibleColumns.date && (
-                    <th>Date</th>
-                  )}
+                    {visibleColumns.timeTo && <th>To</th>}
 
-                  {visibleColumns.period && (
-                    <th>Period</th>
-                  )}
+                    {visibleColumns.supervisor && <th>Supervisor</th>}
 
-                  {visibleColumns.timeFrom && (
-                    <th>From</th>
-                  )}
+                    <th className="action-column">Action</th>
+                  </tr>
+                </thead>
 
-                  {visibleColumns.timeTo && (
-                    <th>To</th>
-                  )}
-
-                  {visibleColumns.supervisor && (
-                    <th>Supervisor</th>
-                  )}
-
-                  <th className="action-column">
-                    Action
-                  </th>
-
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                {filteredPlanData.length > 0 ? (
-
-                  filteredPlanData.map(
-                    (assignment, index) => {
-
-                      {/* Session Group still used internally */}
-                      const rowId =
-                        getSessionGroupId(
-                          assignment
-                        );
+                <tbody>
+                  {filteredPlanData.length > 0 ? (
+                    filteredPlanData.map((assignment, index) => {
+                      {
+                        /* Session Group still used internally */
+                      }
+                      const rowId = getSessionGroupId(assignment);
 
                       const isEditing =
                         editingId !== null &&
                         editingId !== undefined &&
                         rowId !== null &&
                         rowId !== undefined &&
-                        String(editingId) ===
-                          String(rowId);
+                        String(editingId) === String(rowId);
 
                       const isSaving =
                         savingId !== null &&
                         savingId !== undefined &&
                         rowId !== null &&
                         rowId !== undefined &&
-                        String(savingId) ===
-                          String(rowId);
+                        String(savingId) === String(rowId);
 
                       const affinitySupervisorId =
-                        getProfessorAffinitySupervisorId(
-                          assignment
-                        );
+                        getProfessorAffinitySupervisorId(assignment);
 
                       return (
-                        <tr
-                          key={`${rowId}-${index}`}
-                        >
-
+                        <tr key={`${rowId}-${index}`}>
                           {/* CRN */}
                           {visibleColumns.crn && (
                             <td>
-
                               <span className="crn-text">
                                 {assignment.crn ?? "-"}
                               </span>
-
                             </td>
                           )}
 
                           {/* Course Name */}
                           {visibleColumns.courseName && (
                             <td>
-
                               <span className="course-name-text">
-                                {getCourseName(
-                                  assignment
-                                )}
+                                {getCourseName(assignment)}
                               </span>
-
                             </td>
                           )}
 
                           {/* Professor */}
                           {visibleColumns.professor && (
                             <td>
-
                               <div className="professor-cell">
-
                                 <span className="professor-dot" />
 
-                                <span>
-                                  {getProfessorName(
-                                    assignment
-                                  )}
-                                </span>
-
+                                <span>{getProfessorName(assignment)}</span>
                               </div>
-
                             </td>
                           )}
 
                           {/* Date */}
                           {visibleColumns.date && (
                             <td>
-
                               <span className="date-badge">
-                                {formatDate(
-                                  assignment.date
-                                )}
+                                {formatDate(assignment.date)}
                               </span>
-
                             </td>
                           )}
 
                           {/* Period */}
                           {visibleColumns.period && (
                             <td>
-
                               <span className="period-badge">
-                                {getPeriod(
-                                  assignment
-                                )}
+                                {getPeriod(assignment)}
                               </span>
-
                             </td>
                           )}
 
                           {/* From */}
                           {visibleColumns.timeFrom && (
                             <td>
-
                               <span className="time-badge">
-                                {formatTime(
-                                  getTimeFrom(
-                                    assignment
-                                  )
-                                )}
+                                {formatTime(getTimeFrom(assignment))}
                               </span>
-
                             </td>
                           )}
 
                           {/* To */}
                           {visibleColumns.timeTo && (
                             <td>
-
                               <span className="time-badge">
-                                {formatTime(
-                                  getTimeTo(
-                                    assignment
-                                  )
-                                )}
+                                {formatTime(getTimeTo(assignment))}
                               </span>
-
                             </td>
                           )}
 
                           {/* Supervisor */}
                           {visibleColumns.supervisor && (
                             <td>
-
                               {isEditing ? (
-
                                 <div>
-
                                   <select
                                     className="edit-supervisor-select"
-                                    value={
-                                      editingSupervisor ??
-                                      ""
-                                    }
+                                    value={editingSupervisor ?? ""}
                                     onChange={(e) => {
-
                                       console.log(
                                         "🔵 SELECT CHANGED:",
                                         e.target.value,
-                                        typeof e.target.value
+                                        typeof e.target.value,
                                       );
 
-                                      setEditingSupervisor(
-                                        e.target.value
-                                      );
+                                      setEditingSupervisor(e.target.value);
                                     }}
                                     disabled={
-                                      isSaving ||
-                                      affinitySupervisorId !==
-                                        null
+                                      isSaving || affinitySupervisorId !== null
                                     }
                                   >
+                                    <option value="">اختر المشرف</option>
 
-                                    <option value="">
-                                      اختر المشرف
-                                    </option>
+                                    {supervisors.map((supervisor) => {
+                                      const supervisorId =
+                                        supervisor?.id ??
+                                        supervisor?.supervisor_id ??
+                                        supervisor?.supervisorId;
 
-                                    {supervisors.map(
-                                      (supervisor) => {
+                                      const supervisorName =
+                                        supervisor?.name ??
+                                        supervisor?.supervisor_name ??
+                                        supervisor?.supervisorName ??
+                                        supervisor?.full_name ??
+                                        "";
 
-                                        const supervisorId =
-                                          supervisor?.id ??
-                                          supervisor?.supervisor_id ??
-                                          supervisor?.supervisorId;
-
-                                        const supervisorName =
-                                          supervisor?.name ??
-                                          supervisor?.supervisor_name ??
-                                          supervisor?.supervisorName ??
-                                          supervisor?.full_name ??
-                                          "";
-
-                                        if (
-                                          supervisorId ===
-                                            null ||
-                                          supervisorId ===
-                                            undefined ||
-                                          supervisorId === ""
-                                        ) {
-                                          return null;
-                                        }
-
-                                        return (
-                                          <option
-                                            key={String(
-                                              supervisorId
-                                            )}
-                                            value={String(
-                                              supervisorId
-                                            )}
-                                          >
-
-                                            {supervisorName}
-
-                                            {String(
-                                              supervisorId
-                                            ) ===
-                                            String(
-                                              affinitySupervisorId
-                                            )
-                                              ? " 🔗"
-                                              : ""}
-
-                                          </option>
-                                        );
+                                      if (
+                                        supervisorId === null ||
+                                        supervisorId === undefined ||
+                                        supervisorId === ""
+                                      ) {
+                                        return null;
                                       }
-                                    )}
 
+                                      return (
+                                        <option
+                                          key={String(supervisorId)}
+                                          value={String(supervisorId)}
+                                        >
+                                          {supervisorName}
+
+                                          {String(supervisorId) ===
+                                          String(affinitySupervisorId)
+                                            ? " 🔗"
+                                            : ""}
+                                        </option>
+                                      );
+                                    })}
                                   </select>
 
-                                  {affinitySupervisorId !==
-                                    null && (
+                                  {affinitySupervisorId !== null && (
                                     <small className="affinity-note">
-                                      🔗 هذا الأستاذ مرتبط بهذا
-                                      المشرف
+                                      🔗 هذا الأستاذ مرتبط بهذا المشرف
                                     </small>
                                   )}
-
                                 </div>
-
                               ) : (
-
                                 <div className="supervisor-cell">
-
                                   <span className="supervisor-avatar">
-
                                     {String(
-                                      getSupervisorName(
-                                        assignment
-                                      )
+                                      getSupervisorName(assignment),
                                     ).charAt(0)}
-
                                   </span>
 
-                                  <span>
-                                    {getSupervisorName(
-                                      assignment
-                                    )}
-                                  </span>
-
+                                  <span>{getSupervisorName(assignment)}</span>
                                 </div>
-
                               )}
-
                             </td>
                           )}
 
                           {/* Action */}
                           <td className="action-column">
-
                             {isEditing ? (
-
                               <div className="edit-actions">
-
                                 <button
                                   type="button"
                                   className="save-btn"
-                                  onClick={() =>
-                                    saveAssignment(
-                                      assignment
-                                    )
-                                  }
+                                  onClick={() => saveAssignment(assignment)}
                                   disabled={isSaving}
                                 >
+                                  {isSaving ? "⏳" : "✓"}
 
-                                  {isSaving
-                                    ? "⏳"
-                                    : "✓"}
-
-                                  <span>
-                                    {isSaving
-                                      ? "Saving"
-                                      : "Save"}
-                                  </span>
-
+                                  <span>{isSaving ? "Saving" : "Save"}</span>
                                 </button>
 
                                 <button
                                   type="button"
                                   className="cancel-btn"
-                                  onClick={
-                                    cancelEditing
-                                  }
+                                  onClick={cancelEditing}
                                   disabled={isSaving}
                                 >
                                   ✕
                                 </button>
-
                               </div>
-
                             ) : (
-
                               <button
                                 type="button"
                                 className="edit-btn"
-                                onClick={() =>
-                                  startEditing(
-                                    assignment
-                                  )
-                                }
+                                onClick={() => startEditing(assignment)}
                               >
                                 ✏️ Edit
                               </button>
-
                             )}
-
                           </td>
-
                         </tr>
                       );
-                    }
-                  )
+                    })
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan={
+                          Object.values(visibleColumns).filter(Boolean).length +
+                          1
+                        }
+                        className="no-results"
+                      >
+                        <div>
+                          <span>🔍</span>
 
-                ) : (
+                          <strong>No results found</strong>
 
-                  <tr>
+                          <p>Try changing the filters or search term.</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
 
-                    <td
-                      colSpan={
-                        Object.values(
-                          visibleColumns
-                        ).filter(Boolean).length + 1
-                      }
-                      className="no-results"
-                    >
-
-                      <div>
-
-                        <span>
-                          🔍
-                        </span>
-
-                        <strong>
-                          No results found
-                        </strong>
-
-                        <p>
-                          Try changing the filters
-                          or search term.
-                        </p>
-
-                      </div>
-
-                    </td>
-
-                  </tr>
-
-                )}
-
-              </tbody>
-
-            </table>
-
-            {/* =================================================
+              {/* =================================================
                 PRINT TABLE
                 Session Group removed
             ================================================= */}
-            <div className="print-only-table">
+              <div className="print-only-table">
+                <table className="assignments-table print-table">
+                  <colgroup>
+                    <col className="print-col-crn" />
 
-              <table className="assignments-table print-table">
+                    <col className="print-col-course" />
 
-                <colgroup>
+                    <col className="print-col-professor" />
 
-                  <col className="print-col-crn" />
+                    <col className="print-col-date" />
 
-                  <col className="print-col-course" />
+                    <col className="print-col-period" />
 
-                  <col className="print-col-professor" />
+                    <col className="print-col-time" />
 
-                  <col className="print-col-date" />
+                    <col className="print-col-time" />
 
-                  <col className="print-col-period" />
+                    <col className="print-col-supervisor" />
+                  </colgroup>
 
-                  <col className="print-col-time" />
+                  <thead>
+                    <tr>
+                      <th>CRN</th>
 
-                  <col className="print-col-time" />
+                      <th>Course Name</th>
 
-                  <col className="print-col-supervisor" />
+                      <th>Professor</th>
 
-                </colgroup>
+                      <th>Date</th>
 
+                      <th>Period</th>
+
+                      <th>From</th>
+
+                      <th>To</th>
+
+                      <th>Supervisor</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {filteredPlanData.length > 0 ? (
+                      filteredPlanData.map((assignment, index) => {
+                        const rowId = getSessionGroupId(assignment);
+
+                        return (
+                          <tr key={`print-${rowId}-${index}`}>
+                            <td>{assignment.crn ?? "-"}</td>
+
+                            <td className="print-course-name" dir="auto">
+                              {getCourseName(assignment)}
+                            </td>
+
+                            <td className="print-professor" dir="auto">
+                              {getProfessorName(assignment)}
+                            </td>
+
+                            <td>{formatDate(assignment.date)}</td>
+
+                            <td>{getPeriod(assignment)}</td>
+
+                            <td>{formatTime(getTimeFrom(assignment))}</td>
+
+                            <td>{formatTime(getTimeTo(assignment))}</td>
+
+                            <td className="print-supervisor" dir="auto">
+                              {getSupervisorName(assignment)}
+                            </td>
+                          </tr>
+                        );
+                      })
+                    ) : (
+                      <tr>
+                        <td colSpan="8" className="print-no-results">
+                          No assignments found.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <div className="no-plan-data">⚠️ No assignments found.</div>
+          )}
+
+          {/* =================================================
+            PLAN ACTIONS
+            الأزرار أسفل جدول الخطة
+        ================================================= */}
+          <div className="plan-bottom-actions">
+            {/* Accept */}
+            <button
+              type="button"
+              className="btn btn-success"
+              disabled={statusSaving || planStatus === "accepted"}
+              onClick={() => changePlanStatus("accepted")}
+            >
+              <span>✅</span>
+
+              <span>
+                {statusSaving && planStatus !== "accepted"
+                  ? "جاري الحفظ..."
+                  : "قبول الخطة"}
+              </span>
+            </button>
+
+            {/* Reject */}
+            <button
+              type="button"
+              className="btn btn-danger"
+              disabled={statusSaving || planStatus === "rejected"}
+              onClick={() => changePlanStatus("rejected")}
+            >
+              <span>❌</span>
+
+              <span>رفض الخطة</span>
+            </button>
+
+            {/* Print */}
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={printPlan}
+            >
+              <span>🖨️</span>
+
+              <span>طباعة الخطة</span>
+            </button>
+
+            {/* Excel */}
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={downloadExcel}
+            >
+              <span>📥</span>
+              <span>تحميل الخطة الكاملة</span>
+            </button>
+
+            {/* Excel - حسب الفلتر الحالي */}
+            <button
+              type="button"
+              className="btn btn-outline"
+              onClick={downloadExcelFiltered}
+              disabled={!filteredPlanData.length}
+            >
+              <span>🔎</span>
+              <span>تحميل حسب الفلتر الحالي</span>
+            </button>
+          </div>
+        </section>
+
+        {/* =================================================
+          Conflicts
+      ================================================= */}
+        <section className="panel conflicts-panel">
+          <div className="panel-heading">
+            <div>
+              <h2>⚠️ Unassigned / Conflicts</h2>
+
+              <p>Items that could not be assigned automatically</p>
+            </div>
+
+            <span
+              className={
+                conflicts.length > 0
+                  ? "conflict-count danger"
+                  : "conflict-count success"
+              }
+            >
+              {conflicts.length}
+            </span>
+          </div>
+
+          {conflicts.length > 0 ? (
+            <div className="table-container">
+              <table className="conflicts-table">
                 <thead>
-
                   <tr>
+                    <th>Session Group</th>
 
                     <th>CRN</th>
-
-                    <th>Course Name</th>
-
-                    <th>Professor</th>
 
                     <th>Date</th>
 
@@ -2666,378 +2674,62 @@ export default function PlanResult() {
 
                     <th>To</th>
 
-                    <th>Supervisor</th>
-
+                    <th>Reason</th>
                   </tr>
-
                 </thead>
 
                 <tbody>
-
-                  {filteredPlanData.length > 0 ? (
-
-                    filteredPlanData.map(
-                      (assignment, index) => {
-
-                        const rowId =
-                          getSessionGroupId(
-                            assignment
-                          );
-
-                        return (
-                          <tr
-                            key={`print-${rowId}-${index}`}
-                          >
-
-                            <td>
-                              {assignment.crn ?? "-"}
-                            </td>
-
-                            <td
-                              className="print-course-name"
-                              dir="auto"
-                            >
-                              {getCourseName(
-                                assignment
-                              )}
-                            </td>
-
-                            <td
-                              className="print-professor"
-                              dir="auto"
-                            >
-                              {getProfessorName(
-                                assignment
-                              )}
-                            </td>
-
-                            <td>
-                              {formatDate(
-                                assignment.date
-                              )}
-                            </td>
-
-                            <td>
-                              {getPeriod(
-                                assignment
-                              )}
-                            </td>
-
-                            <td>
-                              {formatTime(
-                                getTimeFrom(
-                                  assignment
-                                )
-                              )}
-                            </td>
-
-                            <td>
-                              {formatTime(
-                                getTimeTo(
-                                  assignment
-                                )
-                              )}
-                            </td>
-
-                            <td
-                              className="print-supervisor"
-                              dir="auto"
-                            >
-                              {getSupervisorName(
-                                assignment
-                              )}
-                            </td>
-
-                          </tr>
-                        );
-                      }
-                    )
-
-                  ) : (
-
-                    <tr>
-
-                      <td
-                        colSpan="8"
-                        className="print-no-results"
-                      >
-                        No assignments found.
-                      </td>
-
-                    </tr>
-
-                  )}
-
-                </tbody>
-
-              </table>
-
-            </div>
-
-          </div>
-
-        ) : (
-
-          <div className="no-plan-data">
-            ⚠️ No assignments found.
-          </div>
-
-        )}
-
-        {/* =================================================
-            PLAN ACTIONS
-            الأزرار أسفل جدول الخطة
-        ================================================= */}
-        <div className="plan-bottom-actions">
-
-          {/* Accept */}
-          <button
-            type="button"
-            className="btn btn-success"
-            disabled={
-              statusSaving ||
-              planStatus === "accepted"
-            }
-            onClick={() =>
-              changePlanStatus("accepted")
-            }
-          >
-
-            <span>✅</span>
-
-            <span>
-              {statusSaving &&
-              planStatus !== "accepted"
-                ? "جاري الحفظ..."
-                : "قبول الخطة"}
-            </span>
-
-          </button>
-
-          {/* Reject */}
-          <button
-            type="button"
-            className="btn btn-danger"
-            disabled={
-              statusSaving ||
-              planStatus === "rejected"
-            }
-            onClick={() =>
-              changePlanStatus("rejected")
-            }
-          >
-
-            <span>❌</span>
-
-            <span>
-              رفض الخطة
-            </span>
-
-          </button>
-
-          {/* Print */}
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={printPlan}
-          >
-
-            <span>🖨️</span>
-
-            <span>
-              طباعة الخطة
-            </span>
-
-          </button>
-
-          {/* Excel */}
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={downloadExcel}
-          >
-
-            <span>📥</span>
-
-            <span>
-              تحميل Excel
-            </span>
-
-          </button>
-
-        </div>
-
-      </section>
-
-      {/* =================================================
-          Conflicts
-      ================================================= */}
-      <section className="panel conflicts-panel">
-
-        <div className="panel-heading">
-
-          <div>
-
-            <h2>
-              ⚠️ Unassigned / Conflicts
-            </h2>
-
-            <p>
-              Items that could not be assigned
-              automatically
-            </p>
-
-          </div>
-
-          <span
-            className={
-              conflicts.length > 0
-                ? "conflict-count danger"
-                : "conflict-count success"
-            }
-          >
-            {conflicts.length}
-          </span>
-
-        </div>
-
-        {conflicts.length > 0 ? (
-
-          <div className="table-container">
-
-            <table className="conflicts-table">
-
-              <thead>
-
-                <tr>
-
-                  <th>
-                    Session Group
-                  </th>
-
-                  <th>
-                    CRN
-                  </th>
-
-                  <th>
-                    Date
-                  </th>
-
-                  <th>
-                    Period
-                  </th>
-
-                  <th>
-                    From
-                  </th>
-
-                  <th>
-                    To
-                  </th>
-
-                  <th>
-                    Reason
-                  </th>
-
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                {conflicts.map(
-                  (conflict, index) => (
-
+                  {conflicts.map((conflict, index) => (
                     <tr key={index}>
-
                       <td>
-                        {conflict.session_group_id ??
-                          conflict.group_id ??
-                          "-"}
+                        {conflict.session_group_id ?? conflict.group_id ?? "-"}
                       </td>
 
-                      <td>
-                        {conflict.crn ?? "-"}
-                      </td>
+                      <td>{conflict.crn ?? "-"}</td>
 
-                      <td>
-                        {formatDate(
-                          conflict.date
-                        )}
-                      </td>
+                      <td>{formatDate(conflict.date)}</td>
 
-                      <td>
-                        {conflict.period_label ??
-                          conflict.period ??
-                          "-"}
-                      </td>
+                      <td>{conflict.period_label ?? conflict.period ?? "-"}</td>
 
                       <td>
                         {formatTime(
                           conflict.time_from ??
                             conflict.timeFrom ??
-                            conflict.from
+                            conflict.from,
                         )}
                       </td>
 
                       <td>
                         {formatTime(
-                          conflict.time_to ??
-                            conflict.timeTo ??
-                            conflict.to
+                          conflict.time_to ?? conflict.timeTo ?? conflict.to,
                         )}
                       </td>
 
                       <td>
-
                         <span className="reason-text">
                           {conflict.reason ??
                             conflict.message ??
                             "Unable to assign"}
                         </span>
-
                       </td>
-
                     </tr>
-
-                  )
-                )}
-
-              </tbody>
-
-            </table>
-
-          </div>
-
-        ) : (
-
-          <div className="no-conflicts">
-
-            <div className="success-check">
-              ✓
+                  ))}
+                </tbody>
+              </table>
             </div>
+          ) : (
+            <div className="no-conflicts">
+              <div className="success-check">✓</div>
 
-            <div>
+              <div>
+                <strong>No conflicts found</strong>
 
-              <strong>
-                No conflicts found
-              </strong>
-
-              <p>
-                All assignments were successfully
-                distributed.
-              </p>
-
+                <p>All assignments were successfully distributed.</p>
+              </div>
             </div>
-
-          </div>
-
-        )}
-
-      </section>
-
-    </main>
-
-  </div>
-);
+          )}
+        </section>
+      </main>
+    </div>
+  );
 }

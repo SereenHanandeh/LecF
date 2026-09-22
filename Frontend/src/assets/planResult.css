@@ -1055,7 +1055,98 @@
     background: #eee;
   }
 }
+/* =====================================================
+   Plan Bottom Actions - تصميم الأزرار الأربعة
+===================================================== */
 
+.plan-bottom-actions {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  padding: 28px 16px;
+  margin-top: 20px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.plan-bottom-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 160px;
+  padding: 13px 26px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #fff;
+  cursor: pointer;
+  letter-spacing: 0.2px;
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.plan-bottom-actions .btn span:first-child {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.plan-bottom-actions .btn:not(:disabled):hover {
+  transform: translateY(-3px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.18);
+  filter: brightness(1.06);
+}
+
+.plan-bottom-actions .btn:not(:disabled):active {
+  transform: translateY(-1px);
+}
+
+.plan-bottom-actions .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none;
+}
+
+.btn-success {
+  background: linear-gradient(135deg, #22c55e, #15803d);
+}
+
+.btn-danger {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, #64748b, #334155);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+}
+
+@media (max-width: 640px) {
+  .plan-bottom-actions {
+    flex-direction: column;
+  }
+
+  .plan-bottom-actions .btn {
+    width: 100%;
+  }
+}
+
+.btn-outline {
+  background: #fff;
+  color: #2563eb;
+  border: 2px solid #2563eb;
+  box-shadow: none;
+}
+
+.btn-outline:not(:disabled):hover {
+  background: #eff6ff;
+  filter: none;
+}
 /* =========================================================
    Motion preference
 ========================================================= */
@@ -1239,16 +1330,6 @@
     padding: 0 !important;
   }
 
-
-  /* ---------------------------------------------
-     منع بعض العناصر من أخذ مساحة
-     --------------------------------------------- */
-
-  .plan-bottom-actions {
-    height: 0 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-  }
 
 
   /* ---------------------------------------------

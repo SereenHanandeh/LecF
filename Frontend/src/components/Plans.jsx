@@ -301,45 +301,42 @@ export default function Plans() {
   // Delete Plan
   // ===================================================
 
-  async function handleDeletePlan(planId) {
-    const confirmed = window.confirm(
-      "هل أنت متأكد من حذف هذه الخطة؟\n\nلا يمكن التراجع عن عملية الحذف.",
-    );
+const handleDeletePlan = async (planId) => {
+  const confirmed = window.confirm(
+    "هل أنت متأكد من حذف هذه الخطة؟\n\nلا يمكن التراجع عن عملية الحذف."
+  );
 
-    if (!confirmed) {
-      return;
-    }
+  if (!confirmed) return;
 
-    try {
-      setDeletingPlanId(planId);
-      setError("");
+  try {
+    setDeletingPlanId(planId);
+    setError("");
 
-      console.log("🗑️ Deleting plan:", planId);
+    console.log("🗑️ Deleting plan:", planId);
 
-      await deletePlan(planId);
+    await deletePlan(planId);
 
-      // إزالة الخطة مباشرة من الواجهة
-      setPlans((prevPlans) =>
-        prevPlans.filter((plan) => Number(plan.id) !== Number(planId)),
-      );
+    console.log("🟢 Plan deleted successfully:", planId);
 
-      console.log("🟢 Plan deleted successfully:", planId);
-    } catch (err) {
-      console.error("🔴 DELETE PLAN ERROR:", err);
+    // إعادة تحميل الخطط من الـ Backend
+    await loadPlans(true);
 
-      const errorMessage =
-        err?.response?.data?.error ??
-        err?.response?.data?.message ??
-        err?.message ??
-        "تعذر حذف الخطة.";
+  } catch (err) {
+    console.error("🔴 DELETE PLAN ERROR:", err);
 
-      setError(errorMessage);
+    const errorMessage =
+      err?.response?.data?.error ??
+      err?.response?.data?.message ??
+      err?.message ??
+      "تعذر حذف الخطة.";
 
-      alert(errorMessage);
-    } finally {
-      setDeletingPlanId(null);
-    }
+    setError(errorMessage);
+    alert(errorMessage);
+
+  } finally {
+    setDeletingPlanId(null);
   }
+};
 
   // ===================================================
   // Render
