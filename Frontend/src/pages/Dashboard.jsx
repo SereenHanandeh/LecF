@@ -224,6 +224,8 @@ export default function Dashboard() {
   const [errorMessage, setErrorMessage] = useState("");
 
   const [supervisorNames, setSupervisorNames] = useState({});
+
+  const [dateMode, setDateMode] = useState("single");
   /* =========================================================
      Derived data
   ========================================================= */
@@ -247,13 +249,17 @@ export default function Dashboard() {
     return [...new Set(values)].sort();
   }, [rows]);
 
-  const selectedDateRows = useMemo(() => {
-    if (!selectedDate) return [];
+const selectedDateRows = useMemo(() => {
+  if (dateMode === "all") {
+    return rows.filter((row) => Boolean(normalizeDate(getDateValue(row))));
+  }
 
-    return rows.filter(
-      (row) => normalizeDate(getDateValue(row)) === selectedDate,
-    );
-  }, [rows, selectedDate]);
+  if (!selectedDate) return [];
+
+  return rows.filter(
+    (row) => normalizeDate(getDateValue(row)) === selectedDate,
+  );
+}, [rows, selectedDate, dateMode]);
 
   const selectedDateProfessors = useMemo(() => {
     return new Set(selectedDateRows.map(getProfessorName).filter(Boolean)).size;
@@ -283,12 +289,12 @@ export default function Dashboard() {
   ]);
 
   const canGenerate =
-    rows.length > 0 &&
-    selectedDate &&
-    normalizedSupervisorIds.length > 0 &&
-    selectedDateRows.length > 0 &&
-    planCategory &&
-    !isGenerating;
+  rows.length > 0 &&
+  (dateMode === "all" ? allDatesRange !== null : Boolean(selectedDate)) &&
+  normalizedSupervisorIds.length > 0 &&
+  selectedDateRows.length > 0 &&
+  planCategory &&
+  !isGenerating;
 
   useEffect(() => {
     const loadSupervisors = async () => {
@@ -330,6 +336,17 @@ export default function Dashboard() {
 
     loadSupervisors();
   }, []);
+
+
+  const allDatesRange = useMemo(() => {
+  if (!dates.length) return null;
+
+  return {
+    from: dates[0],
+    to: dates[dates.length - 1],
+  };
+}, [dates]);
+
   /* =========================================================
      Upload
   ========================================================= */
@@ -471,10 +488,10 @@ export default function Dashboard() {
         excelBatchId,
         excel_batch_id: excelBatchId,
 
-        dateFrom: selectedDate,
-        dateTo: selectedDate,
-        date_from: selectedDate,
-        date_to: selectedDate,
+        dateFrom: dateMode === "all" ? allDatesRange.from : selectedDate,
+dateTo: dateMode === "all" ? allDatesRange.to : selectedDate,
+date_from: dateMode === "all" ? allDatesRange.from : selectedDate,
+date_to: dateMode === "all" ? allDatesRange.to : selectedDate,
 
         category: planCategory,
         planCategory,
@@ -777,64 +794,131 @@ export default function Dashboard() {
 
             {/* Date */}
 
-            <section className="workspace-section">
-              <div className="section-heading">
-                <div className="section-number">02</div>
+           <section className="workspace-section">
+  <div className="section-heading">
+    <div className="section-number">02</div>
 
-                <div>
-                  <h2>يوم الخطة</h2>
-                  <p>حدد التاريخ الذي تريد إنشاء جدول المشرفين له.</p>
-                </div>
+    <div>
+      <h2>نطاق الخطة</h2>
+      <p>اختر توليد الخطة ليوم واحد أو لكل تواريخ الملف.</p>
+    </div>
 
-                {selectedDate && (
-                  <span className="section-complete">
-                    {Icons.check}
-                    محدد
-                  </span>
-                )}
-              </div>
+    {(dateMode === "all" ? allDatesRange : selectedDate) && (
+      <span className="section-complete">
+        {Icons.check}
+        محدد
+      </span>
+    )}
+  </div>
 
-              <div className="date-selector">
-                <div className="date-select-wrap">
-                  <span className="select-icon">{Icons.calendar}</span>
+  {/* اختيار الوضع */}
+  <div className="date-mode-toggle" style={{ display: "flex", gap: "10px", marginBottom: "16px" }}>
+    <button
+      type="button"
+      className={`plan-category-card ${dateMode === "single" ? "active" : ""}`}
+      onClick={() => {
+        setDateMode("single");
+        setErrorMessage("");
+      }}
+    >
+      <div className="plan-category-icon">📅</div>
+      <div>
+        <strong>تاريخ محدد</strong>
+        <span>اختر يومًا واحدًا فقط</span>
+      </div>
+      {dateMode === "single" && (
+        <span className="plan-category-check">{Icons.check}</span>
+      )}
+    </button>
 
-                  <select
-                    value={selectedDate}
-                    onChange={(e) => {
-                      setSelectedDate(e.target.value);
-                      setErrorMessage("");
-                    }}
-                  >
-                    <option value="">اختر تاريخ الخطة</option>
+    <button
+      type="button"
+      className={`plan-category-card ${dateMode === "all" ? "active" : ""}`}
+      onClick={() => {
+        setDateMode("all");
+        setErrorMessage("");
+      }}
+    >
+      <div className="plan-category-icon">🗓️</div>
+      <div>
+        <strong>كل التواريخ</strong>
+        <span>خطة تغطي كل الملف دفعة واحدة</span>
+      </div>
+      {dateMode === "all" && (
+        <span className="plan-category-check">{Icons.check}</span>
+      )}
+    </button>
+  </div>
 
-                    {dates.map((date) => (
-                      <option key={date} value={date}>
-                        {formatDate(date)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+  {/* اختيار تاريخ محدد */}
+  {dateMode === "single" && (
+    <div className="date-selector">
+      <div className="date-select-wrap">
+        <span className="select-icon">{Icons.calendar}</span>
 
-                {selectedDate && (
-                  <div className="date-summary">
-                    <div>
-                      <span>التاريخ</span>
-                      <strong>{formatDate(selectedDate)}</strong>
-                    </div>
+        <select
+          value={selectedDate}
+          onChange={(e) => {
+            setSelectedDate(e.target.value);
+            setErrorMessage("");
+          }}
+        >
+          <option value="">اختر تاريخ الخطة</option>
 
-                    <div>
-                      <span>السجلات</span>
-                      <strong>{selectedDateRows.length}</strong>
-                    </div>
+          {dates.map((date) => (
+            <option key={date} value={date}>
+              {formatDate(date)}
+            </option>
+          ))}
+        </select>
+      </div>
 
-                    <div>
-                      <span>الأساتذة</span>
-                      <strong>{selectedDateProfessors}</strong>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </section>
+      {selectedDate && (
+        <div className="date-summary">
+          <div>
+            <span>التاريخ</span>
+            <strong>{formatDate(selectedDate)}</strong>
+          </div>
+
+          <div>
+            <span>السجلات</span>
+            <strong>{selectedDateRows.length}</strong>
+          </div>
+
+          <div>
+            <span>الأساتذة</span>
+            <strong>{selectedDateProfessors}</strong>
+          </div>
+        </div>
+      )}
+    </div>
+  )}
+
+  {/* ملخص كل التواريخ */}
+  {dateMode === "all" && allDatesRange && (
+    <div className="date-summary">
+      <div>
+        <span>من</span>
+        <strong>{formatDate(allDatesRange.from)}</strong>
+      </div>
+
+      <div>
+        <span>إلى</span>
+        <strong>{formatDate(allDatesRange.to)}</strong>
+      </div>
+
+      <div>
+        <span>عدد التواريخ</span>
+        <strong>{dates.length}</strong>
+      </div>
+
+      <div>
+        <span>السجلات</span>
+        <strong>{selectedDateRows.length}</strong>
+      </div>
+    </div>
+  )}
+</section>
 
             {/* Supervisors */}
 
