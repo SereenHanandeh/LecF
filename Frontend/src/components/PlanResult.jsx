@@ -171,6 +171,38 @@ const formatTime = (value) => {
   return String(value);
 };
 
+const formatTime12Hour = (value) => {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+
+  const text = String(value).trim();
+
+  // لو أصلاً بصيغة 12 ساعة (فيها AM/PM)
+  const already12 = text.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/);
+
+  if (already12) {
+    const hour = String(Number(already12[1])).padStart(2, "0");
+    return `${hour}:${already12[2]} ${already12[3].toUpperCase()}`;
+  }
+
+  // صيغة 24 ساعة HH:MM أو HH:MM:SS
+  const match24 = text.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+
+  if (match24) {
+    let hour = Number(match24[1]);
+    const minute = match24[2];
+    const period = hour >= 12 ? "PM" : "AM";
+
+    let hour12 = hour % 12;
+    if (hour12 === 0) hour12 = 12;
+
+    return `${String(hour12).padStart(2, "0")}:${minute} ${period}`;
+  }
+
+  return text;
+};
+
 const timeToMinutes = (value) => {
   if (value === null || value === undefined || value === "") {
     return Number.MAX_SAFE_INTEGER;
@@ -213,6 +245,7 @@ const timeToMinutes = (value) => {
 
   return Number.MAX_SAFE_INTEGER;
 };
+
 
 // =====================================================
 // Assignment Helpers
@@ -1525,8 +1558,8 @@ export default function PlanResult() {
         room: getRoomNumber(assignment),
         date: formatDate(assignment.date),
         period: getPeriod(assignment),
-        from: formatTime(getTimeFrom(assignment)),
-        to: formatTime(getTimeTo(assignment)),
+        from: formatTime12Hour (getTimeFrom(assignment)),
+        to: formatTime12Hour (getTimeTo(assignment)),
         supervisor: getSupervisorName(assignment),
       });
 
@@ -1720,8 +1753,8 @@ export default function PlanResult() {
           room: getRoomNumber(assignment),
           date: formatDate(assignment.date),
           period: getPeriod(assignment),
-          from: formatTime(getTimeFrom(assignment)),
-          to: formatTime(getTimeTo(assignment)),
+          from: formatTime12Hour (getTimeFrom(assignment)),
+          to: formatTime12Hour (getTimeTo(assignment)),
           supervisor: getSupervisorName(assignment),
         });
       });

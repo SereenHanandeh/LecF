@@ -116,6 +116,39 @@ function formatDateRange(from, to) {
 }
 
 // =====================================================
+// Weekday Helpers
+// =====================================================
+
+function formatWeekday(dateValue) {
+  if (!dateValue) return "";
+
+  const date = new Date(dateValue);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("ar-SA", {
+    weekday: "long",
+  }).format(date);
+}
+
+function formatWeekdayRange(from, to) {
+  if (!from || !to) return "-";
+
+  const dayFrom = formatWeekday(from);
+  const dayTo = formatWeekday(to);
+
+  if (!dayFrom && !dayTo) return "-";
+
+  if (dayFrom === dayTo) {
+    return dayFrom || "-";
+  }
+
+  return `${dayFrom} — ${dayTo}`;
+}
+
+// =====================================================
 // Plan Status
 // =====================================================
 
@@ -268,6 +301,32 @@ export default function Plans() {
   }, [plans]);
 
   // ===================================================
+  // Sequential Plan Numbers (خطة 1، خطة 2 ...)
+  // مبني على ترتيب تاريخ الإنشاء تصاعديًا، وثابت حتى مع الفلترة
+  // ===================================================
+
+  const planNumbers = useMemo(() => {
+    const sorted = [...acceptedPlans].sort((a, b) => {
+      const dateA = new Date(a.created_at ?? 0).getTime();
+      const dateB = new Date(b.created_at ?? 0).getTime();
+
+      if (Number.isNaN(dateA) || Number.isNaN(dateB)) {
+        return Number(a.id) - Number(b.id);
+      }
+
+      return dateA - dateB;
+    });
+
+    const map = new Map();
+
+    sorted.forEach((plan, index) => {
+      map.set(String(plan.id), index + 1);
+    });
+
+    return map;
+  }, [acceptedPlans]);
+
+  // ===================================================
   // Filter
   // ===================================================
 
@@ -279,9 +338,16 @@ export default function Plans() {
 
       const id = String(plan.id || "").toLowerCase();
 
-      return !query || name.includes(query) || id.includes(query);
+      const number = String(planNumbers.get(String(plan.id)) ?? "");
+
+      return (
+        !query ||
+        name.includes(query) ||
+        id.includes(query) ||
+        number.includes(query)
+      );
     });
-  }, [acceptedPlans, search]);
+  }, [acceptedPlans, search, planNumbers]);
 
   // ===================================================
   // Stats
@@ -564,8 +630,6 @@ const handleDeletePlan = async (planId) => {
                   <tr>
                     <th>الخطة</th>
 
-                    <th>الفترة</th>
-
                     <th>المشرفون</th>
 
                     <th>التعيينات</th>
@@ -599,6 +663,9 @@ const handleDeletePlan = async (planId) => {
                     const isDeleting =
                       Number(deletingPlanId) === Number(plan.id);
 
+                    const planNumber =
+                      planNumbers.get(String(plan.id)) ?? plan.id;
+
                     return (
                       <tr key={plan.id}>
                         {/* Plan */}
@@ -610,22 +677,22 @@ const handleDeletePlan = async (planId) => {
                             </div>
 
                             <div>
-                              <strong>{plan.name || `Plan ${plan.id}`}</strong>
+                              <strong>خطة {planNumber}</strong>
 
-                              <span>#{plan.id}</span>
+                              <span className="plan-name-date">
+                                {formatDateRange(
+                                  plan.date_from,
+                                  plan.date_to,
+                                )}
+                              </span>
+
+                              <span className="plan-name-weekday">
+                                {formatWeekdayRange(
+                                  plan.date_from,
+                                  plan.date_to,
+                                )}
+                              </span>
                             </div>
-                          </div>
-                        </td>
-
-                        {/* Date */}
-
-                        <td>
-                          <div className="date-cell">
-                            <span className="date-icon">{Icons.calendar}</span>
-
-                            <span>
-                              {formatDateRange(plan.date_from, plan.date_to)}
-                            </span>
                           </div>
                         </td>
 
