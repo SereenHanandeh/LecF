@@ -357,6 +357,7 @@ export default function Dashboard() {
   useEffect(() => {
     setSelectedProfessors([]);
   }, [selectedDate, dateMode]);
+  
   /* =========================================================
      Upload
   ========================================================= */
