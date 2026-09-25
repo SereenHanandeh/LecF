@@ -281,13 +281,34 @@ const getProfessorName = (assignment) =>
   assignment.professor ??
   "-";
 
-const getCourseName = (assignment) =>
-  assignment.course_name ??
-  assignment.courseName ??
-  assignment.course ??
-  assignment.course_title ??
-  assignment.courseTitle ??
-  "-";
+const getCourseName = (assignment) => {
+  const value =
+    assignment?.course_name ??
+    assignment?.courseName ??
+    assignment?.course ??
+    assignment?.course_desc ??
+    assignment?.["اسم المقرر"] ??
+    assignment?.["المادة"];
+
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+
+  // إذا كانت قيمة الكورس Object
+  if (typeof value === "object") {
+    return (
+      value.name ??
+      value.course_name ??
+      value.courseName ??
+      value.label ??
+      value.text ??
+      value.description ??
+      "-"
+    );
+  }
+
+  return String(value);
+};
 
 const getPeriod = (assignment) =>
   assignment.period_label ?? assignment.period ?? "-";
