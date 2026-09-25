@@ -197,10 +197,24 @@ const Icons = {
   ),
 };
 
-const VALID_ROOMS = [
-  ...Array.from({ length: 14 }, (_, i) => String(i + 1)),
-  ...Array.from({ length: 7 }, (_, i) => String(i + 40)),
+/* =========================================================
+   Rooms
+   - قاعات 1 إلى 6: مخصصة لفئة "متطلبات" فقط
+   - باقي القاعات (7-14 و 40-46): لفئتي "دبلوم" و "مدمج"
+========================================================= */
+
+const REQUIREMENT_ROOMS = Array.from({ length: 6 }, (_, i) => String(i + 1)); // 1..6
+
+const DIPLOMA_MERGED_ROOMS = [
+  ...Array.from({ length: 8 }, (_, i) => String(i + 7)), // 7..14
+  ...Array.from({ length: 7 }, (_, i) => String(i + 40)), // 40..46
 ];
+
+const VALID_ROOMS = [...REQUIREMENT_ROOMS, ...DIPLOMA_MERGED_ROOMS];
+
+// يرجع مجموعة القاعات المسموحة حسب فئة الخطة الحالية
+const getRoomsPoolForCategory = (category) =>
+  category === "متطلبات" ? REQUIREMENT_ROOMS : DIPLOMA_MERGED_ROOMS;
 
 /* =========================================================
    Dashboard
@@ -223,7 +237,11 @@ export default function Dashboard() {
 
   const [roomAssignments, setRoomAssignmentsState] = useState([]);
 
+  // وضع توزيع القاعات: تلقائي أو يدوي
+  const [roomAssignMode, setRoomAssignMode] = useState("auto"); // "auto" | "manual"
+
   const [selectedRoomsForAuto, setSelectedRoomsForAuto] = useState([]);
+  const [manualRoomAssignments, setManualRoomAssignmentsState] = useState({}); // { [professorName]: roomNumber }
 
   const MINIMUM_PERIODS = 4;
 
@@ -287,6 +305,12 @@ export default function Dashboard() {
   const invalidRows = useMemo(
     () => rows.filter((row) => row?.__invalid).length,
     [rows],
+  );
+
+  // القاعات المسموحة لفئة الخطة الحالية (متطلبات = 1-6، دبلوم/مدمج = الباقي)
+  const allowedRooms = useMemo(
+    () => getRoomsPoolForCategory(planCategory),
+    [planCategory],
   );
 
   const readiness = useMemo(() => {
@@ -360,6 +384,13 @@ export default function Dashboard() {
     setSelectedProfessors([]);
   }, [selectedDate, dateMode]);
 
+  // عند تغيير فئة الخطة، تُعاد ضبط اختيارات القاعات (تلقائي ويدوي)
+  // لأن مجموعة القاعات المسموحة تتغيّر بتغيّر الفئة
+  useEffect(() => {
+    setSelectedRoomsForAuto([]);
+    setManualRoomAssignmentsState({});
+  }, [planCategory]);
+
   /* =========================================================
      Upload
   ========================================================= */
@@ -393,7 +424,8 @@ export default function Dashboard() {
 
       setRoomAssignmentsState([]);
       setSelectedRoomsForAuto([]);
-      
+      setManualRoomAssignmentsState({});
+      setRoomAssignMode("auto");
 
       setMinimumPeriodsEnabled(false);
       setPlanCategory("");
@@ -486,6 +518,119 @@ export default function Dashboard() {
     );
   };
 
+  /* =========================================================
+     Room Assignment (auto & manual)
+  ========================================================= */
+
+  // التوزيع التلقائي: يستخدم القاعات المسموحة لفئة الخطة الحالية فقط
+  const autoAssignRooms = () => {
+    if (!professors.length) {
+      setRoomAssignmentsState([]);
+      setErrorMessage("");
+      return;
+    }
+
+    if (!planCategory) {
+      setErrorMessage("اختر فئة الخطة أولًا لتحديد القاعات المتاحة للتوزيع.");
+      setRoomAssignmentsState([]);
+      return;
+    }
+
+    const roomsPool = selectedRoomsForAuto.length
+      ? selectedRoomsForAuto.filter((room) => allowedRooms.includes(room))
+      : allowedRooms;
+
+    if (roomsPool.length < professors.length) {
+      setErrorMessage(
+        `عدد القاعات المتاحة لفئة "${planCategory}" (${roomsPool.length}) أقل من عدد الأساتذة (${professors.length})، اختاري قاعات أكثر ليحصل كل أستاذ على قاعة مستقلة.`,
+      );
+      setRoomAssignmentsState([]);
+      return;
+    }
+
+    const newAssignments = professors.map((professorName, index) => {
+      const professorRow = rows.find(
+        (row) => getProfessorName(row) === professorName,
+      );
+
+      const professorId =
+        professorRow?.professor_id ?? professorRow?.professorId ?? null;
+
+      // كل أستاذ ياخذ قاعة مختلفة من قاعات الفئة، بدون تكرار
+      const roomNumber = roomsPool[index];
+
+      return {
+        professorId,
+        professorName,
+        roomNumber,
+      };
+    });
+
+    setRoomAssignmentsState(newAssignments);
+    setErrorMessage("");
+  };
+
+  // إعادة التوزيع التلقائي عند تغيّر الأساتذة أو القاعات المختارة أو الفئة، فقط في وضع "تلقائي"
+  useEffect(() => {
+    if (roomAssignMode !== "auto") return;
+
+    autoAssignRooms();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    professors.join("|"),
+    selectedRoomsForAuto.join("|"),
+    roomAssignMode,
+    planCategory,
+  ]);
+
+  // اختيار قاعة أستاذ واحد يدويًا
+  const handleManualRoomChange = (professorName, roomNumber) => {
+    setManualRoomAssignmentsState((current) => ({
+      ...current,
+      [professorName]: roomNumber,
+    }));
+  };
+
+  // بناء قائمة roomAssignments النهائية من الاختيار اليدوي
+  useEffect(() => {
+    if (roomAssignMode !== "manual") return;
+
+    const newAssignments = professors
+      .filter((professorName) => manualRoomAssignments[professorName])
+      .map((professorName) => {
+        const professorRow = rows.find(
+          (row) => getProfessorName(row) === professorName,
+        );
+
+        const professorId =
+          professorRow?.professor_id ?? professorRow?.professorId ?? null;
+
+        return {
+          professorId,
+          professorName,
+          roomNumber: manualRoomAssignments[professorName],
+        };
+      });
+
+    setRoomAssignmentsState(newAssignments);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [manualRoomAssignments, professors.join("|"), roomAssignMode]);
+
+  // تنبيه إذا تكرر تخصيص نفس القاعة لأكثر من أستاذ في الوضع اليدوي
+  const duplicateManualRooms = useMemo(() => {
+    if (roomAssignMode !== "manual") return [];
+
+    const counts = {};
+
+    Object.values(manualRoomAssignments).forEach((room) => {
+      if (!room) return;
+      counts[room] = (counts[room] || 0) + 1;
+    });
+
+    return Object.entries(counts)
+      .filter(([, count]) => count > 1)
+      .map(([room]) => room);
+  }, [manualRoomAssignments, roomAssignMode]);
 
   /* =========================================================
      Generate
@@ -552,6 +697,7 @@ export default function Dashboard() {
       if (roomAssignments.length) {
         console.log("🏠 SENDING ROOM ASSIGNMENTS TO BACKEND:", {
           planId,
+          roomAssignMode,
           roomAssignments,
         });
 
@@ -601,57 +747,6 @@ export default function Dashboard() {
       setIsGenerating(false);
     }
   };
-
-  /* =========================================================
-   Auto Room Assignment
-========================================================= */
-
-const autoAssignRooms = () => {
-  if (!professors.length) {
-    setRoomAssignmentsState([]);
-    setErrorMessage("");
-    return;
-  }
-
-  const roomsPool = selectedRoomsForAuto.length
-    ? selectedRoomsForAuto
-    : VALID_ROOMS;
-
-  if (roomsPool.length < professors.length) {
-    setErrorMessage(
-      `عدد القاعات المتاحة (${roomsPool.length}) أقل من عدد الأساتذة (${professors.length})، اختاري قاعات أكثر ليحصل كل أستاذ على قاعة مستقلة.`,
-    );
-    setRoomAssignmentsState([]);
-    return;
-  }
-
-  const newAssignments = professors.map((professorName, index) => {
-    const professorRow = rows.find(
-      (row) => getProfessorName(row) === professorName,
-    );
-
-    const professorId =
-      professorRow?.professor_id ?? professorRow?.professorId ?? null;
-
-    // كل أستاذ ياخذ قاعة مختلفة، بدون تكرار
-    const roomNumber = roomsPool[index];
-
-    return {
-      professorId,
-      professorName,
-      roomNumber,
-    };
-  });
-
-  setRoomAssignmentsState(newAssignments);
-  setErrorMessage("");
-};
- 
-
-useEffect(() => {
-  autoAssignRooms();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, [professors.join("|"), selectedRoomsForAuto.join("|")]);
 
   /* =========================================================
      UI
@@ -1318,93 +1413,205 @@ useEffect(() => {
                 </div>
               )}
             </div>
-       
-{/* Room Assignment */}
 
-<div className="side-panel">
-  <div className="side-panel-title">
-    <div className="mini-icon violet">{Icons.dashboard}</div>
+            {/* Room Assignment */}
 
-    <div>
-      <h3>تخصيص القاعات</h3>
-      <p>
-        اختر القاعات التي تريدين التوزيع عليها (اختياري)، وإلا سيتم
-        التوزيع تلقائيًا على كل القاعات المتاحة.
-      </p>
-    </div>
-  </div>
+            <div className="side-panel">
+              <div className="side-panel-title">
+                <div className="mini-icon violet">{Icons.dashboard}</div>
 
-  <div className="professor-select">
-    <select
-      multiple
-      value={selectedRoomsForAuto}
-      onChange={(e) => {
-        const values = Array.from(
-          e.target.selectedOptions,
-          (option) => option.value,
-        );
+                <div>
+                  <h3>تخصيص القاعات</h3>
+                  <p>
+                    {planCategory
+                      ? `القاعات المتاحة لفئة "${planCategory}": قاعات ${allowedRooms[0]}–${
+                          allowedRooms[allowedRooms.length - 1]
+                        } (${allowedRooms.length} قاعة).`
+                      : "اختر فئة الخطة أولًا لتحديد القاعات المتاحة (متطلبات: قاعات 1-6، دبلوم/مدمج: باقي القاعات)."}
+                  </p>
+                </div>
+              </div>
 
-        setSelectedRoomsForAuto(values);
-      }}
-    >
-      {VALID_ROOMS.map((room) => (
-        <option key={room} value={room}>
-          قاعة {room}
-        </option>
-      ))}
-    </select>
-  </div>
+              {/* وضع توزيع القاعات: تلقائي / يدوي */}
+              <div
+                className="date-mode-toggle"
+                style={{ display: "flex", gap: "10px", marginBottom: "12px" }}
+              >
+                <button
+                  type="button"
+                  className={`plan-category-card ${
+                    roomAssignMode === "auto" ? "active" : ""
+                  }`}
+                  onClick={() => setRoomAssignMode("auto")}
+                >
+                  <div className="plan-category-icon">{Icons.spark}</div>
+                  <div>
+                    <strong>تلقائي</strong>
+                    <span>توزيع القاعات تلقائيًا</span>
+                  </div>
+                  {roomAssignMode === "auto" && (
+                    <span className="plan-category-check">{Icons.check}</span>
+                  )}
+                </button>
 
-  {selectedRoomsForAuto.length > 0 && (
-    <div
-      className="minimum-period-summary active"
-      style={{ marginTop: "8px" }}
-    >
-      <strong>{selectedRoomsForAuto.length}</strong>
-      <span>قاعة محددة للتوزيع عليها</span>
-    </div>
-  )}
+                <button
+                  type="button"
+                  className={`plan-category-card ${
+                    roomAssignMode === "manual" ? "active" : ""
+                  }`}
+                  onClick={() => setRoomAssignMode("manual")}
+                >
+                  <div className="plan-category-icon">✋</div>
+                  <div>
+                    <strong>يدوي</strong>
+                    <span>اختيار قاعة كل أستاذ بنفسك</span>
+                  </div>
+                  {roomAssignMode === "manual" && (
+                    <span className="plan-category-check">{Icons.check}</span>
+                  )}
+                </button>
+              </div>
 
-  <button
-    type="button"
-    className="secondary-action"
-    onClick={autoAssignRooms}
-    disabled={!professors.length}
-  >
-    {Icons.spark} إعادة التوزيع التلقائي
-  </button>
+              {roomAssignMode === "auto" ? (
+                <>
+                  <div className="professor-select">
+                    <select
+                      multiple
+                      value={selectedRoomsForAuto}
+                      onChange={(e) => {
+                        const values = Array.from(
+                          e.target.selectedOptions,
+                          (option) => option.value,
+                        );
 
-  {selectedRoomsForAuto.length > 0 && (
-    <button
-      type="button"
-      className="secondary-action"
-      onClick={() => setSelectedRoomsForAuto([])}
-      style={{ marginTop: "6px" }}
-    >
-      مسح التحديد (توزيع على كل القاعات)
-    </button>
-  )}
+                        setSelectedRoomsForAuto(values);
+                      }}
+                    >
+                      {allowedRooms.map((room) => (
+                        <option key={room} value={room}>
+                          قاعة {room}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
 
-  {roomAssignments.length > 0 ? (
-    <div className="affinity-list">
-      {roomAssignments.map((item) => (
-        <div
-          className="affinity-row"
-          key={`${item.professorId ?? item.professorName}-${item.roomNumber}`}
-        >
-          <div>
-            <strong>{item.professorName}</strong>
-            <span>← قاعة {item.roomNumber}</span>
-          </div>
-        </div>
-      ))}
-    </div>
-  ) : (
-    <div className="minimum-period-disabled">
-      لا يوجد أساتذة لتوزيعهم على القاعات بعد
-    </div>
-  )}
-</div>
+                  {selectedRoomsForAuto.length > 0 && (
+                    <div
+                      className="minimum-period-summary active"
+                      style={{ marginTop: "8px" }}
+                    >
+                      <strong>{selectedRoomsForAuto.length}</strong>
+                      <span>قاعة محددة للتوزيع عليها</span>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    className="secondary-action"
+                    onClick={autoAssignRooms}
+                    disabled={!professors.length}
+                  >
+                    {Icons.spark} إعادة التوزيع التلقائي
+                  </button>
+
+                  {selectedRoomsForAuto.length > 0 && (
+                    <button
+                      type="button"
+                      className="secondary-action"
+                      onClick={() => setSelectedRoomsForAuto([])}
+                      style={{ marginTop: "6px" }}
+                    >
+                      مسح التحديد (توزيع على كل قاعات الفئة)
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="manual-room-list">
+                  {professors.length ? (
+                    professors.map((professorName) => (
+                      <div
+                        className="manual-room-row"
+                        key={professorName}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: "8px",
+                          marginBottom: "6px",
+                        }}
+                      >
+                        <strong style={{ fontSize: "13px" }}>
+                          {professorName}
+                        </strong>
+
+                        <select
+                          className="side-select"
+                          style={{ maxWidth: "140px" }}
+                          value={manualRoomAssignments[professorName] || ""}
+                          onChange={(e) =>
+                            handleManualRoomChange(
+                              professorName,
+                              e.target.value,
+                            )
+                          }
+                        >
+                          <option value="">— اختر قاعة —</option>
+
+                          {allowedRooms.map((room) => (
+                            <option key={room} value={room}>
+                              قاعة {room}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="minimum-period-disabled">
+                      لا يوجد أساتذة لتوزيعهم على القاعات بعد
+                    </div>
+                  )}
+
+                  {duplicateManualRooms.length > 0 && (
+                    <div
+                      className="upload-warning-card"
+                      style={{ marginTop: "8px" }}
+                    >
+                      <div className="upload-warning-icon">
+                        {Icons.warning}
+                      </div>
+
+                      <div>
+                        <strong>تنبيه: قاعة مكررة</strong>
+                        <span>
+                          القاعة {duplicateManualRooms.join("، ")} مخصصة
+                          لأكثر من أستاذ.
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {roomAssignments.length > 0 ? (
+                <div className="affinity-list">
+                  {roomAssignments.map((item) => (
+                    <div
+                      className="affinity-row"
+                      key={`${item.professorId ?? item.professorName}-${item.roomNumber}`}
+                    >
+                      <div>
+                        <strong>{item.professorName}</strong>
+                        <span>← قاعة {item.roomNumber}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="minimum-period-disabled">
+                  لا يوجد أساتذة لتوزيعهم على القاعات بعد
+                </div>
+              )}
+            </div>
           </aside>
         </section>
 
