@@ -60,7 +60,6 @@ const formatDate = (value) => {
   return `${day}/${month}/${year}`;
 };
 
-
 const getRoomNumber = (assignment) =>
   assignment.room_number ?? assignment.roomNumber ?? "-";
 // =====================================================
@@ -141,6 +140,21 @@ const getDateValue = (dateValue) => {
   }
 
   return "";
+};
+
+const getPlanDateRange = (data) => {
+  const dates = [
+    ...new Set(data.map((item) => getDateValue(item.date)).filter(Boolean)),
+  ].sort();
+
+  if (!dates.length) return "";
+
+  const toFileFormat = (d) => d.split("-").reverse().join("-"); // YYYY-MM-DD -> DD-MM-YYYY
+
+  const first = toFileFormat(dates[0]);
+  const last = toFileFormat(dates[dates.length - 1]);
+
+  return first === last ? first : `${first}_الى_${last}`;
 };
 
 // =====================================================
@@ -245,7 +259,6 @@ const timeToMinutes = (value) => {
 
   return Number.MAX_SAFE_INTEGER;
 };
-
 
 // =====================================================
 // Assignment Helpers
@@ -374,7 +387,7 @@ export default function PlanResult() {
     crn: true,
     courseName: true,
     professor: true,
-    room: true,   
+    room: true,
     date: true,
     period: true,
     timeFrom: true,
@@ -1548,7 +1561,6 @@ export default function PlanResult() {
 
   const downloadExcel = async () => {
     try {
-      // نستخدم كامل بيانات الخطة (بدون فلترة) للشيت الرئيسي وتقسيم المشرفين
       const dataToExport = planData;
 
       if (!dataToExport.length) {
@@ -1564,7 +1576,7 @@ export default function PlanResult() {
         { header: "CRN", key: "crn", width: 14 },
         { header: "Course Name", key: "courseName", width: 32 },
         { header: "Professor", key: "professor", width: 28 },
-        { header: "Room", key: "room", width: 12 },
+        { header: "Studio", key: "room", width: 12 },
         { header: "Date", key: "date", width: 14 },
         { header: "Period", key: "period", width: 14 },
         { header: "From", key: "from", width: 12 },
@@ -1579,8 +1591,8 @@ export default function PlanResult() {
         room: getRoomNumber(assignment),
         date: formatDate(assignment.date),
         period: getPeriod(assignment),
-        from: formatTime12Hour (getTimeFrom(assignment)),
-        to: formatTime12Hour (getTimeTo(assignment)),
+        from: formatTime12Hour(getTimeFrom(assignment)),
+        to: formatTime12Hour(getTimeTo(assignment)),
         supervisor: getSupervisorName(assignment),
       });
 
@@ -1717,8 +1729,10 @@ export default function PlanResult() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
 
+      const dateRange = getPlanDateRange(dataToExport);
+
       link.href = url;
-      link.download = `plan_${planId}_full.xlsx`;
+      link.download = `خطة_${dateRange || planId}.xlsx`;
 
       document.body.appendChild(link);
       link.click();
@@ -1746,7 +1760,7 @@ export default function PlanResult() {
         { header: "CRN", key: "crn", width: 14 },
         { header: "Course Name", key: "courseName", width: 32 },
         { header: "Professor", key: "professor", width: 28 },
-        { header: "Room", key: "room", width: 12 },
+        { header: "Studio", key: "room", width: 12 },
         { header: "Date", key: "date", width: 14 },
         { header: "Period", key: "period", width: 14 },
         { header: "From", key: "from", width: 12 },
@@ -1774,8 +1788,8 @@ export default function PlanResult() {
           room: getRoomNumber(assignment),
           date: formatDate(assignment.date),
           period: getPeriod(assignment),
-          from: formatTime12Hour (getTimeFrom(assignment)),
-          to: formatTime12Hour (getTimeTo(assignment)),
+          from: formatTime12Hour(getTimeFrom(assignment)),
+          to: formatTime12Hour(getTimeTo(assignment)),
           supervisor: getSupervisorName(assignment),
         });
       });
@@ -1826,10 +1840,12 @@ export default function PlanResult() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
 
+      const dateRange = getPlanDateRange(filteredPlanData);
+
       link.href = url;
       link.download = filterSupervisor
-        ? `plan_${planId}_${filterSupervisor}.xlsx`
-        : `plan_${planId}_filtered.xlsx`;
+        ? `مشرف_${filterSupervisor}_${dateRange || planId}.xlsx`
+        : `خطة_${dateRange || planId}_مفلترة.xlsx`;
 
       document.body.appendChild(link);
       link.click();
@@ -2232,7 +2248,7 @@ export default function PlanResult() {
                 ["crn", "CRN"],
                 ["courseName", "Course name"],
                 ["professor", "Professor"],
-                ["room", "Room"],
+                ["room", "Studio"],
                 ["date", "Date"],
                 ["period", "Period"],
                 ["timeFrom", "From"],
@@ -2296,7 +2312,7 @@ export default function PlanResult() {
 
                     {visibleColumns.professor && <th>Professor</th>}
 
-                    {visibleColumns.room && <th>Room</th>}
+                    {visibleColumns.room && <th>Studio</th>}
 
                     {visibleColumns.date && <th>Date</th>}
 
@@ -2368,11 +2384,13 @@ export default function PlanResult() {
                             </td>
                           )}
 
-{visibleColumns.room && (
-  <td>
-    <span className="period-badge">{getRoomNumber(assignment)}</span>
-  </td>
-)}
+                          {visibleColumns.room && (
+                            <td>
+                              <span className="period-badge">
+                                {getRoomNumber(assignment)}
+                              </span>
+                            </td>
+                          )}
                           {/* Date */}
                           {visibleColumns.date && (
                             <td>
