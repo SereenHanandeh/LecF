@@ -2578,6 +2578,7 @@ export default function PlanResult() {
                     <col className="print-col-course" />
 
                     <col className="print-col-professor" />
+                    <col className="print-col-studio" />
 
                     <col className="print-col-date" />
 
@@ -2597,6 +2598,8 @@ export default function PlanResult() {
                       <th>Course Name</th>
 
                       <th>Professor</th>
+
+                      <th>Studio</th>
 
                       <th>Date</th>
 
@@ -2626,6 +2629,8 @@ export default function PlanResult() {
                             <td className="print-professor" dir="auto">
                               {getProfessorName(assignment)}
                             </td>
+
+                            <td>{getRoomNumber(assignment)}</td>
 
                             <td>{formatDate(assignment.date)}</td>
 

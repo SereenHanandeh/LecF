@@ -197,6 +197,14 @@ const Icons = {
   ),
 };
 
+const getPeriodValue = (row) =>
+  row?.period_label ??
+  row?.period ??
+  row?.Period ??
+  row?.["الفترة"] ??
+  row?.["الفتره"] ??
+  "";
+
 /* =========================================================
    Rooms
    - قاعات 1 إلى 6: مخصصة لفئة "متطلبات" فقط
@@ -216,6 +224,39 @@ const VALID_ROOMS = [...REQUIREMENT_ROOMS, ...DIPLOMA_MERGED_ROOMS];
 const getRoomsPoolForCategory = (category) =>
   category === "متطلبات" ? REQUIREMENT_ROOMS : DIPLOMA_MERGED_ROOMS;
 
+// عدد الأساتذة الفريدين لكل فترة (يأخذ بعين الاعتبار التاريخ أيضًا في وضع "كل التواريخ")
+const periodProfessorCounts = useMemo(() => {
+  const map = new Map();
+
+  selectedDateRows.forEach((row) => {
+    const professorName = getProfessorName(row);
+    const period = getPeriodValue(row);
+
+    if (!professorName || !period) return;
+
+    const date = normalizeDate(getDateValue(row));
+    const key = dateMode === "all" ? `${date}|${period}` : period;
+
+    if (!map.has(key)) {
+      map.set(key, { period, date, professors: new Set() });
+    }
+
+    map.get(key).professors.add(professorName);
+  });
+
+  return Array.from(map.values()).map((item) => ({
+    period: item.period,
+    date: item.date,
+    count: item.professors.size,
+  }));
+}, [selectedDateRows, dateMode]);
+
+// الفترات التي تتجاوز الحد الأقصى (6) لفئة "متطلبات"
+const periodsOverRequirementLimit = useMemo(() => {
+  if (planCategory !== "متطلبات") return [];
+
+  return periodProfessorCounts.filter((item) => item.count > 6);
+}, [periodProfessorCounts, planCategory]);
 /* =========================================================
    Dashboard
 ========================================================= */
@@ -337,6 +378,7 @@ export default function Dashboard() {
     normalizedSupervisorIds.length > 0 &&
     selectedDateRows.length > 0 &&
     planCategory &&
+    periodsOverRequirementLimit.length === 0 &&
     !isGenerating;
 
   useEffect(() => {
@@ -638,6 +680,22 @@ export default function Dashboard() {
 
   const handleGenerate = async () => {
     if (!canGenerate) return;
+
+    if (planCategory === "متطلبات" && periodsOverRequirementLimit.length > 0) {
+      const details = periodsOverRequirementLimit
+        .map((item) =>
+          dateMode === "all"
+            ? `${formatDate(item.date)} - ${item.period} (${item.count} أستاذ)`
+            : `${item.period} (${item.count} أستاذ)`,
+        )
+        .join("، ");
+
+      setErrorMessage(
+        `لا يمكن إنشاء خطة "متطلبات": عدد الأساتذة في نفس الفترة أكثر من 6 قاعات متاحة (1-6). الفترات المتجاوزة: ${details}`,
+      );
+
+      return;
+    }
 
     try {
       setIsGenerating(true);
@@ -1238,6 +1296,27 @@ export default function Dashboard() {
                 )}
               </button>
             </div>
+
+            {planCategory === "متطلبات" && periodsOverRequirementLimit.length > 0 && (
+  <div className="upload-warning-card" style={{ marginTop: "12px" }}>
+    <div className="upload-warning-icon">{Icons.warning}</div>
+
+    <div>
+      <strong>تجاوز الحد الأقصى للقاعات في بعض الفترات</strong>
+      <span>
+        فئة "متطلبات" تحتوي على 6 قاعات فقط (1-6)، ولا يمكن أن يتجاوز عدد
+        الأساتذة في نفس الفترة 6 أساتذة. الفترات المتجاوزة:{" "}
+        {periodsOverRequirementLimit
+          .map((item) =>
+            dateMode === "all"
+              ? `${formatDate(item.date)} - ${item.period} (${item.count})`
+              : `${item.period} (${item.count})`,
+          )
+          .join("، ")}
+      </span>
+    </div>
+  </div>
+)}
           </section>
 
           {/* Side configuration */}
@@ -1576,15 +1655,13 @@ export default function Dashboard() {
                       className="upload-warning-card"
                       style={{ marginTop: "8px" }}
                     >
-                      <div className="upload-warning-icon">
-                        {Icons.warning}
-                      </div>
+                      <div className="upload-warning-icon">{Icons.warning}</div>
 
                       <div>
                         <strong>تنبيه: قاعة مكررة</strong>
                         <span>
-                          القاعة {duplicateManualRooms.join("، ")} مخصصة
-                          لأكثر من أستاذ.
+                          القاعة {duplicateManualRooms.join("، ")} مخصصة لأكثر
+                          من أستاذ.
                         </span>
                       </div>
                     </div>
