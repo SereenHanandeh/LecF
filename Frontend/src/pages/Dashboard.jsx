@@ -224,39 +224,6 @@ const VALID_ROOMS = [...REQUIREMENT_ROOMS, ...DIPLOMA_MERGED_ROOMS];
 const getRoomsPoolForCategory = (category) =>
   category === "متطلبات" ? REQUIREMENT_ROOMS : DIPLOMA_MERGED_ROOMS;
 
-// عدد الأساتذة الفريدين لكل فترة (يأخذ بعين الاعتبار التاريخ أيضًا في وضع "كل التواريخ")
-const periodProfessorCounts = useMemo(() => {
-  const map = new Map();
-
-  selectedDateRows.forEach((row) => {
-    const professorName = getProfessorName(row);
-    const period = getPeriodValue(row);
-
-    if (!professorName || !period) return;
-
-    const date = normalizeDate(getDateValue(row));
-    const key = dateMode === "all" ? `${date}|${period}` : period;
-
-    if (!map.has(key)) {
-      map.set(key, { period, date, professors: new Set() });
-    }
-
-    map.get(key).professors.add(professorName);
-  });
-
-  return Array.from(map.values()).map((item) => ({
-    period: item.period,
-    date: item.date,
-    count: item.professors.size,
-  }));
-}, [selectedDateRows, dateMode]);
-
-// الفترات التي تتجاوز الحد الأقصى (6) لفئة "متطلبات"
-const periodsOverRequirementLimit = useMemo(() => {
-  if (planCategory !== "متطلبات") return [];
-
-  return periodProfessorCounts.filter((item) => item.count > 6);
-}, [periodProfessorCounts, planCategory]);
 /* =========================================================
    Dashboard
 ========================================================= */
@@ -348,11 +315,45 @@ export default function Dashboard() {
     [rows],
   );
 
-  // القاعات المسموحة لفئة الخطة الحالية (متطلبات = 1-6، دبلوم/مدمج = الباقي)
+
   const allowedRooms = useMemo(
     () => getRoomsPoolForCategory(planCategory),
     [planCategory],
   );
+
+  // عدد الأساتذة الفريدين لكل فترة (يأخذ بعين الاعتبار التاريخ أيضًا في وضع "كل التواريخ")
+  const periodProfessorCounts = useMemo(() => {
+    const map = new Map();
+
+    selectedDateRows.forEach((row) => {
+      const professorName = getProfessorName(row);
+      const period = getPeriodValue(row);
+
+      if (!professorName || !period) return;
+
+      const date = normalizeDate(getDateValue(row));
+      const key = dateMode === "all" ? `${date}|${period}` : period;
+
+      if (!map.has(key)) {
+        map.set(key, { period, date, professors: new Set() });
+      }
+
+      map.get(key).professors.add(professorName);
+    });
+
+    return Array.from(map.values()).map((item) => ({
+      period: item.period,
+      date: item.date,
+      count: item.professors.size,
+    }));
+  }, [selectedDateRows, dateMode]);
+
+  // الفترات التي تتجاوز الحد الأقصى (6) لفئة "متطلبات"
+  const periodsOverRequirementLimit = useMemo(() => {
+    if (planCategory !== "متطلبات") return [];
+
+    return periodProfessorCounts.filter((item) => item.count > 6);
+  }, [periodProfessorCounts, planCategory]);
 
   const readiness = useMemo(() => {
     let score = 0;
