@@ -245,7 +245,6 @@ export default function Dashboard() {
 
   const [roomAssignments, setRoomAssignmentsState] = useState([]);
 
-  // وضع توزيع القاعات: تلقائي أو يدوي
   const [roomAssignMode, setRoomAssignMode] = useState("auto"); // "auto" | "manual"
 
   const [selectedRoomsForAuto, setSelectedRoomsForAuto] = useState([]);
@@ -262,6 +261,15 @@ export default function Dashboard() {
   const [supervisorNames, setSupervisorNames] = useState({});
 
   const [dateMode, setDateMode] = useState("single");
+
+
+  const [twoProfessorsPerSupervisorEnabled, setTwoProfessorsPerSupervisorEnabled] = useState(false);
+
+useEffect(() => {
+  setTwoProfessorsPerSupervisorEnabled(false);
+}, [planCategory]);
+
+
   /* =========================================================
      Derived data
   ========================================================= */
@@ -834,6 +842,7 @@ export default function Dashboard() {
         1,
         minimumPeriodsEnabled,
         MINIMUM_PERIODS,
+        twoProfessorsPerSupervisorEnabled,
       );
 
       navigate(`/plan-result/${planId}`, {
@@ -847,6 +856,7 @@ export default function Dashboard() {
           minimumPeriods: MINIMUM_PERIODS,
           affinities,
           selectedSupervisors: normalizedSupervisorIds,
+          twoProfessorsPerSupervisorEnabled
         },
       });
     } catch (error) {
@@ -1285,6 +1295,27 @@ export default function Dashboard() {
                   محددة
                 </span>
               )}
+
+             {(planCategory === "دبلوم" || planCategory === "مدمج") && (
+  <label className="minimum-period-option">
+    <input
+      type="checkbox"
+      checked={twoProfessorsPerSupervisorEnabled}
+      onChange={(e) =>
+        setTwoProfessorsPerSupervisorEnabled(e.target.checked)
+      }
+    />
+    <span className="minimum-period-check">
+      {twoProfessorsPerSupervisorEnabled && Icons.check}
+    </span>
+    <span className="minimum-period-label">
+      <strong>تخصيص مشرفَين لكل دكتور</strong>
+      <small>
+        بدل مشرف واحد، يُخصَّص مشرفان فقط لكل دكتور بالتناوب على الفترات.
+      </small>
+    </span>
+  </label>
+)}
             </div>
 
             <div className="plan-category-grid">
