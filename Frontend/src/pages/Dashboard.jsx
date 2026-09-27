@@ -315,6 +315,53 @@ export default function Dashboard() {
     [rows],
   );
 
+  // تجميع الأساتذة حسب الفترة (والتاريخ في وضع "كل التواريخ")
+  const periodProfessorGroups = useMemo(() => {
+    const map = new Map();
+
+    selectedDateRows.forEach((row) => {
+      const professorName = getProfessorName(row);
+      const period = getPeriodValue(row);
+      if (!professorName || !period) return;
+
+      const date = normalizeDate(getDateValue(row));
+      const key = dateMode === "all" ? `${date}|${period}` : period;
+
+      if (!map.has(key)) {
+        map.set(key, { key, date, period, professors: new Map() });
+      }
+
+      const entry = map.get(key);
+      if (!entry.professors.has(professorName)) {
+        const professorRow = rows.find(
+          (r) => getProfessorName(r) === professorName,
+        );
+        const professorId =
+          professorRow?.professor_id ?? professorRow?.professorId ?? null;
+        entry.professors.set(professorName, professorId);
+      }
+    });
+
+    return Array.from(map.values()).map((entry) => ({
+      key: entry.key,
+      date: entry.date,
+      period: entry.period,
+      professors: Array.from(entry.professors.entries())
+        .map(([professorName, professorId]) => ({ professorName, professorId }))
+        .sort((a, b) => a.professorName.localeCompare(b.professorName, "ar")),
+    }));
+  }, [selectedDateRows, dateMode, rows]);
+
+  const periodProfessorGroupsSignature = useMemo(
+    () =>
+      periodProfessorGroups
+        .map(
+          (g) =>
+            `${g.key}:${g.professors.map((p) => p.professorName).join(",")}`,
+        )
+        .join("|"),
+    [periodProfessorGroups],
+  );
 
   const allowedRooms = useMemo(
     () => getRoomsPoolForCategory(planCategory),
@@ -565,7 +612,6 @@ export default function Dashboard() {
      Room Assignment (auto & manual)
   ========================================================= */
 
-  // التوزيع التلقائي: يستخدم القاعات المسموحة لفئة الخطة الحالية فقط
   const autoAssignRooms = () => {
     if (!professors.length) {
       setRoomAssignmentsState([]);
@@ -583,30 +629,32 @@ export default function Dashboard() {
       ? selectedRoomsForAuto.filter((room) => allowedRooms.includes(room))
       : allowedRooms;
 
-    if (roomsPool.length < professors.length) {
+    // القاعات تُحسب فقط داخل نفس الفترة، وليس لكل اليوم
+    const maxProfessorsInAnyPeriod = periodProfessorGroups.reduce(
+      (max, group) => Math.max(max, group.professors.length),
+      0,
+    );
+
+    if (roomsPool.length < maxProfessorsInAnyPeriod) {
       setErrorMessage(
-        `عدد القاعات المتاحة لفئة "${planCategory}" (${roomsPool.length}) أقل من عدد الأساتذة (${professors.length})، اختاري قاعات أكثر ليحصل كل أستاذ على قاعة مستقلة.`,
+        `عدد القاعات المتاحة لفئة "${planCategory}" (${roomsPool.length}) أقل من أكبر عدد أساتذة في فترة واحدة (${maxProfessorsInAnyPeriod})، اختاري قاعات أكثر.`,
       );
       setRoomAssignmentsState([]);
       return;
     }
 
-    const newAssignments = professors.map((professorName, index) => {
-      const professorRow = rows.find(
-        (row) => getProfessorName(row) === professorName,
-      );
+    const newAssignments = [];
 
-      const professorId =
-        professorRow?.professor_id ?? professorRow?.professorId ?? null;
-
-      // كل أستاذ ياخذ قاعة مختلفة من قاعات الفئة، بدون تكرار
-      const roomNumber = roomsPool[index];
-
-      return {
-        professorId,
-        professorName,
-        roomNumber,
-      };
+    periodProfessorGroups.forEach((group) => {
+      group.professors.forEach((professor, index) => {
+        newAssignments.push({
+          professorId: professor.professorId,
+          professorName: professor.professorName,
+          date: group.date,
+          period: group.period,
+          roomNumber: roomsPool[index], // مختلف عن زملائه بنفس الفترة فقط
+        });
+      });
     });
 
     setRoomAssignmentsState(newAssignments);
@@ -616,64 +664,73 @@ export default function Dashboard() {
   // إعادة التوزيع التلقائي عند تغيّر الأساتذة أو القاعات المختارة أو الفئة، فقط في وضع "تلقائي"
   useEffect(() => {
     if (roomAssignMode !== "auto") return;
-
     autoAssignRooms();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    professors.join("|"),
+    periodProfessorGroupsSignature,
     selectedRoomsForAuto.join("|"),
     roomAssignMode,
     planCategory,
   ]);
 
   // اختيار قاعة أستاذ واحد يدويًا
-  const handleManualRoomChange = (professorName, roomNumber) => {
+  const handleManualRoomChange = (periodKey, professorName, roomNumber) => {
+    const compositeKey = `${periodKey}||${professorName}`;
     setManualRoomAssignmentsState((current) => ({
       ...current,
-      [professorName]: roomNumber,
+      [compositeKey]: roomNumber,
     }));
   };
 
-  // بناء قائمة roomAssignments النهائية من الاختيار اليدوي
   useEffect(() => {
     if (roomAssignMode !== "manual") return;
 
-    const newAssignments = professors
-      .filter((professorName) => manualRoomAssignments[professorName])
-      .map((professorName) => {
-        const professorRow = rows.find(
-          (row) => getProfessorName(row) === professorName,
-        );
+    const newAssignments = [];
 
-        const professorId =
-          professorRow?.professor_id ?? professorRow?.professorId ?? null;
+    periodProfessorGroups.forEach((group) => {
+      group.professors.forEach((professor) => {
+        const compositeKey = `${group.key}||${professor.professorName}`;
+        const roomNumber = manualRoomAssignments[compositeKey];
+        if (!roomNumber) return;
 
-        return {
-          professorId,
-          professorName,
-          roomNumber: manualRoomAssignments[professorName],
-        };
+        newAssignments.push({
+          professorId: professor.professorId,
+          professorName: professor.professorName,
+          date: group.date,
+          period: group.period,
+          roomNumber,
+        });
       });
+    });
 
     setRoomAssignmentsState(newAssignments);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [manualRoomAssignments, professors.join("|"), roomAssignMode]);
+  }, [manualRoomAssignments, periodProfessorGroupsSignature, roomAssignMode]);
 
   // تنبيه إذا تكرر تخصيص نفس القاعة لأكثر من أستاذ في الوضع اليدوي
   const duplicateManualRooms = useMemo(() => {
     if (roomAssignMode !== "manual") return [];
 
-    const counts = {};
+    const duplicates = [];
 
-    Object.values(manualRoomAssignments).forEach((room) => {
-      if (!room) return;
-      counts[room] = (counts[room] || 0) + 1;
+    periodProfessorGroups.forEach((group) => {
+      const counts = {};
+      group.professors.forEach((professor) => {
+        const compositeKey = `${group.key}||${professor.professorName}`;
+        const roomNumber = manualRoomAssignments[compositeKey];
+        if (!roomNumber) return;
+        counts[roomNumber] = (counts[roomNumber] || 0) + 1;
+      });
+
+      Object.entries(counts)
+        .filter(([, count]) => count > 1)
+        .forEach(([room]) =>
+          duplicates.push({ period: group.period, date: group.date, room }),
+        );
     });
 
-    return Object.entries(counts)
-      .filter(([, count]) => count > 1)
-      .map(([room]) => room);
-  }, [manualRoomAssignments, roomAssignMode]);
+    return duplicates;
+  }, [manualRoomAssignments, roomAssignMode, periodProfessorGroups]);
 
   /* =========================================================
      Generate
@@ -1298,26 +1355,31 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {planCategory === "متطلبات" && periodsOverRequirementLimit.length > 0 && (
-  <div className="upload-warning-card" style={{ marginTop: "12px" }}>
-    <div className="upload-warning-icon">{Icons.warning}</div>
+            {planCategory === "متطلبات" &&
+              periodsOverRequirementLimit.length > 0 && (
+                <div
+                  className="upload-warning-card"
+                  style={{ marginTop: "12px" }}
+                >
+                  <div className="upload-warning-icon">{Icons.warning}</div>
 
-    <div>
-      <strong>تجاوز الحد الأقصى للقاعات في بعض الفترات</strong>
-      <span>
-        فئة "متطلبات" تحتوي على 6 قاعات فقط (1-6)، ولا يمكن أن يتجاوز عدد
-        الأساتذة في نفس الفترة 6 أساتذة. الفترات المتجاوزة:{" "}
-        {periodsOverRequirementLimit
-          .map((item) =>
-            dateMode === "all"
-              ? `${formatDate(item.date)} - ${item.period} (${item.count})`
-              : `${item.period} (${item.count})`,
-          )
-          .join("، ")}
-      </span>
-    </div>
-  </div>
-)}
+                  <div>
+                    <strong>تجاوز الحد الأقصى للقاعات في بعض الفترات</strong>
+                    <span>
+                      فئة "متطلبات" تحتوي على 6 قاعات فقط (1-6)، ولا يمكن أن
+                      يتجاوز عدد الأساتذة في نفس الفترة 6 أساتذة. الفترات
+                      المتجاوزة:{" "}
+                      {periodsOverRequirementLimit
+                        .map((item) =>
+                          dateMode === "all"
+                            ? `${formatDate(item.date)} - ${item.period} (${item.count})`
+                            : `${item.period} (${item.count})`,
+                        )
+                        .join("، ")}
+                    </span>
+                  </div>
+                </div>
+              )}
           </section>
 
           {/* Side configuration */}
@@ -1607,42 +1669,62 @@ export default function Dashboard() {
                 </>
               ) : (
                 <div className="manual-room-list">
-                  {professors.length ? (
-                    professors.map((professorName) => (
-                      <div
-                        className="manual-room-row"
-                        key={professorName}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "space-between",
-                          gap: "8px",
-                          marginBottom: "6px",
-                        }}
-                      >
-                        <strong style={{ fontSize: "13px" }}>
-                          {professorName}
-                        </strong>
-
-                        <select
-                          className="side-select"
-                          style={{ maxWidth: "140px" }}
-                          value={manualRoomAssignments[professorName] || ""}
-                          onChange={(e) =>
-                            handleManualRoomChange(
-                              professorName,
-                              e.target.value,
-                            )
-                          }
+                  {periodProfessorGroups.length ? (
+                    periodProfessorGroups.map((group) => (
+                      <div key={group.key} style={{ marginBottom: "14px" }}>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            fontSize: "13px",
+                            marginBottom: "6px",
+                          }}
                         >
-                          <option value="">— اختر قاعة —</option>
+                          {dateMode === "all"
+                            ? `${formatDate(group.date)} - ${group.period}`
+                            : group.period}
+                        </div>
 
-                          {allowedRooms.map((room) => (
-                            <option key={room} value={room}>
-                              قاعة {room}
-                            </option>
-                          ))}
-                        </select>
+                        {group.professors.map((professor) => {
+                          const compositeKey = `${group.key}||${professor.professorName}`;
+                          return (
+                            <div
+                              className="manual-room-row"
+                              key={compositeKey}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                gap: "8px",
+                                marginBottom: "6px",
+                              }}
+                            >
+                              <strong style={{ fontSize: "13px" }}>
+                                {professor.professorName}
+                              </strong>
+                              <select
+                                className="side-select"
+                                style={{ maxWidth: "140px" }}
+                                value={
+                                  manualRoomAssignments[compositeKey] || ""
+                                }
+                                onChange={(e) =>
+                                  handleManualRoomChange(
+                                    group.key,
+                                    professor.professorName,
+                                    e.target.value,
+                                  )
+                                }
+                              >
+                                <option value="">— اختر قاعة —</option>
+                                {allowedRooms.map((room) => (
+                                  <option key={room} value={room}>
+                                    قاعة {room}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        })}
                       </div>
                     ))
                   ) : (
@@ -1657,12 +1739,16 @@ export default function Dashboard() {
                       style={{ marginTop: "8px" }}
                     >
                       <div className="upload-warning-icon">{Icons.warning}</div>
-
                       <div>
-                        <strong>تنبيه: قاعة مكررة</strong>
+                        <strong>تنبيه: قاعة مكررة في نفس الفترة</strong>
                         <span>
-                          القاعة {duplicateManualRooms.join("، ")} مخصصة لأكثر
-                          من أستاذ.
+                          {duplicateManualRooms
+                            .map((item) =>
+                              dateMode === "all"
+                                ? `${formatDate(item.date)} - ${item.period}: قاعة ${item.room}`
+                                : `${item.period}: قاعة ${item.room}`,
+                            )
+                            .join("، ")}
                         </span>
                       </div>
                     </div>
@@ -1679,7 +1765,12 @@ export default function Dashboard() {
                     >
                       <div>
                         <strong>{item.professorName}</strong>
-                        <span>← قاعة {item.roomNumber}</span>
+                        <span>
+                          {dateMode === "all"
+                            ? `${formatDate(item.date)} - `
+                            : ""}
+                          {item.period} ← قاعة {item.roomNumber}
+                        </span>
                       </div>
                     </div>
                   ))}
