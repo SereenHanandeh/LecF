@@ -1426,48 +1426,7 @@ export default function Dashboard() {
                 </div>
               )}
 
-            {showTwoProfessorsOption && (
-              <div className="side-panel">
-                <div className="side-panel-title">
-                  <div className="mini-icon blue">{Icons.users}</div>
-                  <div>
-                    <h3>عدد الأساتذة لكل مشرف</h3>
-                    <p>خيار متاح فقط لفئتي "مدمج" و"دبلوم".</p>
-                  </div>
-                </div>
-
-                <label className="minimum-period-option">
-                  <input
-                    type="checkbox"
-                    checked={twoProfessorsPerSupervisorEnabled}
-                    onChange={(e) =>
-                      setTwoProfessorsPerSupervisorEnabled(e.target.checked)
-                    }
-                  />
-
-                  <span className="minimum-period-check">
-                    {twoProfessorsPerSupervisorEnabled && Icons.check}
-                  </span>
-
-                  <span className="minimum-period-label">
-                    <strong>السماح بأستاذين لكل مشرف</strong>
-                    <small>
-                      عند التفعيل يمكن لكل مشرف الإشراف على أستاذين كحد أقصى،
-                      بدلاً من أستاذ واحد فقط في الوضع الطبيعي.
-                    </small>
-                  </span>
-                </label>
-
-                <div
-                  className={`minimum-period-summary ${
-                    twoProfessorsPerSupervisorEnabled ? "active" : ""
-                  }`}
-                >
-                  <strong>{twoProfessorsPerSupervisorEnabled ? 2 : 1}</strong>
-                  <span>أستاذ كحد أقصى لكل مشرف</span>
-                </div>
-              </div>
-            )}
+         
           </section>
 
           {/* Side configuration */}
@@ -1590,6 +1549,49 @@ export default function Dashboard() {
                   </div>
                 )}
             </div>
+
+               {showTwoProfessorsOption && (
+              <div className="side-panel">
+                <div className="side-panel-title">
+                  <div className="mini-icon blue">{Icons.users}</div>
+                  <div>
+                    <h3>عدد الأساتذة لكل مشرف</h3>
+                    <p>خيار متاح فقط لفئتي "مدمج" و"دبلوم".</p>
+                  </div>
+                </div>
+
+                <label className="minimum-period-option">
+                  <input
+                    type="checkbox"
+                    checked={twoProfessorsPerSupervisorEnabled}
+                    onChange={(e) =>
+                      setTwoProfessorsPerSupervisorEnabled(e.target.checked)
+                    }
+                  />
+
+                  <span className="minimum-period-check">
+                    {twoProfessorsPerSupervisorEnabled && Icons.check}
+                  </span>
+
+                  <span className="minimum-period-label">
+                    <strong>السماح بأستاذين لكل مشرف</strong>
+                    <small>
+                      عند التفعيل يمكن لكل مشرف الإشراف على أستاذين كحد أقصى،
+                      بدلاً من أستاذ واحد فقط في الوضع الطبيعي.
+                    </small>
+                  </span>
+                </label>
+
+                <div
+                  className={`minimum-period-summary ${
+                    twoProfessorsPerSupervisorEnabled ? "active" : ""
+                  }`}
+                >
+                  <strong>{twoProfessorsPerSupervisorEnabled ? 2 : 1}</strong>
+                  <span>أستاذ كحد أقصى لكل مشرف</span>
+                </div>
+              </div>
+            )}
 
             {/* Affinity */}
 
