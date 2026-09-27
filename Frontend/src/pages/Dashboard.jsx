@@ -253,6 +253,8 @@ export default function Dashboard() {
 
   const MINIMUM_PERIODS = 4;
 
+  const [minimumPeriodsEnabled, setMinimumPeriodsEnabled] = useState(false);
+
   const [isGenerating, setIsGenerating] = useState(false);
   const [uploadMessage, setUploadMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -260,12 +262,6 @@ export default function Dashboard() {
   const [supervisorNames, setSupervisorNames] = useState({});
 
   const [dateMode, setDateMode] = useState("single");
-
-  const [minimumPeriodsEnabled, setMinimumPeriodsEnabled] = useState(false);
-  const [
-    twoProfessorsPerSupervisorEnabled,
-    setTwoProfessorsPerSupervisorEnabled,
-  ] = useState(false);
   /* =========================================================
      Derived data
   ========================================================= */
@@ -399,34 +395,6 @@ export default function Dashboard() {
     }));
   }, [selectedDateRows, dateMode]);
 
-  // تحقق من إمكانية تحقيق الحد الأدنى (4 فترات) لكل مشرف مفعّل
-  const minimumPeriodsFeasibility = useMemo(() => {
-    if (!minimumPeriodsEnabled) return null;
-
-    const supervisorsCount = normalizedSupervisorIds.length;
-    if (!supervisorsCount) return null;
-
-    const totalSlots = periodProfessorCounts.reduce(
-      (sum, item) => sum + item.count,
-      0,
-    );
-
-    if (!totalSlots) return null;
-
-    const averagePerSupervisor = totalSlots / supervisorsCount;
-    const maxGuaranteedPerSupervisor = Math.floor(averagePerSupervisor);
-
-    const isFeasible = maxGuaranteedPerSupervisor >= MINIMUM_PERIODS;
-
-    return {
-      isFeasible,
-      totalSlots,
-      supervisorsCount,
-      averagePerSupervisor,
-      maxGuaranteedPerSupervisor,
-    };
-  }, [minimumPeriodsEnabled, normalizedSupervisorIds, periodProfessorCounts]);
-
   // الفترات التي تتجاوز الحد الأقصى (6) لفئة "متطلبات"
   const periodsOverRequirementLimit = useMemo(() => {
     if (planCategory !== "متطلبات") return [];
@@ -513,15 +481,6 @@ export default function Dashboard() {
     setManualRoomAssignmentsState({});
   }, [planCategory]);
 
-  const showTwoProfessorsOption =
-    planCategory === "مدمج" || planCategory === "دبلوم";
-
-  useEffect(() => {
-    if (planCategory !== "مدمج" && planCategory !== "دبلوم") {
-      setTwoProfessorsPerSupervisorEnabled(false);
-    }
-  }, [planCategory]);
-
   /* =========================================================
      Upload
   ========================================================= */
@@ -559,7 +518,6 @@ export default function Dashboard() {
       setRoomAssignMode("auto");
 
       setMinimumPeriodsEnabled(false);
-      setTwoProfessorsPerSupervisorEnabled(false);
       setPlanCategory("");
 
       setUploadMessage(
@@ -876,7 +834,6 @@ export default function Dashboard() {
         1,
         minimumPeriodsEnabled,
         MINIMUM_PERIODS,
-        showTwoProfessorsOption && twoProfessorsPerSupervisorEnabled,
       );
 
       navigate(`/plan-result/${planId}`, {
@@ -888,8 +845,6 @@ export default function Dashboard() {
           planCategory,
           minimumPeriodsEnabled,
           minimumPeriods: MINIMUM_PERIODS,
-          twoProfessorsPerSupervisorEnabled:
-            showTwoProfessorsOption && twoProfessorsPerSupervisorEnabled,
           affinities,
           selectedSupervisors: normalizedSupervisorIds,
         },
@@ -1425,8 +1380,6 @@ export default function Dashboard() {
                   </div>
                 </div>
               )}
-
-         
           </section>
 
           {/* Side configuration */}
@@ -1519,80 +1472,7 @@ export default function Dashboard() {
                   الحد الأدنى غير مفعّل
                 </div>
               )}
-              {minimumPeriodsEnabled &&
-                minimumPeriodsFeasibility &&
-                !minimumPeriodsFeasibility.isFeasible && (
-                  <div
-                    className="upload-warning-card"
-                    style={{ marginTop: "10px" }}
-                  >
-                    <div className="upload-warning-icon">{Icons.warning}</div>
-
-                    <div>
-                      <strong>
-                        قد لا يتحقق الحد الأدنى (4 فترات) لكل المشرفين
-                      </strong>
-                      <span>
-                        إجمالي عدد الفترات المتاحة للتوزيع هو{" "}
-                        {minimumPeriodsFeasibility.totalSlots}، وعدد المشرفين
-                        المختارين {minimumPeriodsFeasibility.supervisorsCount}،
-                        بمعدل حوالي{" "}
-                        {minimumPeriodsFeasibility.averagePerSupervisor.toFixed(
-                          1,
-                        )}{" "}
-                        فترة لكل مشرف. هذا يعني أن بعض المشرفين قد يحصلون على
-                        أقل من {MINIMUM_PERIODS} فترات (مثلاً 2 أو 3) حتى مع
-                        تفعيل هذا الخيار، لأن العدد الإجمالي غير كافٍ لتغطية
-                        الجميع.
-                      </span>
-                    </div>
-                  </div>
-                )}
             </div>
-
-               {showTwoProfessorsOption && (
-              <div className="side-panel">
-                <div className="side-panel-title">
-                  <div className="mini-icon blue">{Icons.users}</div>
-                  <div>
-                    <h3>عدد الأساتذة لكل مشرف</h3>
-                    <p>خيار متاح فقط لفئتي "مدمج" و"دبلوم".</p>
-                  </div>
-                </div>
-
-                <label className="minimum-period-option">
-                  <input
-                    type="checkbox"
-                    checked={twoProfessorsPerSupervisorEnabled}
-                    onChange={(e) =>
-                      setTwoProfessorsPerSupervisorEnabled(e.target.checked)
-                    }
-                  />
-
-                  <span className="minimum-period-check">
-                    {twoProfessorsPerSupervisorEnabled && Icons.check}
-                  </span>
-
-                  <span className="minimum-period-label">
-                    <strong>السماح بأستاذين لكل مشرف</strong>
-                    <small>
-                      عند التفعيل يمكن لكل مشرف الإشراف على أستاذين كحد أقصى،
-                      بدلاً من أستاذ واحد فقط في الوضع الطبيعي.
-                    </small>
-                  </span>
-                </label>
-
-                <div
-                  className={`minimum-period-summary ${
-                    twoProfessorsPerSupervisorEnabled ? "active" : ""
-                  }`}
-                >
-                  <strong>{twoProfessorsPerSupervisorEnabled ? 2 : 1}</strong>
-                  <span>أستاذ كحد أقصى لكل مشرف</span>
-                </div>
-              </div>
-            )}
-
             {/* Affinity */}
 
             <div className="side-panel">
