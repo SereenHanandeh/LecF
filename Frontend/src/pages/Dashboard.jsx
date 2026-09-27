@@ -395,6 +395,34 @@ export default function Dashboard() {
     }));
   }, [selectedDateRows, dateMode]);
 
+  // تحقق من إمكانية تحقيق الحد الأدنى (4 فترات) لكل مشرف مفعّل
+  const minimumPeriodsFeasibility = useMemo(() => {
+    if (!minimumPeriodsEnabled) return null;
+
+    const supervisorsCount = normalizedSupervisorIds.length;
+    if (!supervisorsCount) return null;
+
+    const totalSlots = periodProfessorCounts.reduce(
+      (sum, item) => sum + item.count,
+      0,
+    );
+
+    if (!totalSlots) return null;
+
+    const averagePerSupervisor = totalSlots / supervisorsCount;
+    const maxGuaranteedPerSupervisor = Math.floor(averagePerSupervisor);
+
+    const isFeasible = maxGuaranteedPerSupervisor >= MINIMUM_PERIODS;
+
+    return {
+      isFeasible,
+      totalSlots,
+      supervisorsCount,
+      averagePerSupervisor,
+      maxGuaranteedPerSupervisor,
+    };
+  }, [minimumPeriodsEnabled, normalizedSupervisorIds, periodProfessorCounts]);
+
   // الفترات التي تتجاوز الحد الأقصى (6) لفئة "متطلبات"
   const periodsOverRequirementLimit = useMemo(() => {
     if (planCategory !== "متطلبات") return [];
@@ -1472,7 +1500,37 @@ export default function Dashboard() {
                   الحد الأدنى غير مفعّل
                 </div>
               )}
+              {minimumPeriodsEnabled &&
+                minimumPeriodsFeasibility &&
+                !minimumPeriodsFeasibility.isFeasible && (
+                  <div
+                    className="upload-warning-card"
+                    style={{ marginTop: "10px" }}
+                  >
+                    <div className="upload-warning-icon">{Icons.warning}</div>
+
+                    <div>
+                      <strong>
+                        قد لا يتحقق الحد الأدنى (4 فترات) لكل المشرفين
+                      </strong>
+                      <span>
+                        إجمالي عدد الفترات المتاحة للتوزيع هو{" "}
+                        {minimumPeriodsFeasibility.totalSlots}، وعدد المشرفين
+                        المختارين {minimumPeriodsFeasibility.supervisorsCount}،
+                        بمعدل حوالي{" "}
+                        {minimumPeriodsFeasibility.averagePerSupervisor.toFixed(
+                          1,
+                        )}{" "}
+                        فترة لكل مشرف. هذا يعني أن بعض المشرفين قد يحصلون على
+                        أقل من {MINIMUM_PERIODS} فترات (مثلاً 2 أو 3) حتى مع
+                        تفعيل هذا الخيار، لأن العدد الإجمالي غير كافٍ لتغطية
+                        الجميع.
+                      </span>
+                    </div>
+                  </div>
+                )}
             </div>
+
             {/* Affinity */}
 
             <div className="side-panel">

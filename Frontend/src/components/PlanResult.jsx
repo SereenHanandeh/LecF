@@ -352,6 +352,9 @@ export default function PlanResult() {
   const [error, setError] = useState("");
 
   const [editingSupervisor, setEditingSupervisor] = useState("");
+  const [allSupervisorsList, setAllSupervisorsList] = useState([]);
+  const [editingShowAllSupervisors, setEditingShowAllSupervisors] =
+    useState(false);
 
   // =====================================================
   // Plan Status (Accept / Reject)
@@ -703,6 +706,10 @@ export default function PlanResult() {
             allSupervisors = supervisorsRes.data.supervisors;
           } else if (Array.isArray(supervisorsRes?.data?.data)) {
             allSupervisors = supervisorsRes.data.data;
+          }
+
+          if (isMountedRef.current) {
+            setAllSupervisorsList(allSupervisors);
           }
 
           // =================================================
@@ -1259,6 +1266,7 @@ export default function PlanResult() {
 
     setEditingSupervisor(editSupervisorId);
 
+    setEditingShowAllSupervisors(false);
     console.log("=================================");
   };
 
@@ -1271,6 +1279,7 @@ export default function PlanResult() {
 
     setEditingId(null);
     setEditingSupervisor("");
+    setEditingShowAllSupervisors(false);
   };
 
   // =====================================================
@@ -1437,14 +1446,21 @@ export default function PlanResult() {
       // الحصول على اسم المشرف الجديد
       // =========================================
 
-      const selectedSupervisor = supervisors.find((supervisor) => {
-        const supervisorId =
-          supervisor?.id ??
-          supervisor?.supervisor_id ??
-          supervisor?.supervisorId;
-
-        return String(supervisorId) === String(targetSupervisorId);
-      });
+      const selectedSupervisor =
+        allSupervisorsList.find((supervisor) => {
+          const supervisorId =
+            supervisor?.id ??
+            supervisor?.supervisor_id ??
+            supervisor?.supervisorId;
+          return String(supervisorId) === String(targetSupervisorId);
+        }) ||
+        supervisors.find((supervisor) => {
+          const supervisorId =
+            supervisor?.id ??
+            supervisor?.supervisor_id ??
+            supervisor?.supervisorId;
+          return String(supervisorId) === String(targetSupervisorId);
+        });
 
       const newSupervisorName =
         selectedSupervisor?.name ??
@@ -2426,12 +2442,37 @@ export default function PlanResult() {
                               </span>
                             </td>
                           )}
-
                           {/* Supervisor */}
                           {visibleColumns.supervisor && (
                             <td>
                               {isEditing ? (
                                 <div>
+                                  {/* ✅ زر التبديل */}
+                                  {affinitySupervisorId === null && (
+                                    <button
+                                      type="button"
+                                      className="toggle-supervisor-scope-btn"
+                                      style={{
+                                        fontSize: "11px",
+                                        marginBottom: "4px",
+                                        background: "none",
+                                        border: "1px solid #d1d5db",
+                                        borderRadius: "6px",
+                                        padding: "2px 6px",
+                                        cursor: "pointer",
+                                      }}
+                                      onClick={() =>
+                                        setEditingShowAllSupervisors(
+                                          (prev) => !prev,
+                                        )
+                                      }
+                                    >
+                                      {editingShowAllSupervisors
+                                        ? "↩️ المشرفون المختارون فقط"
+                                        : "👥 عرض جميع المشرفين"}
+                                    </button>
+                                  )}
+
                                   <select
                                     className="edit-supervisor-select"
                                     value={editingSupervisor ?? ""}
@@ -2450,7 +2491,10 @@ export default function PlanResult() {
                                   >
                                     <option value="">اختر المشرف</option>
 
-                                    {supervisors.map((supervisor) => {
+                                    {(editingShowAllSupervisors
+                                      ? allSupervisorsList
+                                      : supervisors
+                                    ).map((supervisor) => {
                                       const supervisorId =
                                         supervisor?.id ??
                                         supervisor?.supervisor_id ??

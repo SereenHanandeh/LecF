@@ -6,8 +6,7 @@ import {
   getPlans,
   deletePlan,
   getAcceptedSupervisorStats,
-  setDutyPool,
-  listSupervisors,
+
 } from "../api.js";
 
 import "../assets/Plan.css";
@@ -206,16 +205,7 @@ export default function Plans() {
 
   const [supervisorStats, setSupervisorStats] = useState([]);
 
-  // ===================================================
-  // Edit Plan Supervisors
-  // ===================================================
-
-  const [editingPlan, setEditingPlan] = useState(null); // الخطة المفتوحة للتعديل
-  const [allSupervisors, setAllSupervisors] = useState([]); // كل المشرفين بالنظام
-  const [editSelectedIds, setEditSelectedIds] = useState([]); // المشرفون المحددون بالنافذة
-  const [loadingEditData, setLoadingEditData] = useState(false);
-  const [savingEdit, setSavingEdit] = useState(false);
-  const [editError, setEditError] = useState("");
+ 
 
   // ===================================================
   // Load Plans
@@ -419,98 +409,7 @@ export default function Plans() {
     }
   };
 
-  // ===================================================
-  // Helpers: current plan supervisors
-  // ===================================================
 
-  function getPlanSupervisorIds(plan) {
-    const raw =
-      plan?.supervisor_ids ??
-      plan?.supervisorIds ??
-      plan?.duty_pool ??
-      plan?.dutyPool ??
-      plan?.supervisors ??
-      [];
-
-    if (!Array.isArray(raw)) return [];
-
-    return raw
-      .map((item) => Number(item?.id ?? item?.supervisor_id ?? item))
-      .filter((id) => Number.isFinite(id));
-  }
-
-  // ===================================================
-  // Open / Close Edit Modal
-  // ===================================================
-
-  async function openEditPlan(plan) {
-    setEditingPlan(plan);
-    setEditError("");
-    setEditSelectedIds(getPlanSupervisorIds(plan));
-
-    try {
-      setLoadingEditData(true);
-
-      const response = await listSupervisors();
-
-      const list = response?.data ?? response?.supervisors ?? response ?? [];
-
-      setAllSupervisors(Array.isArray(list) ? list : []);
-    } catch (err) {
-      console.error("🔴 Failed to load supervisors for edit:", err);
-      setEditError("تعذر تحميل قائمة المشرفين.");
-      setAllSupervisors([]);
-    } finally {
-      setLoadingEditData(false);
-    }
-  }
-
-  function closeEditPlan() {
-    setEditingPlan(null);
-    setEditSelectedIds([]);
-    setAllSupervisors([]);
-    setEditError("");
-  }
-
-  function toggleEditSupervisor(id) {
-    setEditSelectedIds((current) =>
-      current.includes(id)
-        ? current.filter((sid) => sid !== id)
-        : [...current, id],
-    );
-  }
-
-  async function saveEditPlan() {
-    if (!editingPlan) return;
-
-    if (!editSelectedIds.length) {
-      setEditError("اختر مشرفًا واحدًا على الأقل.");
-      return;
-    }
-
-    try {
-      setSavingEdit(true);
-      setEditError("");
-
-      await setDutyPool(editingPlan.id, editSelectedIds);
-
-      await loadPlans(true);
-
-      closeEditPlan();
-    } catch (err) {
-      console.error("🔴 EDIT PLAN ERROR:", err);
-
-      const message =
-        err?.response?.data?.error ??
-        err?.response?.data?.message ??
-        err?.message ??
-        "تعذر حفظ التعديلات.";
-
-      setEditError(message);
-    } finally {
-      setSavingEdit(false);
-    }
-  }
   // ===================================================
   // Render
   // ===================================================
@@ -847,19 +746,11 @@ export default function Plans() {
                               onClick={() => openPlan(plan.id)}
                               title="فتح الخطة"
                             >
-                              {Icons.eye}
-
-                              <span>فتح</span>
-                            </button>
-
-                            <button
-                              className="action-edit"
-                              onClick={() => openEditPlan(plan)}
-                              title="تعديل المشرفين"
-                            >
                               {Icons.users}
+
                               <span>تعديل</span>
                             </button>
+
 
                             <button
                               className="action-delete"
@@ -898,99 +789,7 @@ export default function Plans() {
           </div>
         )}
       </main>
-      {/* =================================================
-    Edit Plan Modal
-================================================= */}
 
-      {editingPlan && (
-        <div className="modal-overlay" onClick={closeEditPlan}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h2>
-                تعديل مشرفي خطة{" "}
-                {planNumbers.get(String(editingPlan.id)) ?? editingPlan.id}
-              </h2>
-
-              <button className="modal-close" onClick={closeEditPlan}>
-                ×
-              </button>
-            </div>
-
-            {editError && <div className="alert alert-error">{editError}</div>}
-
-            {loadingEditData ? (
-              <div className="plans-loading">
-                <div className="loading-spinner" />
-                <span>جاري تحميل المشرفين...</span>
-              </div>
-            ) : (
-              <>
-                <p className="modal-hint">
-                  حدد المشرفين الذين تريدين ضمّهم لهذه الخطة (تظهر كل قائمة
-                  المشرفين وليس المحددين فقط).
-                </p>
-
-                <div className="modal-supervisor-list">
-                  {allSupervisors.map((supervisor) => {
-                    const id = Number(
-                      supervisor?.id ??
-                        supervisor?.supervisor_id ??
-                        supervisor?.supervisorId,
-                    );
-
-                    const name =
-                      supervisor?.name ??
-                      supervisor?.supervisor_name ??
-                      supervisor?.supervisorName ??
-                      supervisor?.full_name ??
-                      supervisor?.fullName ??
-                      `مشرف #${id}`;
-
-                    const checked = editSelectedIds.includes(id);
-
-                    return (
-                      <label key={id} className="modal-supervisor-item">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => toggleEditSupervisor(id)}
-                        />
-                        <span>{name}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-
-                <div className="modal-footer">
-                  <span className="modal-selected-count">
-                    {editSelectedIds.length} مشرف محدد
-                  </span>
-
-                  <div className="modal-actions">
-                    <button
-                      type="button"
-                      className="secondary-action"
-                      onClick={closeEditPlan}
-                      disabled={savingEdit}
-                    >
-                      إلغاء
-                    </button>
-
-                    <button
-                      type="button"
-                      className="generate-button"
-                      onClick={saveEditPlan}
-                      disabled={savingEdit}
-                    >
-                      {savingEdit ? "جارٍ الحفظ..." : "حفظ التعديلات"}
-                    </button>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
