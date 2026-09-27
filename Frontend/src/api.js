@@ -15,12 +15,14 @@ export const generatePlan = (
   variant = 1,
   minimumPeriodsEnabled = false,
   minimumPeriods = 4,
+  twoProfessorsPerSupervisorEnabled = false,
 ) =>
   api
     .post(`/plan/${planId}/generate`, {
       variant,
       minimumPeriodsEnabled,
       minimumPeriods,
+      twoProfessorsPerSupervisorEnabled,
     })
     .then((res) => res.data);
 
