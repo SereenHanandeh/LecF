@@ -2016,13 +2016,12 @@ export default function PlanResult() {
               <strong>{totalProfessors}</strong>
             </div>
           </div>
-
           <div className="summary-card green">
             <div className="summary-icon">👥</div>
 
             <div>
               <span>Supervisors</span>
-              <strong>{supervisorStats.length}</strong>
+              <strong>{supervisors.length}</strong>
             </div>
           </div>
 

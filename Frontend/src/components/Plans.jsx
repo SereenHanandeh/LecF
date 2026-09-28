@@ -652,12 +652,7 @@ export default function Plans() {
                   {filteredPlans.map((plan) => {
                     const status = getStatus(plan);
 
-                    const supervisorCount = Number(
-                      plan.supervisor_count ??
-                        plan.supervisors_count ??
-                        plan.selected_supervisors ??
-                        0,
-                    );
+                   const supervisorCount = Number(plan.supervisor_count || 0);
 
                     const assignmentCount = Number(
                       plan.assignment_count ??
