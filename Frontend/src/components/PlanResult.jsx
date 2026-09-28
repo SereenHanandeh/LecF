@@ -2196,14 +2196,19 @@ export default function PlanResult() {
             </div>
           </div>
           <div className="summary-card green">
-            <div className="summary-icon">👥</div>
+  <div className="summary-icon">👥</div>
 
-            <div>
-              <span>Supervisors</span>
-              <strong>{supervisors.length}</strong>
-            </div>
-          </div>
-
+  <div>
+    <span>Supervisors</span>
+<strong>
+  {supervisorStats.length}
+  {supervisors.length > 0 && supervisors.length !== supervisorStats.length && (
+    <small style={{ fontSize: "12px", opacity: 0.7 }}>
+      {" "}/ {supervisors.length} مختار
+    </small>
+  )}
+</strong>  </div>
+</div>
           <div className="summary-card orange">
             <div className="summary-icon">📅</div>
 
@@ -2580,28 +2585,30 @@ export default function PlanResult() {
 
                           {visibleColumns.room && (
                             <td>
-                              {isEditing ? (
-                                <input
-                                  type="text"
-                                  className="edit-room-input"
-                                  value={editingRoom}
-                                  onChange={(e) =>
-                                    setEditingRoom(e.target.value)
-                                  }
-                                  disabled={isSaving}
-                                  style={{
-                                    width: "80px",
-                                    padding: "4px 6px",
-                                    border: "1px solid #d1d5db",
-                                    borderRadius: "6px",
-                                    textAlign: "center",
-                                  }}
-                                />
-                              ) : (
-                                <span className="period-badge">
-                                  {getRoomNumber(assignment)}
-                                </span>
-                              )}
+                         {isEditing ? (
+  <div>
+    <input
+      type="text"
+      className="edit-room-input"
+      value={editingRoom}
+      onChange={(e) => setEditingRoom(e.target.value)}
+      disabled={isSaving}
+      style={{
+        width: "80px",
+        padding: "4px 6px",
+        border: "1px solid #d1d5db",
+        borderRadius: "6px",
+        textAlign: "center",
+      }}
+    />
+
+    <small className="affinity-note" style={{ display: "block" }}>
+      يغيّر قاعة الأستاذ في كل جلساته
+    </small>
+  </div>
+) : (
+  <span className="period-badge">{getRoomNumber(assignment)}</span>
+)}
                             </td>
                           )}
                           {/* Date */}
@@ -2841,12 +2848,7 @@ export default function PlanResult() {
                       <th>Professor</th>
 
                       <th>Studio</th>
-                      <small
-                        className="affinity-note"
-                        style={{ display: "block" }}
-                      >
-                        يغيّر قاعة الأستاذ في كل جلساته
-                      </small>
+                  
 
                       <th>Date</th>
 
