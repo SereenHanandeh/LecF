@@ -403,6 +403,15 @@ useEffect(() => {
     }));
   }, [selectedDateRows, dateMode]);
 
+  // أعلى فترة من حيث عدد الأساتذة
+const busiestPeriod = useMemo(() => {
+  if (!periodProfessorCounts.length) return null;
+
+  return periodProfessorCounts.reduce((max, item) =>
+    item.count > max.count ? item : max,
+  );
+}, [periodProfessorCounts]);
+
   // الفترات التي تتجاوز الحد الأقصى (6) لفئة "متطلبات"
   const periodsOverRequirementLimit = useMemo(() => {
     if (planCategory !== "متطلبات") return [];
@@ -999,6 +1008,24 @@ useEffect(() => {
               <strong>{professors.length}</strong>
             </div>
           </div>
+
+          <div className="stat-item">
+  <span className="stat-icon orange">{Icons.users}</span>
+
+  <div>
+    <span>أعلى فترة</span>
+    <strong>
+      {busiestPeriod ? `${busiestPeriod.count} أستاذ` : "—"}
+    </strong>
+    {busiestPeriod && (
+      <small>
+        {dateMode === "all"
+          ? `${formatDate(busiestPeriod.date)} - ${busiestPeriod.period}`
+          : busiestPeriod.period}
+      </small>
+    )}
+  </div>
+</div>
 
           <div className="stat-item">
             <span className="stat-icon red">{Icons.warning}</span>
