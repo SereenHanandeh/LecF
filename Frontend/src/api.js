@@ -26,6 +26,11 @@ export const generatePlan = (
     })
     .then((res) => res.data);
 
+    export const updateRoomNumber = (planId, sessionGroupId, roomNumber) =>
+  api
+    .put(`/plan/${planId}/group/${sessionGroupId}/room`, { roomNumber })
+    .then((res) => res.data);
+
 export const getPlan = async (planId) => {
   console.log("🔎 getPlan planId:", planId);
 

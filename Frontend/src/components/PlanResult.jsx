@@ -17,11 +17,11 @@ import {
   listSupervisors,
   moveAssignment,
   updatePlanStatus,
+  updateRoomNumber,
 } from "../api.js";
 
 // =====================================================
 // Date Helper
-// خارج الـ component لأنها لا تعتمد على state أو props
 // =====================================================
 
 const formatDate = (value) => {
@@ -326,8 +326,7 @@ const getCourseName = (assignment) => {
 const getPeriod = (assignment) =>
   assignment.period_label ?? assignment.period ?? "-";
 
-
-  // =====================================================
+// =====================================================
 // Period Colors (Excel)
 // =====================================================
 
@@ -341,7 +340,6 @@ const PERIOD_COLORS = [
   "FFCCFBF1", // تركوازي فاتح
   "FFFEE2E2", // أحمر فاتح
 ];
-
 
 // =====================================================
 // Component
@@ -396,6 +394,8 @@ export default function PlanResult() {
 
   const [selectedStatsSupervisor, setSelectedStatsSupervisor] = useState("");
 
+  const [editingRoom, setEditingRoom] = useState("");
+
   // =====================================================
   // Column Visibility
   //
@@ -422,51 +422,48 @@ export default function PlanResult() {
   const [editingId, setEditingId] = useState(null);
   const [savingId, setSavingId] = useState(null);
 
+  // كل فترة تأخذ لونًا ثابتًا (نفس اللون في كل الشيتات)
+  const buildPeriodColorMap = (data) => {
+    const periods = [
+      ...new Set(data.map(getPeriod).filter((value) => value && value !== "-")),
+    ].sort((a, b) => String(a).localeCompare(String(b), "ar"));
 
-// كل فترة تأخذ لونًا ثابتًا (نفس اللون في كل الشيتات)
-const buildPeriodColorMap = (data) => {
-  const periods = [
-    ...new Set(
-      data.map(getPeriod).filter((value) => value && value !== "-"),
-    ),
-  ].sort((a, b) => String(a).localeCompare(String(b), "ar"));
+    const map = new Map();
 
-  const map = new Map();
-
-  periods.forEach((period, index) => {
-    map.set(period, PERIOD_COLORS[index % PERIOD_COLORS.length]);
-  });
-
-  return map;
-};
-
-const styleBodyByPeriod = (worksheet, periodColorMap) => {
-  worksheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) return;
-
-    const period = String(row.getCell("period").value ?? "");
-    const color = periodColorMap.get(period);
-
-    row.eachCell((cell) => {
-      cell.alignment = { vertical: "middle", horizontal: "center" };
-
-      cell.border = {
-        top: { style: "thin", color: { argb: "FFE5E7EB" } },
-        bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
-        left: { style: "thin", color: { argb: "FFE5E7EB" } },
-        right: { style: "thin", color: { argb: "FFE5E7EB" } },
-      };
-
-      if (color) {
-        cell.fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: color },
-        };
-      }
+    periods.forEach((period, index) => {
+      map.set(period, PERIOD_COLORS[index % PERIOD_COLORS.length]);
     });
-  });
-};
+
+    return map;
+  };
+
+  const styleBodyByPeriod = (worksheet, periodColorMap) => {
+    worksheet.eachRow((row, rowNumber) => {
+      if (rowNumber === 1) return;
+
+      const period = String(row.getCell("period").value ?? "");
+      const color = periodColorMap.get(period);
+
+      row.eachCell((cell) => {
+        cell.alignment = { vertical: "middle", horizontal: "center" };
+
+        cell.border = {
+          top: { style: "thin", color: { argb: "FFE5E7EB" } },
+          bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+          left: { style: "thin", color: { argb: "FFE5E7EB" } },
+          right: { style: "thin", color: { argb: "FFE5E7EB" } },
+        };
+
+        if (color) {
+          cell.fill = {
+            type: "pattern",
+            pattern: "solid",
+            fgColor: { argb: color },
+          };
+        }
+      });
+    });
+  };
   // =====================================================
   // Mounted Ref
   // =====================================================
@@ -1320,6 +1317,9 @@ const styleBodyByPeriod = (worksheet, periodColorMap) => {
 
     const editSupervisorId = String(currentSupervisorId);
 
+    const currentRoom = getRoomNumber(assignment);
+    setEditingRoom(currentRoom === "-" ? "" : String(currentRoom));
+
     console.log("🟢 SETTING editingId TO:", editId);
 
     console.log("🟢 SETTING editingSupervisor TO:", editSupervisorId);
@@ -1342,6 +1342,7 @@ const styleBodyByPeriod = (worksheet, periodColorMap) => {
     setEditingId(null);
     setEditingSupervisor("");
     setEditingShowAllSupervisors(false);
+    setEditingRoom("");
   };
 
   // =====================================================
@@ -1448,81 +1449,75 @@ const styleBodyByPeriod = (worksheet, periodColorMap) => {
 
       return;
     }
-
     // =========================================
-    // Affinity
+    // Affinity (فقط إذا تغيّر المشرف)
     // =========================================
 
     const affinitySupervisorId = getProfessorAffinitySupervisorId(assignment);
 
-    console.log("🔗 affinitySupervisorId:", affinitySupervisorId);
+    const supervisorChanged =
+      String(currentSupervisorId) !== String(targetSupervisorId);
 
     if (
+      supervisorChanged &&
       affinitySupervisorId !== null &&
       affinitySupervisorId !== undefined &&
       String(targetSupervisorId) !== String(affinitySupervisorId)
     ) {
       alert("⚠️ هذا الأستاذ مرتبط بمشرف محدد ولا يمكن تغييره إلى مشرف آخر.");
-
       setEditingSupervisor(String(affinitySupervisorId));
-
       return;
     }
 
     // =========================================
-    // إذا لم يتغير المشرف
+    // القاعة
     // =========================================
 
-    if (String(currentSupervisorId) === String(targetSupervisorId)) {
-      console.log("ℹ️ Supervisor did not change.");
+    const currentRoomRaw = getRoomNumber(assignment);
+    const currentRoom = currentRoomRaw === "-" ? "" : String(currentRoomRaw);
+    const newRoom = String(editingRoom ?? "").trim();
+    const roomChanged = newRoom !== currentRoom;
 
+    if (roomChanged && !newRoom) {
+      alert("⚠️ رقم القاعة لا يمكن أن يكون فارغًا.");
+      return;
+    }
+
+    if (!supervisorChanged && !roomChanged) {
       cancelEditing();
-
       return;
     }
 
     // =========================================
-    // إرسال الطلب للـ backend
+    // إرسال الطلبات
     // =========================================
 
     try {
       setSavingId(sessionGroupId);
 
-      const payload = {
-        sessionGroupId: Number(sessionGroupId),
+      if (supervisorChanged) {
+        await moveAssignment(planId, {
+          sessionGroupId: Number(sessionGroupId),
+          fromSupervisorId: Number(currentSupervisorId),
+          toSupervisorId: targetSupervisorId,
+        });
+      }
 
-        fromSupervisorId: Number(currentSupervisorId),
-
-        toSupervisorId: targetSupervisorId,
-      };
-
-      console.log("📤 SENDING PAYLOAD:");
-
-      console.log(JSON.stringify(payload, null, 2));
-
-      await moveAssignment(planId, payload);
-
-      console.log("✅ Assignment moved successfully");
-
-      // =========================================
-      // الحصول على اسم المشرف الجديد
-      // =========================================
+      if (roomChanged) {
+        await updateRoomNumber(planId, Number(sessionGroupId), newRoom);
+      }
 
       const selectedSupervisor =
-        allSupervisorsList.find((supervisor) => {
-          const supervisorId =
-            supervisor?.id ??
-            supervisor?.supervisor_id ??
-            supervisor?.supervisorId;
-          return String(supervisorId) === String(targetSupervisorId);
-        }) ||
-        supervisors.find((supervisor) => {
-          const supervisorId =
-            supervisor?.id ??
-            supervisor?.supervisor_id ??
-            supervisor?.supervisorId;
-          return String(supervisorId) === String(targetSupervisorId);
-        });
+        allSupervisorsList.find(
+          (s) =>
+            String(s?.id ?? s?.supervisor_id ?? s?.supervisorId) ===
+            String(targetSupervisorId),
+        ) ||
+        supervisors.find(
+          (s) =>
+            String(s?.id ?? s?.supervisor_id ?? s?.supervisorId) ===
+            String(targetSupervisorId),
+        );
 
       const newSupervisorName =
         selectedSupervisor?.name ??
@@ -1530,46 +1525,32 @@ const styleBodyByPeriod = (worksheet, periodColorMap) => {
         selectedSupervisor?.supervisorName ??
         "";
 
-      // =========================================
-      // تحديث الجدول مباشرة
-      // =========================================
-
       setPlanData((prev) =>
         prev.map((item) => {
-          const itemId = getSessionGroupId(item);
-
-          if (String(itemId) !== String(sessionGroupId)) {
+          if (String(getSessionGroupId(item)) !== String(sessionGroupId)) {
             return item;
           }
 
           return {
             ...item,
-
-            supervisor_id: targetSupervisorId,
-
-            supervisorId: targetSupervisorId,
-
-            supervisor_name: newSupervisorName,
-
-            supervisor: newSupervisorName,
+            ...(supervisorChanged && {
+              supervisor_id: targetSupervisorId,
+              supervisorId: targetSupervisorId,
+              supervisor_name: newSupervisorName,
+              supervisor: newSupervisorName,
+            }),
+            ...(roomChanged && {
+              room_number: newRoom,
+              roomNumber: newRoom,
+            }),
           };
         }),
       );
 
       cancelEditing();
-
-      // =========================================
-      // إعادة تحميل صامتة
-      // =========================================
-
-      fetchPlan({
-        silent: true,
-      });
+      fetchPlan({ silent: true });
     } catch (err) {
-      console.error("❌ Error moving assignment:", err);
-
-      console.error("📦 Backend response:", err?.response?.data);
-
+      console.error("❌ Error saving assignment:", err);
       alert(
         err?.response?.data?.error ||
           err?.response?.data?.message ||
@@ -1646,8 +1627,7 @@ const styleBodyByPeriod = (worksheet, periodColorMap) => {
         return;
       }
 
-          const periodColorMap = buildPeriodColorMap(planData);
-
+      const periodColorMap = buildPeriodColorMap(planData);
 
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "Lecture Supervisor System";
@@ -1709,8 +1689,6 @@ const styleBodyByPeriod = (worksheet, periodColorMap) => {
         });
       };
 
-      
-
       // =========================================
       // شيت 1: الخطة الكاملة
       // =========================================
@@ -1722,8 +1700,8 @@ const styleBodyByPeriod = (worksheet, periodColorMap) => {
       mainSheet.columns = columns;
       dataToExport.forEach((a) => mainSheet.addRow(toRow(a)));
 
-styleHeader(mainSheet);
-styleBodyByPeriod(mainSheet, periodColorMap);
+      styleHeader(mainSheet);
+      styleBodyByPeriod(mainSheet, periodColorMap);
 
       // =========================================
       // تجميع البيانات حسب المشرف
@@ -1846,7 +1824,7 @@ styleBodyByPeriod(mainSheet, periodColorMap);
       const cleanTitle = sheetTitle.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
 
       // نبني الألوان من الخطة كاملة كي تبقى ألوان الفترات ثابتة حتى مع الفلتر
-const periodColorMap = buildPeriodColorMap(planData);
+      const periodColorMap = buildPeriodColorMap(planData);
 
       const sheet = workbook.addWorksheet(cleanTitle || "الخطة", {
         views: [{ rightToLeft: true }],
@@ -1893,7 +1871,7 @@ const periodColorMap = buildPeriodColorMap(planData);
           right: { style: "thin", color: { argb: "FFB0B0B0" } },
         };
       });
-styleBodyByPeriod(sheet, periodColorMap);
+      styleBodyByPeriod(sheet, periodColorMap);
 
       const buffer = await workbook.xlsx.writeBuffer();
 
@@ -2449,9 +2427,28 @@ styleBodyByPeriod(sheet, periodColorMap);
 
                           {visibleColumns.room && (
                             <td>
-                              <span className="period-badge">
-                                {getRoomNumber(assignment)}
-                              </span>
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  className="edit-room-input"
+                                  value={editingRoom}
+                                  onChange={(e) =>
+                                    setEditingRoom(e.target.value)
+                                  }
+                                  disabled={isSaving}
+                                  style={{
+                                    width: "80px",
+                                    padding: "4px 6px",
+                                    border: "1px solid #d1d5db",
+                                    borderRadius: "6px",
+                                    textAlign: "center",
+                                  }}
+                                />
+                              ) : (
+                                <span className="period-badge">
+                                  {getRoomNumber(assignment)}
+                                </span>
+                              )}
                             </td>
                           )}
                           {/* Date */}
