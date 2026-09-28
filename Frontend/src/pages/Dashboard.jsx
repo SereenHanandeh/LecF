@@ -1008,6 +1008,25 @@ export default function Dashboard() {
               <span>الأساتذة</span>
               <strong>{professors.length}</strong>
             </div>
+
+            
+          <div className="stat-item">
+            <span className="stat-icon orange">{Icons.users}</span>
+
+            <div>
+              <span>أعلى فترة</span>
+              <strong>
+                {busiestPeriod ? `${busiestPeriod.count} أستاذ` : "—"}
+              </strong>
+              {busiestPeriod && (
+                <small>
+                  {dateMode === "all"
+                    ? `${formatDate(busiestPeriod.date)} - ${busiestPeriod.period}`
+                    : busiestPeriod.period}
+                </small>
+              )}
+            </div>
+          </div>
           </div>
 
           <div className="stat-item">
@@ -1201,12 +1220,7 @@ export default function Dashboard() {
                         <strong>{selectedDateRows.length}</strong>
                       </div>
 
-                      <div>
-                        <span>الأساتذة</span>
-                        <strong>{selectedDateProfessors}</strong>
-                      </div>
-
-                      <div className="stat-item">
+                        <div className="stat-item">
                         <span className="stat-icon orange">{Icons.users}</span>
 
                         <div>
@@ -1225,6 +1239,13 @@ export default function Dashboard() {
                           )}
                         </div>
                       </div>
+
+                      <div>
+                        <span>الأساتذة</span>
+                        <strong>{selectedDateProfessors}</strong>
+                      </div>
+
+                    
                     </div>
                   )}
                 </div>
