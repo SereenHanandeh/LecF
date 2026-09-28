@@ -2202,11 +2202,7 @@ export default function PlanResult() {
     <span>Supervisors</span>
 <strong>
   {supervisorStats.length}
-  {supervisors.length > 0 && supervisors.length !== supervisorStats.length && (
-    <small style={{ fontSize: "12px", opacity: 0.7 }}>
-      {" "}/ {supervisors.length} مختار
-    </small>
-  )}
+ 
 </strong>  </div>
 </div>
           <div className="summary-card orange">
