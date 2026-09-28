@@ -1009,6 +1009,9 @@ export default function Dashboard() {
               <strong>{professors.length}</strong>
             </div>
 
+          </div>
+
+
             
           <div className="stat-item">
             <span className="stat-icon orange">{Icons.users}</span>
@@ -1027,8 +1030,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          </div>
-
+          
           <div className="stat-item">
             <span className="stat-icon red">{Icons.warning}</span>
 
