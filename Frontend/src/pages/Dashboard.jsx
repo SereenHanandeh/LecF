@@ -1699,7 +1699,7 @@ useEffect(() => {
                   )}
                 </>
               ) : (
-                <div className="manual-room-list">
+                <div className="manual-room-list manual-room-scroll">
                   {periodProfessorGroups.length ? (
                     periodProfessorGroups.map((group) => (
                       <div key={group.key} style={{ marginBottom: "14px" }}>
@@ -1787,30 +1787,53 @@ useEffect(() => {
                 </div>
               )}
 
-              {roomAssignments.length > 0 ? (
-                <div className="affinity-list">
-                  {roomAssignments.map((item) => (
-                    <div
-                      className="affinity-row"
-                      key={`${item.professorId ?? item.professorName}-${item.roomNumber}`}
-                    >
-                      <div>
-                        <strong>{item.professorName}</strong>
-                        <span>
-                          {dateMode === "all"
-                            ? `${formatDate(item.date)} - `
-                            : ""}
-                          {item.period} ← قاعة {item.roomNumber}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="minimum-period-disabled">
-                  لا يوجد أساتذة لتوزيعهم على القاعات بعد
-                </div>
-              )}
+             {roomAssignments.length > 0 ? (
+  <div className="room-summary">
+    <div className="room-summary-head">
+      <span>ملخص التوزيع</span>
+      <strong>{roomAssignments.length}</strong>
+    </div>
+
+    <div className="room-summary-scroll">
+      {periodProfessorGroups.map((group) => {
+        const items = roomAssignments.filter(
+          (item) =>
+            item.period === group.period &&
+            (dateMode !== "all" || item.date === group.date),
+        );
+
+        if (!items.length) return null;
+
+        return (
+          <div className="room-group" key={group.key}>
+            <div className="room-group-title">
+              {dateMode === "all"
+                ? `${formatDate(group.date)} - ${group.period}`
+                : group.period}
+              <small>{items.length}</small>
+            </div>
+
+            {items.map((item) => (
+              <div
+                className="room-row"
+                key={`${group.key}-${item.professorName}`}
+              >
+                <span className="room-row-name" title={item.professorName}>
+                  {item.professorName}
+                </span>
+                <span className="room-badge">قاعة {item.roomNumber}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  </div>
+) : (
+  <div className="minimum-period-disabled">
+    لا يوجد أساتذة لتوزيعهم على القاعات بعد
+  </div>
+)}
             </div>
           </aside>
         </section>

@@ -1155,6 +1155,135 @@
 }
 
 /* =========================================================
+   Room assignment summary + scroll
+========================================================= */
+
+.room-summary {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: var(--paper);
+  overflow: hidden;
+}
+
+.room-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  font-size: 12.5px;
+  color: var(--ink-soft);
+}
+
+.room-summary-head strong {
+  font-size: 13px;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.room-summary-scroll {
+  max-height: 320px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 8px 10px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+.room-summary-scroll::-webkit-scrollbar,
+.manual-room-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.room-summary-scroll::-webkit-scrollbar-thumb,
+.manual-room-scroll::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 999px;
+}
+
+.room-summary-scroll::-webkit-scrollbar-track,
+.manual-room-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.room-group + .room-group {
+  margin-top: 10px;
+}
+
+.room-group-title {
+  position: sticky;
+  top: -8px;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 4px;
+  margin-bottom: 4px;
+  background: var(--paper);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--brass-deep);
+  border-bottom: 1px dashed var(--line-strong);
+}
+
+.room-group-title small {
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 1px 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.room-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 7px 8px;
+  border-radius: var(--radius-s);
+  transition: background 0.15s ease;
+}
+
+.room-row:hover {
+  background: var(--surface);
+}
+
+.room-row-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.room-badge {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brass-deep);
+  background: var(--brass-tint);
+  border: 1px solid rgba(169, 124, 61, 0.3);
+  padding: 2px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* الوضع اليدوي */
+.manual-room-scroll {
+  max-height: 380px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-inline-end: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+/* =========================================================
    Generate bar
 ========================================================= */
 
