@@ -341,6 +341,51 @@ const PERIOD_COLORS = [
   "FFFEE2E2", // أحمر فاتح
 ];
 
+// تنسيق الجسم + ألوان الفترات كـ Conditional Formatting (تتحدث تلقائيًا مع التعديل)
+const styleLiveBody = (worksheet, periodColorMap, borderLastRow, cfLastRow) => {
+  for (let r = 2; r <= borderLastRow; r++) {
+    const row = worksheet.getRow(r);
+
+    for (let c = 1; c <= 9; c++) {
+      const cell = row.getCell(c);
+
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+
+      cell.border = {
+        top: { style: "thin", color: { argb: "FFE5E7EB" } },
+        bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+        left: { style: "thin", color: { argb: "FFE5E7EB" } },
+        right: { style: "thin", color: { argb: "FFE5E7EB" } },
+      };
+    }
+  }
+
+  const rules = [];
+  let priority = 1;
+
+  periodColorMap.forEach((color, period) => {
+    rules.push({
+      type: "expression",
+      priority: priority++,
+      formulae: [`$F2="${String(period).replace(/"/g, '""')}"`],
+      style: {
+        fill: {
+          type: "pattern",
+          pattern: "solid",
+          bgColor: { argb: color },
+        },
+      },
+    });
+  });
+
+  if (rules.length) {
+    worksheet.addConditionalFormatting({
+      ref: `A2:I${cfLastRow}`,
+      rules,
+    });
+  }
+};
+
 // =====================================================
 // Component
 // =====================================================
@@ -1627,11 +1672,19 @@ export default function PlanResult() {
         return;
       }
 
+      const MAIN = "الخطة الكاملة";
+      const LISTS = "المشرفون";
+      const MAIN_EXTRA_ROWS = 200; // صفوف احتياطية لإضافة صفوف جديدة في الشيت الرئيسي
+      const SUP_EXTRA_ROWS = 50; // صفوف احتياطية في شيت كل مشرف
+
       const periodColorMap = buildPeriodColorMap(planData);
 
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "Lecture Supervisor System";
       workbook.created = new Date();
+
+      // يجبر Excel على إعادة حساب المعادلات عند الفتح
+      workbook.calcProperties = { fullCalcOnLoad: true };
 
       const columns = [
         { header: "CRN", key: "crn", width: 14 },
@@ -1644,6 +1697,9 @@ export default function PlanResult() {
         { header: "To", key: "to", width: 12 },
         { header: "Supervisor", key: "supervisor", width: 28 },
       ];
+
+      const keys = columns.map((c) => c.key);
+      const letters = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
 
       const toRow = (assignment) => ({
         crn: assignment.crn ?? "-",
@@ -1660,20 +1716,13 @@ export default function PlanResult() {
       const styleHeader = (worksheet) => {
         const headerRow = worksheet.getRow(1);
 
-        headerRow.font = {
-          bold: true,
-          color: { argb: "FFFFFFFF" },
-          size: 12,
-        };
-
-        headerRow.alignment = {
-          vertical: "middle",
-          horizontal: "center",
-        };
-
+        headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
+        headerRow.alignment = { vertical: "middle", horizontal: "center" };
         headerRow.height = 24;
 
-        headerRow.eachCell((cell) => {
+        for (let c = 1; c <= 9; c++) {
+          const cell = headerRow.getCell(c);
+
           cell.fill = {
             type: "pattern",
             pattern: "solid",
@@ -1686,30 +1735,70 @@ export default function PlanResult() {
             left: { style: "thin", color: { argb: "FFB0B0B0" } },
             right: { style: "thin", color: { argb: "FFB0B0B0" } },
           };
-        });
+        }
       };
 
+      const mainLast = dataToExport.length + 1 + MAIN_EXTRA_ROWS;
+
+      // مرجع عمود في الشيت الرئيسي
+      const mainRange = (col) => `'${MAIN}'!$${col}$2:$${col}$${mainLast}`;
+
+      const rowsData = dataToExport.map(toRow);
+
       // =========================================
-      // شيت 1: الخطة الكاملة
+      // شيت 1: الخطة الكاملة (المصدر الوحيد للبيانات)
       // =========================================
 
-      const mainSheet = workbook.addWorksheet("الخطة الكاملة", {
+      const mainSheet = workbook.addWorksheet(MAIN, {
         views: [{ rightToLeft: true }],
       });
 
       mainSheet.columns = columns;
-      dataToExport.forEach((a) => mainSheet.addRow(toRow(a)));
+      rowsData.forEach((r) => mainSheet.addRow(r));
+
+      // أعمدة مساعدة مخفية: J = رقم التكرار ، K = المفتاح (مشرف|رقم)
+      const counters = new Map();
+
+      for (let r = 2; r <= mainLast; r++) {
+        const rowData = rowsData[r - 2];
+        const sup = rowData ? String(rowData.supervisor) : "";
+
+        let idx = "";
+
+        if (sup) {
+          idx = (counters.get(sup) || 0) + 1;
+          counters.set(sup, idx);
+        }
+
+        mainSheet.getCell(`J${r}`).value = {
+          formula: `IF(I${r}="","",COUNTIF(I$2:I${r},I${r}))`,
+          result: idx,
+        };
+
+        mainSheet.getCell(`K${r}`).value = {
+          formula: `IF(I${r}="","",I${r}&"|"&J${r})`,
+          result: sup ? `${sup}|${idx}` : "",
+        };
+      }
+
+      mainSheet.getColumn(10).hidden = true;
+      mainSheet.getColumn(11).hidden = true;
 
       styleHeader(mainSheet);
-      styleBodyByPeriod(mainSheet, periodColorMap);
+      styleLiveBody(
+        mainSheet,
+        periodColorMap,
+        dataToExport.length + 1,
+        mainLast,
+      );
 
       // =========================================
-      // تجميع البيانات حسب المشرف
+      // تجميع البيانات حسب المشرف (مع موضع الصف في الشيت الرئيسي)
       // =========================================
 
       const bySupervisor = new Map();
 
-      dataToExport.forEach((assignment) => {
+      dataToExport.forEach((assignment, index) => {
         const name = getSupervisorName(assignment);
 
         if (!name || name === "-") return;
@@ -1718,14 +1807,14 @@ export default function PlanResult() {
           bySupervisor.set(name, []);
         }
 
-        bySupervisor.get(name).push(assignment);
+        bySupervisor.get(name).push({ data: rowsData[index], index });
       });
 
       // =========================================
-      // تنظيف أسماء الشيتات (حد 31 حرف + منع رموز محظورة + منع التكرار)
+      // أسماء الشيتات
       // =========================================
 
-      const usedSheetNames = new Set(["الخطة الكاملة"]);
+      const usedSheetNames = new Set([MAIN, LISTS]);
 
       const sanitizeSheetName = (name) => {
         let clean = String(name)
@@ -1749,20 +1838,63 @@ export default function PlanResult() {
       };
 
       // =========================================
-      // شيت لكل مشرف
+      // شيت لكل مشرف (معادلات تسحب من الشيت الرئيسي)
       // =========================================
 
-      for (const [supervisorName, rows] of bySupervisor.entries()) {
-        const sheetName = sanitizeSheetName(supervisorName);
-
-        const sheet = workbook.addWorksheet(sheetName, {
+      for (const [supervisorName, items] of bySupervisor.entries()) {
+        const sheet = workbook.addWorksheet(sanitizeSheetName(supervisorName), {
           views: [{ rightToLeft: true }],
         });
 
         sheet.columns = columns;
-        rows.forEach((a) => sheet.addRow(toRow(a)));
+
+        // K1 = اسم المشرف الحقيقي (يُستخدم في البحث)
+        sheet.getCell("K1").value = supervisorName;
+
+        const total = items.length + 1 + SUP_EXTRA_ROWS;
+
+        for (let r = 2; r <= total; r++) {
+          const item = items[r - 2];
+
+          // J = موضع الصف داخل الشيت الرئيسي
+          sheet.getCell(`J${r}`).value = {
+            formula: `IFERROR(MATCH($K$1&"|"&(ROW()-1),${mainRange("K")},0),"")`,
+            result: item ? item.index + 1 : "",
+          };
+
+          letters.forEach((letter, i) => {
+            sheet.getCell(`${letter}${r}`).value = {
+              formula: `IF($J${r}="","",INDEX(${mainRange(letter)},$J${r})&"")`,
+              result: item ? String(item.data[keys[i]] ?? "") : "",
+            };
+          });
+        }
+
+        sheet.getColumn(10).hidden = true;
+        sheet.getColumn(11).hidden = true;
+
         styleHeader(sheet);
-        styleBodyByPeriod(sheet, periodColorMap);
+        styleLiveBody(sheet, periodColorMap, total, total);
+      }
+
+      // =========================================
+      // شيت مخفي بأسماء المشرفين + قائمة منسدلة في عمود Supervisor
+      // =========================================
+
+      const listNames = [...bySupervisor.keys()];
+
+      const listSheet = workbook.addWorksheet(LISTS, { state: "hidden" });
+
+      listNames.forEach((name, i) => {
+        listSheet.getCell(`A${i + 1}`).value = name;
+      });
+
+      for (let r = 2; r <= mainLast; r++) {
+        mainSheet.getCell(`I${r}`).dataValidation = {
+          type: "list",
+          allowBlank: true,
+          formulae: [`'${LISTS}'!$A$1:$A$${Math.max(listNames.length, 1)}`],
+        };
       }
 
       // =========================================
