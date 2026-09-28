@@ -17,7 +17,7 @@ import {
   listSupervisors,
   moveAssignment,
   updatePlanStatus,
-  updateRoomNumber,
+  updateProfessorRoom,
 } from "../api.js";
 
 // =====================================================
@@ -1528,6 +1528,13 @@ export default function PlanResult() {
       return;
     }
 
+    const professorId = assignment.professor_id ?? assignment.professorId;
+
+    if (roomChanged && (professorId === null || professorId === undefined)) {
+      alert("❌ Professor ID is missing.");
+      return;
+    }
+
     if (!supervisorChanged && !roomChanged) {
       cancelEditing();
       return;
@@ -1549,7 +1556,12 @@ export default function PlanResult() {
       }
 
       if (roomChanged) {
-        await updateRoomNumber(planId, Number(sessionGroupId), newRoom);
+        await updateProfessorRoom(
+          planId,
+          Number(professorId),
+          newRoom,
+          getProfessorName(assignment),
+        );
       }
 
       const selectedSupervisor =
@@ -1572,23 +1584,32 @@ export default function PlanResult() {
 
       setPlanData((prev) =>
         prev.map((item) => {
-          if (String(getSessionGroupId(item)) !== String(sessionGroupId)) {
-            return item;
-          }
+          let updated = item;
 
-          return {
-            ...item,
-            ...(supervisorChanged && {
+          if (
+            supervisorChanged &&
+            String(getSessionGroupId(item)) === String(sessionGroupId)
+          ) {
+            updated = {
+              ...updated,
               supervisor_id: targetSupervisorId,
               supervisorId: targetSupervisorId,
               supervisor_name: newSupervisorName,
               supervisor: newSupervisorName,
-            }),
-            ...(roomChanged && {
+            };
+          }
+
+          const itemProfessorId = item.professor_id ?? item.professorId;
+
+          if (roomChanged && String(itemProfessorId) === String(professorId)) {
+            updated = {
+              ...updated,
               room_number: newRoom,
               roomNumber: newRoom,
-            }),
-          };
+            };
+          }
+
+          return updated;
         }),
       );
 
@@ -2820,6 +2841,12 @@ export default function PlanResult() {
                       <th>Professor</th>
 
                       <th>Studio</th>
+                      <small
+                        className="affinity-note"
+                        style={{ display: "block" }}
+                      >
+                        يغيّر قاعة الأستاذ في كل جلساته
+                      </small>
 
                       <th>Date</th>
 

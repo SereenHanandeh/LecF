@@ -26,11 +26,18 @@ export const generatePlan = (
     })
     .then((res) => res.data);
 
-    export const updateRoomNumber = (planId, sessionGroupId, roomNumber) =>
+  export const updateProfessorRoom = (
+  planId,
+  professorId,
+  roomNumber,
+  professorName,
+) =>
   api
-    .put(`/plan/${planId}/group/${sessionGroupId}/room`, { roomNumber })
+    .put(`/plan/${planId}/professor/${professorId}/room`, {
+      roomNumber,
+      professorName,
+    })
     .then((res) => res.data);
-
 export const getPlan = async (planId) => {
   console.log("🔎 getPlan planId:", planId);
 
