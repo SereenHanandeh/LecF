@@ -205,7 +205,7 @@ export default function Plans() {
 
   const [supervisorStats, setSupervisorStats] = useState([]);
 
- 
+ const [expandedSupervisorId, setExpandedSupervisorId] = useState(null);
 
   // ===================================================
   // Load Plans
@@ -360,6 +360,43 @@ export default function Plans() {
   // Stats
   // ===================================================
   const totalPlans = acceptedPlans.length;
+
+  const statsSummary = useMemo(() => {
+  const counts = supervisorStats.map((s) => Number(s.total_periods || 0));
+
+  const max = counts.length ? Math.max(...counts) : 0;
+  const min = counts.length ? Math.min(...counts) : 0;
+
+  return {
+    supervisors: supervisorStats.length,
+    totalPeriods: counts.reduce((sum, n) => sum + n, 0),
+    max,
+    difference: max - min,
+  };
+}, [supervisorStats]);
+
+const getSupervisorPlans = (supervisor) => {
+  const raw = Array.isArray(supervisor.plans) ? supervisor.plans : [];
+
+  return raw
+    .map((p) => ({
+      planId: p.plan_id ?? p.id,
+      dateFrom: p.date_from,
+      dateTo: p.date_to,
+      periods: Number(p.periods ?? 0),
+    }))
+    .sort(
+      (a, b) =>
+        new Date(a.dateFrom ?? 0).getTime() -
+        new Date(b.dateFrom ?? 0).getTime(),
+    );
+};
+
+const toggleSupervisor = (id) =>
+  setExpandedSupervisorId((prev) =>
+    String(prev) === String(id) ? null : id,
+  );
+
   // ===================================================
   // Open Plan
   // ===================================================
@@ -446,58 +483,155 @@ export default function Plans() {
           </button>
         </header>
 
-        <section className="supervisor-total-stats">
-          <div className="supervisor-total-header">
-            <div>
-              <h2>إحصائيات المشرفين</h2>
-              <p>
-                إجمالي الفترات التي حصل عليها كل مشرف في جميع الخطط المقبولة.
-              </p>
-            </div>
-          </div>
+       <section className="sup-stats-card">
+  <div className="sup-stats-head">
+    <div>
+      <h2>إحصائيات المشرفين</h2>
+      <p>إجمالي الفترات لكل مشرف في الخطط المقبولة. اضغط على الاسم لعرض خططه.</p>
+    </div>
 
-          {supervisorStats.length === 0 ? (
-            <div className="supervisor-stats-empty">
-              لا توجد بيانات إحصائية للخطط المقبولة.
-            </div>
-          ) : (
-            <div className="supervisor-stats-table-wrapper">
-              <table className="supervisor-stats-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>المشرف</th>
-                    <th>الفترات</th>
-                    <th>التعيينات</th>
-                    <th>عدد الخطط</th>
+    {supervisorStats.length > 0 && (
+      <div className="sup-stats-chips">
+        <div className="sup-chip">
+          <span>المشرفون</span>
+          <strong>{statsSummary.supervisors}</strong>
+        </div>
+        <div className="sup-chip">
+          <span>إجمالي الفترات</span>
+          <strong>{statsSummary.totalPeriods}</strong>
+        </div>
+        <div className="sup-chip">
+          <span>فرق التوزيع</span>
+          <strong>{statsSummary.difference}</strong>
+        </div>
+      </div>
+    )}
+  </div>
+
+  {supervisorStats.length === 0 ? (
+    <div className="supervisor-stats-empty">
+      لا توجد بيانات إحصائية للخطط المقبولة.
+    </div>
+  ) : (
+    <div className="sup-stats-table-wrap">
+      <table className="sup-stats-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>المشرف</th>
+            <th>الفترات</th>
+            <th>التعيينات</th>
+            <th>الخطط</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {supervisorStats.map((supervisor, index) => {
+            const id = supervisor.supervisor_id;
+            const periods = Number(supervisor.total_periods || 0);
+            const percent = statsSummary.max
+              ? Math.round((periods / statsSummary.max) * 100)
+              : 0;
+
+            const isOpen = String(expandedSupervisorId) === String(id);
+            const supervisorPlans = getSupervisorPlans(supervisor);
+
+            return (
+              <React.Fragment key={id}>
+                <tr className={isOpen ? "sup-row open" : "sup-row"}>
+                  <td>
+                    <span className={`sup-rank rank-${index < 3 ? index + 1 : "n"}`}>
+                      {index + 1}
+                    </span>
+                  </td>
+
+                  <td>
+                    <button
+                      type="button"
+                      className="sup-name-btn"
+                      onClick={() => toggleSupervisor(id)}
+                      aria-expanded={isOpen}
+                    >
+                      <span className="sup-avatar">
+                        {String(supervisor.supervisor_name || "?").charAt(0)}
+                      </span>
+
+                      <span className="sup-name">{supervisor.supervisor_name}</span>
+
+                      <span className={isOpen ? "sup-chevron open" : "sup-chevron"}>
+                        {Icons.arrow}
+                      </span>
+                    </button>
+                  </td>
+
+                  <td>
+                    <div className="sup-progress-cell">
+                      <span className="stats-period-count">{periods}</span>
+
+                      <div className="sup-progress">
+                        <div className="sup-progress-fill" style={{ width: `${percent}%` }} />
+                      </div>
+                    </div>
+                  </td>
+
+                  <td>{Number(supervisor.total_assignments || 0)}</td>
+
+                  <td>
+                    <span className="sup-plans-count">
+                      {Number(supervisor.accepted_plans || 0)}
+                    </span>
+                  </td>
+                </tr>
+
+                {isOpen && (
+                  <tr className="sup-detail-row">
+                    <td colSpan={5}>
+                      <div className="sup-detail">
+                        <div className="sup-detail-title">
+                          خطط {supervisor.supervisor_name}
+                        </div>
+
+                        {supervisorPlans.length === 0 ? (
+                          <div className="sup-detail-empty">لا توجد خطط لعرضها.</div>
+                        ) : (
+                          <div className="sup-plan-list">
+                            {supervisorPlans.map((p) => (
+                              <div className="sup-plan-item" key={p.planId}>
+                                <div className="sup-plan-icon">{Icons.calendar}</div>
+
+                                <div className="sup-plan-info">
+                                  <strong>
+                                    خطة {planNumbers.get(String(p.planId)) ?? p.planId}
+                                  </strong>
+                                  <span>{formatDateRange(p.dateFrom, p.dateTo)}</span>
+                                  <small>{formatWeekdayRange(p.dateFrom, p.dateTo)}</small>
+                                </div>
+
+                                <span className="sup-plan-periods">{p.periods} فترة</span>
+
+                                <button
+                                  type="button"
+                                  className="sup-plan-open"
+                                  onClick={() => openPlan(p.planId)}
+                                >
+                                  فتح
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-
-                <tbody>
-                  {supervisorStats.map((supervisor, index) => (
-                    <tr key={supervisor.supervisor_id}>
-                      <td>{index + 1}</td>
-
-                      <td>
-                        <strong>{supervisor.supervisor_name}</strong>
-                      </td>
-
-                      <td>
-                        <span className="stats-period-count">
-                          {Number(supervisor.total_periods || 0)}
-                        </span>
-                      </td>
-
-                      <td>{Number(supervisor.total_assignments || 0)}</td>
-
-                      <td>{Number(supervisor.accepted_plans || 0)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  )}
+</section>
         {/* =================================================
             Statistics
         ================================================= */}

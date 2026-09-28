@@ -1,6 +1,6 @@
 import React from "react";
 import Sidebar from "../components/Sidebar.jsx";
-import "./simple-page.css";
+import "../assets/simple-page.css";
 
 export default function Settings() {
   return (
