@@ -262,13 +262,14 @@ export default function Dashboard() {
 
   const [dateMode, setDateMode] = useState("single");
 
+  const [
+    twoProfessorsPerSupervisorEnabled,
+    setTwoProfessorsPerSupervisorEnabled,
+  ] = useState(false);
 
-  const [twoProfessorsPerSupervisorEnabled, setTwoProfessorsPerSupervisorEnabled] = useState(false);
-
-useEffect(() => {
-  setTwoProfessorsPerSupervisorEnabled(false);
-}, [planCategory]);
-
+  useEffect(() => {
+    setTwoProfessorsPerSupervisorEnabled(false);
+  }, [planCategory]);
 
   /* =========================================================
      Derived data
@@ -404,13 +405,13 @@ useEffect(() => {
   }, [selectedDateRows, dateMode]);
 
   // أعلى فترة من حيث عدد الأساتذة
-const busiestPeriod = useMemo(() => {
-  if (!periodProfessorCounts.length) return null;
+  const busiestPeriod = useMemo(() => {
+    if (!periodProfessorCounts.length) return null;
 
-  return periodProfessorCounts.reduce((max, item) =>
-    item.count > max.count ? item : max,
-  );
-}, [periodProfessorCounts]);
+    return periodProfessorCounts.reduce((max, item) =>
+      item.count > max.count ? item : max,
+    );
+  }, [periodProfessorCounts]);
 
   // الفترات التي تتجاوز الحد الأقصى (6) لفئة "متطلبات"
   const periodsOverRequirementLimit = useMemo(() => {
@@ -865,7 +866,7 @@ const busiestPeriod = useMemo(() => {
           minimumPeriods: MINIMUM_PERIODS,
           affinities,
           selectedSupervisors: normalizedSupervisorIds,
-          twoProfessorsPerSupervisorEnabled
+          twoProfessorsPerSupervisorEnabled,
         },
       });
     } catch (error) {
@@ -1008,24 +1009,6 @@ const busiestPeriod = useMemo(() => {
               <strong>{professors.length}</strong>
             </div>
           </div>
-
-          <div className="stat-item">
-  <span className="stat-icon orange">{Icons.users}</span>
-
-  <div>
-    <span>أعلى فترة</span>
-    <strong>
-      {busiestPeriod ? `${busiestPeriod.count} أستاذ` : "—"}
-    </strong>
-    {busiestPeriod && (
-      <small>
-        {dateMode === "all"
-          ? `${formatDate(busiestPeriod.date)} - ${busiestPeriod.period}`
-          : busiestPeriod.period}
-      </small>
-    )}
-  </div>
-</div>
 
           <div className="stat-item">
             <span className="stat-icon red">{Icons.warning}</span>
@@ -1222,6 +1205,26 @@ const busiestPeriod = useMemo(() => {
                         <span>الأساتذة</span>
                         <strong>{selectedDateProfessors}</strong>
                       </div>
+
+                      <div className="stat-item">
+                        <span className="stat-icon orange">{Icons.users}</span>
+
+                        <div>
+                          <span>أعلى فترة</span>
+                          <strong>
+                            {busiestPeriod
+                              ? `${busiestPeriod.count} أستاذ`
+                              : "—"}
+                          </strong>
+                          {busiestPeriod && (
+                            <small>
+                              {dateMode === "all"
+                                ? `${formatDate(busiestPeriod.date)} - ${busiestPeriod.period}`
+                                : busiestPeriod.period}
+                            </small>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -1323,26 +1326,27 @@ const busiestPeriod = useMemo(() => {
                 </span>
               )}
 
-             {(planCategory === "دبلوم" || planCategory === "مدمج") && (
-  <label className="minimum-period-option">
-    <input
-      type="checkbox"
-      checked={twoProfessorsPerSupervisorEnabled}
-      onChange={(e) =>
-        setTwoProfessorsPerSupervisorEnabled(e.target.checked)
-      }
-    />
-    <span className="minimum-period-check">
-      {twoProfessorsPerSupervisorEnabled && Icons.check}
-    </span>
-    <span className="minimum-period-label">
-      <strong>تخصيص مشرفَين لكل دكتور</strong>
-      <small>
-        بدل مشرف واحد، يُخصَّص مشرفان فقط لكل دكتور بالتناوب على الفترات.
-      </small>
-    </span>
-  </label>
-)}
+              {(planCategory === "دبلوم" || planCategory === "مدمج") && (
+                <label className="minimum-period-option">
+                  <input
+                    type="checkbox"
+                    checked={twoProfessorsPerSupervisorEnabled}
+                    onChange={(e) =>
+                      setTwoProfessorsPerSupervisorEnabled(e.target.checked)
+                    }
+                  />
+                  <span className="minimum-period-check">
+                    {twoProfessorsPerSupervisorEnabled && Icons.check}
+                  </span>
+                  <span className="minimum-period-label">
+                    <strong>تخصيص مشرفَين لكل دكتور</strong>
+                    <small>
+                      بدل مشرف واحد، يُخصَّص مشرفان فقط لكل دكتور بالتناوب على
+                      الفترات.
+                    </small>
+                  </span>
+                </label>
+              )}
             </div>
 
             <div className="plan-category-grid">
@@ -1814,53 +1818,58 @@ const busiestPeriod = useMemo(() => {
                 </div>
               )}
 
-             {roomAssignments.length > 0 ? (
-  <div className="room-summary">
-    <div className="room-summary-head">
-      <span>ملخص التوزيع</span>
-      <strong>{roomAssignments.length}</strong>
-    </div>
+              {roomAssignments.length > 0 ? (
+                <div className="room-summary">
+                  <div className="room-summary-head">
+                    <span>ملخص التوزيع</span>
+                    <strong>{roomAssignments.length}</strong>
+                  </div>
 
-    <div className="room-summary-scroll">
-      {periodProfessorGroups.map((group) => {
-        const items = roomAssignments.filter(
-          (item) =>
-            item.period === group.period &&
-            (dateMode !== "all" || item.date === group.date),
-        );
+                  <div className="room-summary-scroll">
+                    {periodProfessorGroups.map((group) => {
+                      const items = roomAssignments.filter(
+                        (item) =>
+                          item.period === group.period &&
+                          (dateMode !== "all" || item.date === group.date),
+                      );
 
-        if (!items.length) return null;
+                      if (!items.length) return null;
 
-        return (
-          <div className="room-group" key={group.key}>
-            <div className="room-group-title">
-              {dateMode === "all"
-                ? `${formatDate(group.date)} - ${group.period}`
-                : group.period}
-              <small>{items.length}</small>
-            </div>
+                      return (
+                        <div className="room-group" key={group.key}>
+                          <div className="room-group-title">
+                            {dateMode === "all"
+                              ? `${formatDate(group.date)} - ${group.period}`
+                              : group.period}
+                            <small>{items.length}</small>
+                          </div>
 
-            {items.map((item) => (
-              <div
-                className="room-row"
-                key={`${group.key}-${item.professorName}`}
-              >
-                <span className="room-row-name" title={item.professorName}>
-                  {item.professorName}
-                </span>
-                <span className="room-badge">قاعة {item.roomNumber}</span>
-              </div>
-            ))}
-          </div>
-        );
-      })}
-    </div>
-  </div>
-) : (
-  <div className="minimum-period-disabled">
-    لا يوجد أساتذة لتوزيعهم على القاعات بعد
-  </div>
-)}
+                          {items.map((item) => (
+                            <div
+                              className="room-row"
+                              key={`${group.key}-${item.professorName}`}
+                            >
+                              <span
+                                className="room-row-name"
+                                title={item.professorName}
+                              >
+                                {item.professorName}
+                              </span>
+                              <span className="room-badge">
+                                قاعة {item.roomNumber}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="minimum-period-disabled">
+                  لا يوجد أساتذة لتوزيعهم على القاعات بعد
+                </div>
+              )}
             </div>
           </aside>
         </section>
