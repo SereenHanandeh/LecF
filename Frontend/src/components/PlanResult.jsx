@@ -326,6 +326,23 @@ const getCourseName = (assignment) => {
 const getPeriod = (assignment) =>
   assignment.period_label ?? assignment.period ?? "-";
 
+
+  // =====================================================
+// Period Colors (Excel)
+// =====================================================
+
+const PERIOD_COLORS = [
+  "FFDBEAFE", // أزرق فاتح
+  "FFDCFCE7", // أخضر فاتح
+  "FFFEF9C3", // أصفر فاتح
+  "FFFCE7F3", // وردي فاتح
+  "FFEDE9FE", // بنفسجي فاتح
+  "FFFFEDD5", // برتقالي فاتح
+  "FFCCFBF1", // تركوازي فاتح
+  "FFFEE2E2", // أحمر فاتح
+];
+
+
 // =====================================================
 // Component
 // =====================================================
@@ -405,6 +422,51 @@ export default function PlanResult() {
   const [editingId, setEditingId] = useState(null);
   const [savingId, setSavingId] = useState(null);
 
+
+// كل فترة تأخذ لونًا ثابتًا (نفس اللون في كل الشيتات)
+const buildPeriodColorMap = (data) => {
+  const periods = [
+    ...new Set(
+      data.map(getPeriod).filter((value) => value && value !== "-"),
+    ),
+  ].sort((a, b) => String(a).localeCompare(String(b), "ar"));
+
+  const map = new Map();
+
+  periods.forEach((period, index) => {
+    map.set(period, PERIOD_COLORS[index % PERIOD_COLORS.length]);
+  });
+
+  return map;
+};
+
+const styleBodyByPeriod = (worksheet, periodColorMap) => {
+  worksheet.eachRow((row, rowNumber) => {
+    if (rowNumber === 1) return;
+
+    const period = String(row.getCell("period").value ?? "");
+    const color = periodColorMap.get(period);
+
+    row.eachCell((cell) => {
+      cell.alignment = { vertical: "middle", horizontal: "center" };
+
+      cell.border = {
+        top: { style: "thin", color: { argb: "FFE5E7EB" } },
+        bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
+        left: { style: "thin", color: { argb: "FFE5E7EB" } },
+        right: { style: "thin", color: { argb: "FFE5E7EB" } },
+      };
+
+      if (color) {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: color },
+        };
+      }
+    });
+  });
+};
   // =====================================================
   // Mounted Ref
   // =====================================================
@@ -1584,6 +1646,9 @@ export default function PlanResult() {
         return;
       }
 
+          const periodColorMap = buildPeriodColorMap(planData);
+
+
       const workbook = new ExcelJS.Workbook();
       workbook.creator = "Lecture Supervisor System";
       workbook.created = new Date();
@@ -1644,18 +1709,7 @@ export default function PlanResult() {
         });
       };
 
-      const styleBody = (worksheet) => {
-        worksheet.eachRow((row, rowNumber) => {
-          if (rowNumber === 1) return;
-
-          row.eachCell((cell) => {
-            cell.alignment = { vertical: "middle", horizontal: "center" };
-            cell.border = {
-              bottom: { style: "hair", color: { argb: "FFE5E7EB" } },
-            };
-          });
-        });
-      };
+      
 
       // =========================================
       // شيت 1: الخطة الكاملة
@@ -1667,8 +1721,9 @@ export default function PlanResult() {
 
       mainSheet.columns = columns;
       dataToExport.forEach((a) => mainSheet.addRow(toRow(a)));
-      styleHeader(mainSheet);
-      styleBody(mainSheet);
+
+styleHeader(mainSheet);
+styleBodyByPeriod(mainSheet, periodColorMap);
 
       // =========================================
       // تجميع البيانات حسب المشرف
@@ -1729,7 +1784,7 @@ export default function PlanResult() {
         sheet.columns = columns;
         rows.forEach((a) => sheet.addRow(toRow(a)));
         styleHeader(sheet);
-        styleBody(sheet);
+        styleBodyByPeriod(sheet, periodColorMap);
       }
 
       // =========================================
@@ -1790,6 +1845,9 @@ export default function PlanResult() {
 
       const cleanTitle = sheetTitle.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
 
+      // نبني الألوان من الخطة كاملة كي تبقى ألوان الفترات ثابتة حتى مع الفلتر
+const periodColorMap = buildPeriodColorMap(planData);
+
       const sheet = workbook.addWorksheet(cleanTitle || "الخطة", {
         views: [{ rightToLeft: true }],
       });
@@ -1835,17 +1893,7 @@ export default function PlanResult() {
           right: { style: "thin", color: { argb: "FFB0B0B0" } },
         };
       });
-
-      sheet.eachRow((row, rowNumber) => {
-        if (rowNumber === 1) return;
-
-        row.eachCell((cell) => {
-          cell.alignment = { vertical: "middle", horizontal: "center" };
-          cell.border = {
-            bottom: { style: "hair", color: { argb: "FFE5E7EB" } },
-          };
-        });
-      });
+styleBodyByPeriod(sheet, periodColorMap);
 
       const buffer = await workbook.xlsx.writeBuffer();
 
