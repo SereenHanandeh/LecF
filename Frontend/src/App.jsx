@@ -6,6 +6,8 @@ import "./App.css";
 import Plans from "./components/Plans.jsx";
 import Supervisors from "./components/Supervisors.jsx";
 import Settings from "./components/Settings.jsx";
+import SupervisorReport from "./components/SupervisorReport.jsx";
+
 
 function App() {
   return (
@@ -17,6 +19,7 @@ function App() {
           <Route path="/plans" element={<Plans />} />
           <Route path="/supervisors" element={<Supervisors />} />
           <Route path="/settings" element={<Settings />} />
+          <Route path="/supervisor-report/:supervisorId" element={<SupervisorReport />} />
         </Routes>
       </Router>
     </div>

@@ -87,6 +87,8 @@ const Icons = {
   ),
 };
 
+
+
 // =====================================================
 // Helpers
 // =====================================================
@@ -106,6 +108,7 @@ function formatDate(dateValue) {
     day: "numeric",
   }).format(date);
 }
+
 
 function formatDateRange(from, to) {
   if (!from || !to) {
@@ -200,7 +203,6 @@ export default function Plans() {
 
   const [supervisorStats, setSupervisorStats] = useState([]);
 
-  const [expandedSupervisorId, setExpandedSupervisorId] = useState(null);
 
   // ===================================================
   // Load Plans
@@ -389,28 +391,7 @@ export default function Plans() {
     return map;
   }, [supervisorStats]);
 
-  const getSupervisorPlans = (supervisor) => {
-    const raw = Array.isArray(supervisor.plans) ? supervisor.plans : [];
-
-    return raw
-      .map((p) => ({
-        planId: p.plan_id ?? p.id,
-        dateFrom: p.date_from,
-        dateTo: p.date_to,
-        periods: Number(p.periods ?? 0),
-        assignments: Number(p.assignments ?? 0),
-      }))
-      .sort(
-        (a, b) =>
-          new Date(a.dateFrom ?? 0).getTime() -
-          new Date(b.dateFrom ?? 0).getTime(),
-      );
-  };
-
-  const toggleSupervisor = (id) =>
-    setExpandedSupervisorId((prev) =>
-      String(prev) === String(id) ? null : id,
-    );
+ 
 
   // ===================================================
   // Open Plan
@@ -421,6 +402,11 @@ export default function Plans() {
 
     navigate(`/plan-result/${planId}`);
   }
+
+
+  function openSupervisorReport(supervisorId) {
+  navigate(`/supervisor-report/${supervisorId}`);
+}
 
   // ===================================================
   // Delete Plan
@@ -543,144 +529,61 @@ export default function Plans() {
                 </thead>
 
                 <tbody>
-                  {supervisorStats.map((supervisor, index) => {
-                    const id = supervisor.supervisor_id;
-                    const periods = Number(supervisor.total_periods || 0);
-                    const percent = statsSummary.max
-                      ? Math.round((periods / statsSummary.max) * 100)
-                      : 0;
+                 {supervisorStats.map((supervisor, index) => {
+  const id = supervisor.supervisor_id;
+  const periods = Number(supervisor.total_periods || 0);
+  const percent = statsSummary.max
+    ? Math.round((periods / statsSummary.max) * 100)
+    : 0;
 
-                    const isOpen = String(expandedSupervisorId) === String(id);
-                    const supervisorPlans = getSupervisorPlans(supervisor);
+  return (
+    <tr className="sup-row" key={id}>
+      <td>
+        <span className={`sup-rank rank-${index < 3 ? index + 1 : "n"}`}>
+          {index + 1}
+        </span>
+      </td>
 
-                    return (
-                      <React.Fragment key={id}>
-                        <tr className={isOpen ? "sup-row open" : "sup-row"}>
-                          <td>
-                            <span
-                              className={`sup-rank rank-${index < 3 ? index + 1 : "n"}`}
-                            >
-                              {index + 1}
-                            </span>
-                          </td>
+      <td>
+        <button
+          type="button"
+          className="sup-name-btn"
+          onClick={() => openSupervisorReport(id)}
+          title="عرض تقرير المشرف"
+        >
+          <span className="sup-avatar">
+            {String(supervisor.supervisor_name || "?").charAt(0)}
+          </span>
 
-                          <td>
-                            <button
-                              type="button"
-                              className="sup-name-btn"
-                              onClick={() => toggleSupervisor(id)}
-                              aria-expanded={isOpen}
-                            >
-                              <span className="sup-avatar">
-                                {String(
-                                  supervisor.supervisor_name || "?",
-                                ).charAt(0)}
-                              </span>
+          <span className="sup-name">{supervisor.supervisor_name}</span>
 
-                              <span className="sup-name">
-                                {supervisor.supervisor_name}
-                              </span>
+          <span className="sup-chevron">{Icons.arrow}</span>
+        </button>
+      </td>
 
-                              <span
-                                className={
-                                  isOpen ? "sup-chevron open" : "sup-chevron"
-                                }
-                              >
-                                {Icons.arrow}
-                              </span>
-                            </button>
-                          </td>
+      <td>
+        <div className="sup-progress-cell">
+          <span className="stats-period-count">{periods}</span>
 
-                          <td>
-                            <div className="sup-progress-cell">
-                              <span className="stats-period-count">
-                                {periods}
-                              </span>
+          <div className="sup-progress">
+            <div
+              className="sup-progress-fill"
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+        </div>
+      </td>
 
-                              <div className="sup-progress">
-                                <div
-                                  className="sup-progress-fill"
-                                  style={{ width: `${percent}%` }}
-                                />
-                              </div>
-                            </div>
-                          </td>
+      <td>{Number(supervisor.total_assignments || 0)}</td>
 
-                          <td>{Number(supervisor.total_assignments || 0)}</td>
-
-                          <td>
-                            <span className="sup-plans-count">
-                              {Number(supervisor.accepted_plans || 0)}
-                            </span>
-                          </td>
-                        </tr>
-
-                        {isOpen && (
-                          <tr className="sup-detail-row">
-                            <td colSpan={5}>
-                              <div className="sup-detail">
-                                <div className="sup-detail-title">
-                                  خطط {supervisor.supervisor_name}
-                                </div>
-
-                                {supervisorPlans.length === 0 ? (
-                                  <div className="sup-detail-empty">
-                                    لا توجد خطط لعرضها.
-                                  </div>
-                                ) : (
-                                  <div className="sup-plan-list">
-                                    {supervisorPlans.map((p) => (
-                                      <div
-                                        className="sup-plan-item"
-                                        key={p.planId}
-                                      >
-                                        <div className="sup-plan-icon">
-                                          {Icons.calendar}
-                                        </div>
-
-                                        <div className="sup-plan-info">
-                                          <strong>
-                                            خطة{" "}
-                                            {planNumbers.get(
-                                              String(p.planId),
-                                            ) ?? p.planId}
-                                          </strong>
-                                          <span>
-                                            {formatDateRange(
-                                              p.dateFrom,
-                                              p.dateTo,
-                                            )}
-                                          </span>
-                                          <small>
-                                            {formatWeekdayRange(
-                                              p.dateFrom,
-                                              p.dateTo,
-                                            )}
-                                          </small>
-                                        </div>
-
-                                        <span className="sup-plan-periods">
-                                          {p.periods} فترة · {p.assignments}{" "}
-                                          تعيين
-                                        </span>
-                                        <button
-                                          type="button"
-                                          className="sup-plan-open"
-                                          onClick={() => openPlan(p.planId)}
-                                        >
-                                          فتح
-                                        </button>
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
+      <td>
+        <span className="sup-plans-count">
+          {Number(supervisor.accepted_plans || 0)}
+        </span>
+      </td>
+    </tr>
+  );
+})}
                 </tbody>
               </table>
             </div>
