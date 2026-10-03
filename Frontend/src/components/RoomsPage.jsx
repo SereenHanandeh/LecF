@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { listRooms, createRoom, updateRoom, deleteRoom } from "../api.js";
 import Sidebar from "../components/Sidebar.jsx";
-import "./dashboard.css";
+import "../pages/dashboard.css";
 import "../assets/RoomsPage.css";
 
 const CATEGORY_OPTIONS = ["مدمج", "دبلوم", "متطلبات"];
