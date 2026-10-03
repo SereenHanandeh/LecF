@@ -206,13 +206,6 @@ const Icons = {
   ),
 };
 
-/* =========================================================
-   Rooms
-   - القاعات وفئاتها ووسومها (tag) تأتي من قاعدة البيانات عبر listRooms
-   - القاعات الخاصة (100/101/102) تظهر دائمًا في قوائم الاختيار
-   - القاعات التي لها tag (out / mentor / خاصة) تُعامل كأقل أولوية بالتوزيع التلقائي
-========================================================= */
-
 // قاعات خاصة: متاحة للربط واليدوي ولاختيار التلقائي لكل الفئات
 const SPECIAL_ROOMS = ["100", "101", "102"];
 
@@ -268,6 +261,8 @@ export default function Dashboard() {
 
   // استخدام القاعات 1-5 فقط (استبعاد قاعة 6 out) لفئة "متطلبات"
   const [requirementsOneToFive, setRequirementsOneToFive] = useState(false);
+
+  const [groupRoomsBySupervisor, setGroupRoomsBySupervisor] = useState(true);
 
   // ربط قاعة بأستاذ أو أكثر: [{ roomNumber, professorNames: [] }]
   const [roomLinks, setRoomLinks] = useState([]);
@@ -366,6 +361,11 @@ export default function Dashboard() {
       return Number(a) - Number(b);
     });
 
+  const autoRoomPool = sortRoomsByPriority(
+    selectedRoomsForAuto.length
+      ? selectedRoomsForAuto.filter((room) => selectableRooms.includes(room))
+      : allowedRooms,
+  );
   /* =========================================================
      Derived data
   ========================================================= */
@@ -865,15 +865,15 @@ export default function Dashboard() {
       ? selectedRoomsForAuto.filter((room) => selectableRooms.includes(room))
       : allowedRooms;
 
-    // القاعات ذات الوسم بآخر القائمة، فما تُستخدم إلا عند الحاجة
     const roomsPool = sortRoomsByPriority(basePool);
 
-    const lastRoomOfProfessor = new Map(); // لتقليل تغيير قاعة الأستاذ بين الفترات
+    const lastRoomOfProfessor = new Map();
     const newAssignments = [];
 
     for (const group of periodProfessorGroups) {
       const usedRooms = new Set();
       const roomOf = new Map();
+      const pinnedNames = new Set();
 
       // 1) الأساتذة المربوطون بقاعة (إذا تعارضوا بنفس الفترة، الثاني يُوزَّع تلقائيًا)
       group.professors.forEach((p) => {
@@ -882,13 +882,12 @@ export default function Dashboard() {
         if (linked && !usedRooms.has(linked)) {
           usedRooms.add(linked);
           roomOf.set(p.professorName, linked);
+          pinnedNames.add(p.professorName);
         }
       });
 
       // 2) الباقي تلقائي من القاعات الفاضية بنفس الفترة
-      const rest = group.professors.filter(
-        (p) => !roomOf.has(p.professorName),
-      );
+      const rest = group.professors.filter((p) => !roomOf.has(p.professorName));
       const freeRooms = roomsPool.filter((room) => !usedRooms.has(room));
 
       if (freeRooms.length < rest.length) {
@@ -922,6 +921,7 @@ export default function Dashboard() {
 
         newAssignments.push({
           professorId: p.professorId,
+          pinned: pinnedNames.has(p.professorName),
           professorName: p.professorName,
           date: group.date,
           period: group.period,
@@ -1055,6 +1055,12 @@ export default function Dashboard() {
         category: planCategory,
         planCategory,
         plan_category: planCategory,
+
+        roomConfig: {
+          groupBySupervisor:
+            groupRoomsBySupervisor && roomAssignMode === "auto",
+          pool: autoRoomPool,
+        },
       };
 
       const created = await createPlan(createPayload);
@@ -1689,10 +1695,10 @@ export default function Dashboard() {
                     <div>
                       <strong>تجاوز الحد الأقصى للقاعات في بعض الفترات</strong>
                       <span>
-                        فئة "متطلبات" تحتوي على {allowedRooms.length} قاعات فقط (
-                        {formatRoomRanges(allowedRooms)})، ولا يمكن أن يتجاوز
-                        عدد الأساتذة في نفس الفترة {allowedRooms.length}{" "}
-                        أساتذة. الفترات المتجاوزة:{" "}
+                        فئة "متطلبات" تحتوي على {allowedRooms.length} قاعات فقط
+                        ({formatRoomRanges(allowedRooms)})، ولا يمكن أن يتجاوز
+                        عدد الأساتذة في نفس الفترة {allowedRooms.length} أساتذة.
+                        الفترات المتجاوزة:{" "}
                         {periodsOverRequirementLimit
                           .map((item) =>
                             dateMode === "all"
@@ -1992,7 +1998,24 @@ export default function Dashboard() {
                       مسح التحديد (توزيع على كل قاعات الفئة)
                     </button>
                   )}
-
+<label className="minimum-period-option" style={{ marginTop: "12px" }}>
+  <input
+    type="checkbox"
+    checked={groupRoomsBySupervisor}
+    onChange={(e) => setGroupRoomsBySupervisor(e.target.checked)}
+  />
+  <span className="minimum-period-check">
+    {groupRoomsBySupervisor && Icons.check}
+  </span>
+  <span className="minimum-period-label">
+    <strong>قاعة وحدة لدكاترة نفس المشرف</strong>
+    <small>
+      بعد توزيع المشرفين، دكاترة المشرف الواحد بياخدوا قاعة وحدة إذا ما في تداخل
+      بالفترات، وإذا في تداخل بيروح الدكتور لقاعة ثانية. القاعات المعروضة هون
+      مبدئية وبتتعدل بالخطة النهائية.
+    </small>
+  </span>
+</label>
                   {/* ربط قاعة بأستاذ / أكثر */}
                   <div style={{ marginTop: "14px" }}>
                     <strong style={{ fontSize: "13px" }}>

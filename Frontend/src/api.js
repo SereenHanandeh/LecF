@@ -201,9 +201,6 @@ export const getAcceptedSupervisorStats = () =>
 // Rooms
 // ==============================
 
-// ==============================
-// Rooms
-// ==============================
 
 export const listRooms = (onlyActive = false) =>
   api
