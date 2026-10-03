@@ -1998,24 +1998,30 @@ export default function Dashboard() {
                       مسح التحديد (توزيع على كل قاعات الفئة)
                     </button>
                   )}
-<label className="minimum-period-option" style={{ marginTop: "12px" }}>
-  <input
-    type="checkbox"
-    checked={groupRoomsBySupervisor}
-    onChange={(e) => setGroupRoomsBySupervisor(e.target.checked)}
-  />
-  <span className="minimum-period-check">
-    {groupRoomsBySupervisor && Icons.check}
-  </span>
-  <span className="minimum-period-label">
-    <strong>قاعة وحدة لدكاترة نفس المشرف</strong>
-    <small>
-      بعد توزيع المشرفين، دكاترة المشرف الواحد بياخدوا قاعة وحدة إذا ما في تداخل
-      بالفترات، وإذا في تداخل بيروح الدكتور لقاعة ثانية. القاعات المعروضة هون
-      مبدئية وبتتعدل بالخطة النهائية.
-    </small>
-  </span>
-</label>
+                  <label
+                    className="minimum-period-option"
+                    style={{ marginTop: "12px" }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={groupRoomsBySupervisor}
+                      onChange={(e) =>
+                        setGroupRoomsBySupervisor(e.target.checked)
+                      }
+                    />
+                    <span className="minimum-period-check">
+                      {groupRoomsBySupervisor && Icons.check}
+                    </span>
+                    <span className="minimum-period-label">
+                      <strong>قاعة وحدة لدكاترة نفس المشرف</strong>
+                      <small>
+                        بعد توزيع المشرفين، دكاترة المشرف الواحد بياخدوا قاعة
+                        وحدة إذا ما في تداخل بالفترات، وإذا في تداخل بيروح
+                        الدكتور لقاعة ثانية. القاعات المعروضة هون مبدئية وبتتعدل
+                        بالخطة النهائية.
+                      </small>
+                    </span>
+                  </label>
                   {/* ربط قاعة بأستاذ / أكثر */}
                   <div style={{ marginTop: "14px" }}>
                     <strong style={{ fontSize: "13px" }}>

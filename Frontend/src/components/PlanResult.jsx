@@ -18,6 +18,7 @@ import {
   moveAssignment,
   updatePlanStatus,
   updateProfessorRoom,
+  listRooms,
 } from "../api.js";
 
 // =====================================================
@@ -410,6 +411,7 @@ export default function PlanResult() {
   const [affinities, setAffinities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [allRooms, setAllRooms] = useState([]);
 
   const [editingSupervisor, setEditingSupervisor] = useState("");
   const [allSupervisorsList, setAllSupervisorsList] = useState([]);
@@ -530,6 +532,15 @@ export default function PlanResult() {
       typeof editingSupervisor,
     );
   }, [editingSupervisor]);
+
+  useEffect(() => {
+    listRooms(true) // القاعات النشطة فقط
+      .then((list) => setAllRooms(Array.isArray(list) ? list : []))
+      .catch((err) => {
+        console.error("❌ Failed to load rooms:", err);
+        setAllRooms([]);
+      });
+  }, []);
 
   // =====================================================
   // Load Plan
@@ -1235,6 +1246,21 @@ export default function PlanResult() {
       planData.map(getProfessorName).filter((name) => name && name !== "-"),
     ).size;
   }, [planData]);
+
+  const roomOptions = useMemo(
+    () =>
+      [...allRooms]
+        .sort((a, b) =>
+          String(a.room_number).localeCompare(String(b.room_number), "en", {
+            numeric: true,
+          }),
+        )
+        .map((r) => ({
+          value: String(r.room_number),
+          label: r.tag ? `${r.room_number} (${r.tag})` : String(r.room_number),
+        })),
+    [allRooms],
+  );
 
   // =====================================================
   // Column Toggle
@@ -2196,15 +2222,13 @@ export default function PlanResult() {
             </div>
           </div>
           <div className="summary-card green">
-  <div className="summary-icon">👥</div>
+            <div className="summary-icon">👥</div>
 
-  <div>
-    <span>Supervisors</span>
-<strong>
-  {supervisorStats.length}
- 
-</strong>  </div>
-</div>
+            <div>
+              <span>Supervisors</span>
+              <strong>{supervisorStats.length}</strong>{" "}
+            </div>
+          </div>
           <div className="summary-card orange">
             <div className="summary-icon">📅</div>
 
@@ -2581,30 +2605,45 @@ export default function PlanResult() {
 
                           {visibleColumns.room && (
                             <td>
-                         {isEditing ? (
-  <div>
-    <input
-      type="text"
-      className="edit-room-input"
-      value={editingRoom}
-      onChange={(e) => setEditingRoom(e.target.value)}
-      disabled={isSaving}
-      style={{
-        width: "80px",
-        padding: "4px 6px",
-        border: "1px solid #d1d5db",
-        borderRadius: "6px",
-        textAlign: "center",
-      }}
-    />
+                              {isEditing ? (
+                                <select
+                                  className="edit-room-input"
+                                  value={editingRoom}
+                                  onChange={(e) =>
+                                    setEditingRoom(e.target.value)
+                                  }
+                                  disabled={isSaving}
+                                  style={{
+                                    minWidth: "110px",
+                                    padding: "4px 6px",
+                                    border: "1px solid #d1d5db",
+                                    borderRadius: "6px",
+                                    textAlign: "center",
+                                  }}
+                                >
+                                  <option value="">اختر القاعة</option>
 
-    <small className="affinity-note" style={{ display: "block" }}>
-      يغيّر قاعة الأستاذ في كل جلساته
-    </small>
-  </div>
-) : (
-  <span className="period-badge">{getRoomNumber(assignment)}</span>
-)}
+                                  {/* إذا القاعة الحالية مش ضمن القائمة (مثلاً غير نشطة) نعرضها برضو */}
+                                  {editingRoom &&
+                                    !roomOptions.some(
+                                      (r) => r.value === editingRoom,
+                                    ) && (
+                                      <option value={editingRoom}>
+                                        {editingRoom}
+                                      </option>
+                                    )}
+
+                                  {roomOptions.map((room) => (
+                                    <option key={room.value} value={room.value}>
+                                      {room.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              ) : (
+                                <span className="period-badge">
+                                  {getRoomNumber(assignment)}
+                                </span>
+                              )}
                             </td>
                           )}
                           {/* Date */}
@@ -2844,7 +2883,6 @@ export default function PlanResult() {
                       <th>Professor</th>
 
                       <th>Studio</th>
-                  
 
                       <th>Date</th>
 
