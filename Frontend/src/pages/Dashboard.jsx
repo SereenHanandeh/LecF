@@ -6,6 +6,7 @@ import {
   generatePlan,
   listSupervisors,
   setRoomAssignments,
+  listRooms,
 } from "../api.js";
 
 import PreviewTable from "../components/PreviewTable.jsx";
@@ -99,6 +100,14 @@ const normalizeSupervisorIds = (items = []) =>
   items
     .map((item) => Number(item?.id ?? item))
     .filter((id) => Number.isFinite(id));
+
+const getPeriodValue = (row) =>
+  row?.period_label ??
+  row?.period ??
+  row?.Period ??
+  row?.["الفترة"] ??
+  row?.["الفتره"] ??
+  "";
 
 /* =========================================================
    Icons
@@ -197,81 +206,17 @@ const Icons = {
   ),
 };
 
-const getPeriodValue = (row) =>
-  row?.period_label ??
-  row?.period ??
-  row?.Period ??
-  row?.["الفترة"] ??
-  row?.["الفتره"] ??
-  "";
-
 /* =========================================================
    Rooms
-   - القاعات: 1-16 و 40-46
-   - قاعة 6 = out ، قاعة 15 = mentor (آخر خيار بالتوزيع التلقائي)
-   - "متطلبات": قاعات 1-6 (أو 1-5 إذا فُعّل الخيار)
-   - "دبلوم" و "مدمج": القاعات 1-5 + 7-16 + 40/42/46/47/48/49 (قاعة 6 للمتطلبات فقط)
-   - القاعات الخاصة 100/101/102: ضمن قاعات دبلوم/مدمج (آخر أولوية مثل out/mentor)،
-     وللمتطلبات تنربط بأستاذ أو تنختار يدويًا فقط
+   - القاعات وفئاتها ووسومها (tag) تأتي من قاعدة البيانات عبر listRooms
+   - القاعات الخاصة (100/101/102) تظهر دائمًا في قوائم الاختيار
+   - القاعات التي لها tag (out / mentor / خاصة) تُعامل كأقل أولوية بالتوزيع التلقائي
 ========================================================= */
 
-const ROOM_LABELS = {
-  6: "out",
-  15: "mentor",
-  100: "خاصة",
-  101: "خاصة",
-  102: "خاصة",
-};
-
-// قاعات خاصة: متاحة للربط واليدوي ولاختيار التلقائي، وليست ضمن التوزيع الافتراضي
+// قاعات خاصة: متاحة للربط واليدوي ولاختيار التلقائي لكل الفئات
 const SPECIAL_ROOMS = ["100", "101", "102"];
 
-// قاعات المجموعة العليا (بدل 40-46)
-const HIGH_ROOMS = ["40", "42", "46", "47", "48", "49"];
-
-// قاعات تُستخدم فقط إذا ما في بديل
-const LOW_PRIORITY_ROOMS = ["6", "15", ...SPECIAL_ROOMS];
-
-const range = (from, to) =>
-  Array.from({ length: to - from + 1 }, (_, i) => String(from + i));
-
-const REQUIREMENT_ROOMS = range(1, 6); 
-
-const DIPLOMA_MERGED_ROOMS = [
-  ...range(1, 5), 
-  ...range(7, 16),
-  ...HIGH_ROOMS, 
-  ...SPECIAL_ROOMS, 
-];
-
-const VALID_ROOMS = [...range(1, 16), ...HIGH_ROOMS, ...SPECIAL_ROOMS];
-
-const roomLabel = (room) =>
-  ROOM_LABELS[room] ? `قاعة ${room} (${ROOM_LABELS[room]})` : `قاعة ${room}`;
-
-// يرجع مجموعة القاعات المسموحة حسب فئة الخطة الحالية
-const getRoomsPoolForCategory = (category, onlyOneToFive = false) => {
-  if (category === "متطلبات") {
-    return onlyOneToFive
-      ? REQUIREMENT_ROOMS.filter((room) => room !== "6")
-      : REQUIREMENT_ROOMS;
-  }
-
-  return DIPLOMA_MERGED_ROOMS;
-};
-
-// القاعات العادية أولًا (تصاعديًا) ثم out/mentor بالآخر
-const sortRoomsByPriority = (rooms) =>
-  [...rooms].sort((a, b) => {
-    const la = LOW_PRIORITY_ROOMS.includes(a) ? 1 : 0;
-    const lb = LOW_PRIORITY_ROOMS.includes(b) ? 1 : 0;
-
-    if (la !== lb) return la - lb;
-
-    return Number(a) - Number(b);
-  });
-
-// 7,8,...,16,40,... => "7–16، 40–46"
+// 7,8,...,16,40,... => "7–16، 40"
 const formatRoomRanges = (rooms) => {
   const nums = rooms.map(Number).sort((a, b) => a - b);
 
@@ -302,6 +247,8 @@ export default function Dashboard() {
 
   const [rows, setRows] = useState([]);
   const [excelBatchId, setExcelBatchId] = useState(null);
+
+  const [allRooms, setAllRooms] = useState([]); // [{id, room_number, capacity, building, tag, categories}]
 
   const [selectedDate, setSelectedDate] = useState("");
   const [planCategory, setPlanCategory] = useState("");
@@ -348,6 +295,77 @@ export default function Dashboard() {
     setTwoProfessorsPerSupervisorEnabled(false);
   }, [planCategory]);
 
+  // تحميل القاعات من الـ API
+  useEffect(() => {
+    listRooms(true)
+      .then((list) => setAllRooms(Array.isArray(list) ? list : []))
+      .catch((err) => {
+        console.error("❌ Failed to load rooms:", err);
+        setAllRooms([]);
+      });
+  }, []);
+
+  /* =========================================================
+     Rooms (derived from API)
+  ========================================================= */
+
+  // القاعات المسموحة للفئة الحالية (مع استبعاد قاعة 6 إذا فُعّل خيار 1-5)
+  const allowedRooms = useMemo(() => {
+    if (!planCategory) return [];
+
+    return allRooms
+      .filter((r) => (r.categories || []).includes(planCategory))
+      .map((r) => String(r.room_number))
+      .filter(
+        (room) =>
+          !(
+            planCategory === "متطلبات" &&
+            requirementsOneToFive &&
+            room === "6"
+          ),
+      );
+  }, [allRooms, planCategory, requirementsOneToFive]);
+
+  const specialRoomNumbers = useMemo(
+    () =>
+      allRooms
+        .map((r) => String(r.room_number))
+        .filter((n) => SPECIAL_ROOMS.includes(n)),
+    [allRooms],
+  );
+
+  // القاعات التي تظهر في قوائم الاختيار (الفئة + الخاصة)
+  const selectableRooms = useMemo(
+    () => [...new Set([...allowedRooms, ...specialRoomNumbers])],
+    [allowedRooms, specialRoomNumbers],
+  );
+
+  const roomTagMap = useMemo(
+    () =>
+      Object.fromEntries(allRooms.map((r) => [String(r.room_number), r.tag])),
+    [allRooms],
+  );
+
+  const roomLabel = (room) =>
+    roomTagMap[room] ? `قاعة ${room} (${roomTagMap[room]})` : `قاعة ${room}`;
+
+  // قاعات تُستخدم فقط إذا ما في بديل (كل قاعة لها tag)
+  const LOW_PRIORITY_ROOMS = useMemo(
+    () => allRooms.filter((r) => r.tag).map((r) => String(r.room_number)),
+    [allRooms],
+  );
+
+  // القاعات العادية أولًا (تصاعديًا) ثم القاعات ذات الوسم بالآخر
+  const sortRoomsByPriority = (rooms) =>
+    [...rooms].sort((a, b) => {
+      const la = LOW_PRIORITY_ROOMS.includes(a) ? 1 : 0;
+      const lb = LOW_PRIORITY_ROOMS.includes(b) ? 1 : 0;
+
+      if (la !== lb) return la - lb;
+
+      return Number(a) - Number(b);
+    });
+
   /* =========================================================
      Derived data
   ========================================================= */
@@ -373,6 +391,10 @@ export default function Dashboard() {
       to: dates[dates.length - 1],
     };
   }, [dates]);
+
+  // هل تم تحديد نطاق التاريخ (يوم واحد أو كل التواريخ)
+  const hasDateScope =
+    dateMode === "all" ? allDatesRange !== null : Boolean(selectedDate);
 
   const selectedDateRows = useMemo(() => {
     if (dateMode === "all") {
@@ -449,17 +471,6 @@ export default function Dashboard() {
     [periodProfessorGroups],
   );
 
-  const allowedRooms = useMemo(
-    () => getRoomsPoolForCategory(planCategory, requirementsOneToFive),
-    [planCategory, requirementsOneToFive],
-  );
-
-  // القاعات القابلة للاختيار (الربط / اليدوي / اختيار التلقائي) = قاعات الفئة + الخاصة
-  const selectableRooms = useMemo(
-    () => [...new Set([...allowedRooms, ...SPECIAL_ROOMS])],
-    [allowedRooms],
-  );
-
   // عدد الأساتذة الفريدين لكل فترة (يأخذ بعين الاعتبار التاريخ أيضًا في وضع "كل التواريخ")
   const periodProfessorCounts = useMemo(() => {
     const map = new Map();
@@ -496,7 +507,7 @@ export default function Dashboard() {
     );
   }, [periodProfessorCounts]);
 
-  // الفترات التي تتجاوز عدد قاعات فئة "متطلبات" (6، أو 5 إذا فُعّل خيار 1-5)
+  // الفترات التي تتجاوز عدد قاعات فئة "متطلبات" (حسب القاعات القادمة من الـ API)
   const periodsOverRequirementLimit = useMemo(() => {
     if (planCategory !== "متطلبات") return [];
 
@@ -509,7 +520,7 @@ export default function Dashboard() {
     let score = 0;
 
     if (rows.length > 0) score += 25;
-    if (selectedDate) score += 20;
+    if (hasDateScope) score += 20;
     if (selectedSupervisors.length > 0) score += 25;
     if (selectedDateRows.length > 0) score += 15;
     if (invalidRows === 0 && rows.length > 0) score += 15;
@@ -517,7 +528,7 @@ export default function Dashboard() {
     return Math.min(score, 100);
   }, [
     rows.length,
-    selectedDate,
+    hasDateScope,
     selectedSupervisors.length,
     selectedDateRows.length,
     invalidRows,
@@ -537,7 +548,7 @@ export default function Dashboard() {
 
   const canGenerate =
     rows.length > 0 &&
-    (dateMode === "all" ? allDatesRange !== null : Boolean(selectedDate)) &&
+    hasDateScope &&
     normalizedSupervisorIds.length > 0 &&
     selectedDateRows.length > 0 &&
     planCategory &&
@@ -697,7 +708,7 @@ export default function Dashboard() {
     }
 
     const newItems = selectedProfessors.map((professorName) => {
-      // 🔎 نبحث عن أول Row لهذا الأستاذ
+      // نبحث عن أول Row لهذا الأستاذ
       const professorRow = rows.find(
         (row) => getProfessorName(row) === professorName,
       );
@@ -712,8 +723,6 @@ export default function Dashboard() {
       };
     });
 
-    console.log("🔗 AFFINITIES TO SAVE:", newItems);
-
     setAffinitiesState((current) => {
       const filtered = current.filter(
         (item) => !selectedProfessors.includes(item.professorName),
@@ -726,6 +735,7 @@ export default function Dashboard() {
     setAffinitySupervisor("");
     setErrorMessage("");
   };
+
   const removeAffinity = (professorName) => {
     setAffinitiesState((current) =>
       current.filter((item) => item.professorName !== professorName),
@@ -855,7 +865,7 @@ export default function Dashboard() {
       ? selectedRoomsForAuto.filter((room) => selectableRooms.includes(room))
       : allowedRooms;
 
-    // out / mentor بآخر القائمة، فما تُستخدم إلا عند الحاجة
+    // القاعات ذات الوسم بآخر القائمة، فما تُستخدم إلا عند الحاجة
     const roomsPool = sortRoomsByPriority(basePool);
 
     const lastRoomOfProfessor = new Map(); // لتقليل تغيير قاعة الأستاذ بين الفترات
@@ -1068,36 +1078,16 @@ export default function Dashboard() {
       /* Affinities */
 
       if (affinities.length) {
-        console.log("🔗 SENDING AFFINITIES TO BACKEND:", {
-          planId,
-          affinities,
-        });
-
-        const affinityResult = await setAffinities(planId, affinities);
-
-        console.log("✅ AFFINITIES RESPONSE:", affinityResult);
+        await setAffinities(planId, affinities);
       }
 
       /* Room Assignments */
 
       if (roomAssignments.length) {
-        console.log("🏠 SENDING ROOM ASSIGNMENTS TO BACKEND:", {
-          planId,
-          roomAssignMode,
-          roomAssignments,
-        });
-
-        const roomResult = await setRoomAssignments(planId, roomAssignments);
-
-        console.log("✅ ROOM ASSIGNMENTS RESPONSE:", roomResult);
+        await setRoomAssignments(planId, roomAssignments);
       }
 
       /* Generate */
-
-      console.log("🎯 MINIMUM PERIODS SETTINGS:", {
-        enabled: minimumPeriodsEnabled,
-        minimumPeriods: MINIMUM_PERIODS,
-      });
 
       const generated = await generatePlan(
         planId,
@@ -1386,7 +1376,7 @@ export default function Dashboard() {
                   <p>اختر توليد الخطة ليوم واحد أو لكل تواريخ الملف.</p>
                 </div>
 
-                {(dateMode === "all" ? allDatesRange : selectedDate) && (
+                {hasDateScope && (
                   <span className="section-complete">
                     {Icons.check}
                     محدد
@@ -1471,26 +1461,6 @@ export default function Dashboard() {
                         <strong>{selectedDateRows.length}</strong>
                       </div>
 
-                      <div className="stat-item">
-                        <span className="stat-icon orange">{Icons.users}</span>
-
-                        <div>
-                          <span>أعلى فترة</span>
-                          <strong>
-                            {busiestPeriod
-                              ? `${busiestPeriod.count} أستاذ`
-                              : "—"}
-                          </strong>
-                          {busiestPeriod && (
-                            <small>
-                              {dateMode === "all"
-                                ? `${formatDate(busiestPeriod.date)} - ${busiestPeriod.period}`
-                                : busiestPeriod.period}
-                            </small>
-                          )}
-                        </div>
-                      </div>
-
                       <div>
                         <span>الأساتذة</span>
                         <strong>{selectedDateProfessors}</strong>
@@ -1571,169 +1541,171 @@ export default function Dashboard() {
               <div className="preview-workspace">
                 <PreviewTable
                   rows={rows}
-                  selectedDate={selectedDate}
+                  selectedDate={dateMode === "all" ? "" : selectedDate}
                   onEdit={handleEditRow}
                 />
               </div>
             </section>
-          </div>
 
-          {/* Plan Category */}
+            {/* Plan Category */}
 
-          <section className="workspace-section">
-            <div className="section-heading">
-              <div className="section-number">04</div>
-
-              <div>
-                <h2>فئة الخطة</h2>
-                <p>اختر الفئة التي ستنتمي إليها هذه الخطة.</p>
-              </div>
-
-              {planCategory && (
-                <span className="section-complete">
-                  {Icons.check}
-                  محددة
-                </span>
-              )}
-
-              {(planCategory === "دبلوم" || planCategory === "مدمج") && (
-                <label className="minimum-period-option">
-                  <input
-                    type="checkbox"
-                    checked={twoProfessorsPerSupervisorEnabled}
-                    onChange={(e) =>
-                      setTwoProfessorsPerSupervisorEnabled(e.target.checked)
-                    }
-                  />
-                  <span className="minimum-period-check">
-                    {twoProfessorsPerSupervisorEnabled && Icons.check}
-                  </span>
-                  <span className="minimum-period-label">
-                    <strong>تخصيص مشرفَين لكل دكتور</strong>
-                    <small>
-                      بدل مشرف واحد، يُخصَّص مشرفان فقط لكل دكتور بالتناوب على
-                      الفترات.
-                    </small>
-                  </span>
-                </label>
-              )}
-
-              {planCategory === "متطلبات" && (
-                <label className="minimum-period-option">
-                  <input
-                    type="checkbox"
-                    checked={requirementsOneToFive}
-                    onChange={(e) => setRequirementsOneToFive(e.target.checked)}
-                  />
-                  <span className="minimum-period-check">
-                    {requirementsOneToFive && Icons.check}
-                  </span>
-                  <span className="minimum-period-label">
-                    <strong>استخدام القاعات 1–5 فقط</strong>
-                    <small>
-                      استبعاد قاعة 6 (out). بدون التفعيل تُستخدم 1–6 وقاعة 6
-                      آخر خيار.
-                    </small>
-                  </span>
-                </label>
-              )}
-            </div>
-
-            <div className="plan-category-grid">
-              <button
-                type="button"
-                className={`plan-category-card ${
-                  planCategory === "مدمج" ? "active" : ""
-                }`}
-                onClick={() => {
-                  setPlanCategory("مدمج");
-                  setErrorMessage("");
-                }}
-              >
-                <div className="plan-category-icon">م</div>
+            <section className="workspace-section">
+              <div className="section-heading">
+                <div className="section-number">05</div>
 
                 <div>
-                  <strong>مدمج</strong>
-                  <span>خطة للمساقات المدمجة</span>
+                  <h2>فئة الخطة</h2>
+                  <p>اختر الفئة التي ستنتمي إليها هذه الخطة.</p>
                 </div>
 
-                {planCategory === "مدمج" && (
-                  <span className="plan-category-check">{Icons.check}</span>
+                {planCategory && (
+                  <span className="section-complete">
+                    {Icons.check}
+                    محددة
+                  </span>
                 )}
-              </button>
 
-              <button
-                type="button"
-                className={`plan-category-card ${
-                  planCategory === "دبلوم" ? "active" : ""
-                }`}
-                onClick={() => {
-                  setPlanCategory("دبلوم");
-                  setErrorMessage("");
-                }}
-              >
-                <div className="plan-category-icon">د</div>
-
-                <div>
-                  <strong>دبلوم</strong>
-                  <span>خطة لمساقات الدبلوم</span>
-                </div>
-
-                {planCategory === "دبلوم" && (
-                  <span className="plan-category-check">{Icons.check}</span>
+                {(planCategory === "دبلوم" || planCategory === "مدمج") && (
+                  <label className="minimum-period-option">
+                    <input
+                      type="checkbox"
+                      checked={twoProfessorsPerSupervisorEnabled}
+                      onChange={(e) =>
+                        setTwoProfessorsPerSupervisorEnabled(e.target.checked)
+                      }
+                    />
+                    <span className="minimum-period-check">
+                      {twoProfessorsPerSupervisorEnabled && Icons.check}
+                    </span>
+                    <span className="minimum-period-label">
+                      <strong>تخصيص مشرفَين لكل دكتور</strong>
+                      <small>
+                        بدل مشرف واحد، يُخصَّص مشرفان فقط لكل دكتور بالتناوب على
+                        الفترات.
+                      </small>
+                    </span>
+                  </label>
                 )}
-              </button>
-
-              <button
-                type="button"
-                className={`plan-category-card ${
-                  planCategory === "متطلبات" ? "active" : ""
-                }`}
-                onClick={() => {
-                  setPlanCategory("متطلبات");
-                  setErrorMessage("");
-                }}
-              >
-                <div className="plan-category-icon">م</div>
-
-                <div>
-                  <strong>متطلبات</strong>
-                  <span>خطة لمساقات المتطلبات</span>
-                </div>
 
                 {planCategory === "متطلبات" && (
-                  <span className="plan-category-check">{Icons.check}</span>
+                  <label className="minimum-period-option">
+                    <input
+                      type="checkbox"
+                      checked={requirementsOneToFive}
+                      onChange={(e) =>
+                        setRequirementsOneToFive(e.target.checked)
+                      }
+                    />
+                    <span className="minimum-period-check">
+                      {requirementsOneToFive && Icons.check}
+                    </span>
+                    <span className="minimum-period-label">
+                      <strong>استخدام القاعات 1–5 فقط</strong>
+                      <small>
+                        استبعاد قاعة 6 (out). بدون التفعيل تُستخدم 1–6 وقاعة 6
+                        آخر خيار.
+                      </small>
+                    </span>
+                  </label>
                 )}
-              </button>
-            </div>
+              </div>
 
-            {planCategory === "متطلبات" &&
-              periodsOverRequirementLimit.length > 0 && (
-                <div
-                  className="upload-warning-card"
-                  style={{ marginTop: "12px" }}
+              <div className="plan-category-grid">
+                <button
+                  type="button"
+                  className={`plan-category-card ${
+                    planCategory === "مدمج" ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    setPlanCategory("مدمج");
+                    setErrorMessage("");
+                  }}
                 >
-                  <div className="upload-warning-icon">{Icons.warning}</div>
+                  <div className="plan-category-icon">م</div>
 
                   <div>
-                    <strong>تجاوز الحد الأقصى للقاعات في بعض الفترات</strong>
-                    <span>
-                      فئة "متطلبات" تحتوي على {allowedRooms.length} قاعات فقط (
-                      {formatRoomRanges(allowedRooms)})، ولا يمكن أن يتجاوز عدد
-                      الأساتذة في نفس الفترة {allowedRooms.length} أساتذة.
-                      الفترات المتجاوزة:{" "}
-                      {periodsOverRequirementLimit
-                        .map((item) =>
-                          dateMode === "all"
-                            ? `${formatDate(item.date)} - ${item.period} (${item.count})`
-                            : `${item.period} (${item.count})`,
-                        )
-                        .join("، ")}
-                    </span>
+                    <strong>مدمج</strong>
+                    <span>خطة للمساقات المدمجة</span>
                   </div>
-                </div>
-              )}
-          </section>
+
+                  {planCategory === "مدمج" && (
+                    <span className="plan-category-check">{Icons.check}</span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  className={`plan-category-card ${
+                    planCategory === "دبلوم" ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    setPlanCategory("دبلوم");
+                    setErrorMessage("");
+                  }}
+                >
+                  <div className="plan-category-icon">د</div>
+
+                  <div>
+                    <strong>دبلوم</strong>
+                    <span>خطة لمساقات الدبلوم</span>
+                  </div>
+
+                  {planCategory === "دبلوم" && (
+                    <span className="plan-category-check">{Icons.check}</span>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  className={`plan-category-card ${
+                    planCategory === "متطلبات" ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    setPlanCategory("متطلبات");
+                    setErrorMessage("");
+                  }}
+                >
+                  <div className="plan-category-icon">م</div>
+
+                  <div>
+                    <strong>متطلبات</strong>
+                    <span>خطة لمساقات المتطلبات</span>
+                  </div>
+
+                  {planCategory === "متطلبات" && (
+                    <span className="plan-category-check">{Icons.check}</span>
+                  )}
+                </button>
+              </div>
+
+              {planCategory === "متطلبات" &&
+                periodsOverRequirementLimit.length > 0 && (
+                  <div
+                    className="upload-warning-card"
+                    style={{ marginTop: "12px" }}
+                  >
+                    <div className="upload-warning-icon">{Icons.warning}</div>
+
+                    <div>
+                      <strong>تجاوز الحد الأقصى للقاعات في بعض الفترات</strong>
+                      <span>
+                        فئة "متطلبات" تحتوي على {allowedRooms.length} قاعات فقط (
+                        {formatRoomRanges(allowedRooms)})، ولا يمكن أن يتجاوز
+                        عدد الأساتذة في نفس الفترة {allowedRooms.length}{" "}
+                        أساتذة. الفترات المتجاوزة:{" "}
+                        {periodsOverRequirementLimit
+                          .map((item) =>
+                            dateMode === "all"
+                              ? `${formatDate(item.date)} - ${item.period} (${item.count})`
+                              : `${item.period} (${item.count})`,
+                          )
+                          .join("، ")}
+                      </span>
+                    </div>
+                  </div>
+                )}
+            </section>
+          </div>
 
           {/* Side configuration */}
 
@@ -1759,8 +1731,8 @@ export default function Dashboard() {
                   تحميل البيانات
                 </div>
 
-                <div className={selectedDate ? "done" : ""}>
-                  <span>{selectedDate ? Icons.check : "2"}</span>
+                <div className={hasDateScope ? "done" : ""}>
+                  <span>{hasDateScope ? Icons.check : "2"}</span>
                   اختيار التاريخ
                 </div>
 
@@ -1826,6 +1798,7 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+
             {/* Affinity */}
 
             <div className="side-panel">
@@ -1921,8 +1894,8 @@ export default function Dashboard() {
                     {planCategory
                       ? `القاعات المتاحة لفئة "${planCategory}": ${formatRoomRanges(
                           allowedRooms,
-                        )} (${allowedRooms.length} قاعة). قاعات out/mentor آخر خيار.`
-                      : "اختر فئة الخطة أولًا لتحديد القاعات المتاحة (متطلبات: قاعات 1-6، دبلوم/مدمج: قاعات 1-5 و7-16 و40/42/46/47/48/49 و100-102)."}
+                        )} (${allowedRooms.length} قاعة). القاعات ذات الوسم (out/mentor/خاصة) آخر خيار.`
+                      : "اختر فئة الخطة أولًا لتحديد القاعات المتاحة."}
                   </p>
                 </div>
               </div>

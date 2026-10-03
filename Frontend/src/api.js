@@ -195,5 +195,22 @@ export const getAcceptedSupervisorStats = () =>
   api
     .get("/plan/accepted-supervisor-stats")
     .then((res) => res.data);
+    
+
+// ==============================
+// Rooms
+// ==============================
+
+export const listRooms = (onlyActive = true) =>
+  api.get(`/rooms${onlyActive ? "?active=true" : ""}`).then((r) => r.data.data);
+
+export const createRoom = (payload) =>
+  api.post("/rooms", payload).then((r) => r.data.data);
+
+export const updateRoom = (roomId, payload) =>
+  api.put(`/rooms/${roomId}`, payload).then((r) => r.data.data);
+
+export const deleteRoom = (roomId) =>
+  api.delete(`/rooms/${roomId}`).then((r) => r.data.data);
 
 export default api;

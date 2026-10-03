@@ -7,6 +7,7 @@ import Plans from "./components/Plans.jsx";
 import Supervisors from "./components/Supervisors.jsx";
 import Settings from "./components/Settings.jsx";
 import SupervisorReport from "./components/SupervisorReport.jsx";
+import RoomsPage from "./components/RoomsPage.jsx";
 
 
 function App() {
@@ -19,7 +20,11 @@ function App() {
           <Route path="/plans" element={<Plans />} />
           <Route path="/supervisors" element={<Supervisors />} />
           <Route path="/settings" element={<Settings />} />
-          <Route path="/supervisor-report/:supervisorId" element={<SupervisorReport />} />
+          <Route
+            path="/supervisor-report/:supervisorId"
+            element={<SupervisorReport />}
+          />
+          <Route path="/rooms" element={<RoomsPage />} />
         </Routes>
       </Router>
     </div>

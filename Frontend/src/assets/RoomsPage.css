@@ -1,0 +1,160 @@
+.rooms-page {
+  padding: 24px;
+  max-width: 960px;
+  margin: 0 auto;
+  direction: rtl;
+  font-family: inherit;
+}
+
+.rooms-header h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+
+.rooms-header p {
+  margin: 0 0 20px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.rooms-form {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.rooms-form-row {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.rooms-form-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  color: #374151;
+  flex: 1;
+  min-width: 160px;
+}
+
+.rooms-form-row input {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.rooms-form-actions {
+  margin-top: 14px;
+  display: flex;
+  gap: 10px;
+}
+
+.rooms-form-actions button {
+  padding: 8px 18px;
+  border-radius: 6px;
+  border: none;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.rooms-form-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rooms-form-actions button.secondary {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.rooms-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 10px 14px;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  font-size: 13px;
+}
+
+.rooms-loading {
+  padding: 20px;
+  color: #6b7280;
+}
+
+.rooms-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.rooms-table th,
+.rooms-table td {
+  padding: 10px 12px;
+  text-align: right;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 14px;
+}
+
+.rooms-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 600;
+}
+
+.rooms-table tr.inactive {
+  opacity: 0.55;
+}
+
+.rooms-actions-cell {
+  display: flex;
+  gap: 8px;
+}
+
+.rooms-actions-cell button {
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.rooms-actions-cell button.danger {
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.status-toggle {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.status-toggle.active {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.status-toggle.disabled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.rooms-empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 24px;
+}

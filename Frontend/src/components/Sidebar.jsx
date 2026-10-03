@@ -39,6 +39,14 @@ const Icons = {
       <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-1.7 1.7-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V20H11v-.2a1.7 1.7 0 0 0-1.03-1.56 1.7 1.7 0 0 0-1.88.34l-.06.06-1.7-1.7.06-.06A1.7 1.7 0 0 0 6.73 15 1.7 1.7 0 0 0 5.2 14H5v-3h.2a1.7 1.7 0 0 0 1.56-1.03 1.7 1.7 0 0 0-.34-1.88l-.06-.06 1.7-1.7.06.06a1.7 1.7 0 0 0 1.88.34A1.7 1.7 0 0 0 11 5.2V5h3v.2a1.7 1.7 0 0 0 1.03 1.56 1.7 1.7 0 0 0 1.88-.34l.06-.06 1.7 1.7-.06.06a1.7 1.7 0 0 0-.34 1.88A1.7 1.7 0 0 0 19.8 11H20v3h-.2A1.7 1.7 0 0 0 19.4 15Z" />
     </svg>
   ),
+
+   rooms: (
+    <svg viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M3 10h18" />
+      <path d="M9 4v16" />
+    </svg>
+  ),
 };
 
 /* =========================================================
@@ -119,6 +127,23 @@ export default function Sidebar() {
 
           <span className="sidebar-link-text">
             المشرفون
+          </span>
+
+          <span className="sidebar-active-indicator" />
+        </NavLink>
+
+          <NavLink
+          to="/rooms"
+          className={({ isActive }) =>
+            `sidebar-link ${isActive ? "active" : ""}`
+          }
+        >
+          <span className="sidebar-link-icon">
+            {Icons.rooms}
+          </span>
+
+          <span className="sidebar-link-text">
+            القاعات
           </span>
 
           <span className="sidebar-active-indicator" />
