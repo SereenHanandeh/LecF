@@ -210,13 +210,27 @@ const getPeriodValue = (row) =>
    - القاعات: 1-16 و 40-46
    - قاعة 6 = out ، قاعة 15 = mentor (آخر خيار بالتوزيع التلقائي)
    - "متطلبات": قاعات 1-6 (أو 1-5 إذا فُعّل الخيار)
-   - "دبلوم" و "مدمج": القاعات 1-5 + 7-16 + 40-46 (قاعة 6 للمتطلبات فقط)
+   - "دبلوم" و "مدمج": القاعات 1-5 + 7-16 + 40/42/46/47/48/49 (قاعة 6 للمتطلبات فقط)
+   - القاعات الخاصة 100/101/102: ضمن قاعات دبلوم/مدمج (آخر أولوية مثل out/mentor)،
+     وللمتطلبات تنربط بأستاذ أو تنختار يدويًا فقط
 ========================================================= */
 
-const ROOM_LABELS = { 6: "out", 15: "mentor" };
+const ROOM_LABELS = {
+  6: "out",
+  15: "mentor",
+  100: "خاصة",
+  101: "خاصة",
+  102: "خاصة",
+};
+
+// قاعات خاصة: متاحة للربط واليدوي ولاختيار التلقائي، وليست ضمن التوزيع الافتراضي
+const SPECIAL_ROOMS = ["100", "101", "102"];
+
+// قاعات المجموعة العليا (بدل 40-46)
+const HIGH_ROOMS = ["40", "42", "46", "47", "48", "49"];
 
 // قاعات تُستخدم فقط إذا ما في بديل
-const LOW_PRIORITY_ROOMS = ["6", "15"];
+const LOW_PRIORITY_ROOMS = ["6", "15", ...SPECIAL_ROOMS];
 
 const range = (from, to) =>
   Array.from({ length: to - from + 1 }, (_, i) => String(from + i));
@@ -226,10 +240,11 @@ const REQUIREMENT_ROOMS = range(1, 6); // 1..6
 const DIPLOMA_MERGED_ROOMS = [
   ...range(1, 5), // 1..5 (مشتركة مع المتطلبات)
   ...range(7, 16), // 7..16
-  ...range(40, 46), // 40..46
+  ...HIGH_ROOMS, // 40/42/46/47/48/49
+  ...SPECIAL_ROOMS, // 100/101/102 (آخر أولوية)
 ];
 
-const VALID_ROOMS = [...range(1, 16), ...range(40, 46)];
+const VALID_ROOMS = [...range(1, 16), ...HIGH_ROOMS, ...SPECIAL_ROOMS];
 
 const roomLabel = (room) =>
   ROOM_LABELS[room] ? `قاعة ${room} (${ROOM_LABELS[room]})` : `قاعة ${room}`;
@@ -437,6 +452,12 @@ export default function Dashboard() {
   const allowedRooms = useMemo(
     () => getRoomsPoolForCategory(planCategory, requirementsOneToFive),
     [planCategory, requirementsOneToFive],
+  );
+
+  // القاعات القابلة للاختيار (الربط / اليدوي / اختيار التلقائي) = قاعات الفئة + الخاصة
+  const selectableRooms = useMemo(
+    () => [...new Set([...allowedRooms, ...SPECIAL_ROOMS])],
+    [allowedRooms],
   );
 
   // عدد الأساتذة الفريدين لكل فترة (يأخذ بعين الاعتبار التاريخ أيضًا في وضع "كل التواريخ")
@@ -720,13 +741,13 @@ export default function Dashboard() {
     const map = new Map();
 
     roomLinks.forEach(({ roomNumber, professorNames }) => {
-      if (!allowedRooms.includes(roomNumber)) return;
+      if (!selectableRooms.includes(roomNumber)) return;
 
       professorNames.forEach((name) => map.set(name, roomNumber));
     });
 
     return map;
-  }, [roomLinks, allowedRooms]);
+  }, [roomLinks, selectableRooms]);
 
   const addRoomLink = () => {
     if (!linkRoom) {
@@ -831,7 +852,7 @@ export default function Dashboard() {
     }
 
     const basePool = selectedRoomsForAuto.length
-      ? selectedRoomsForAuto.filter((room) => allowedRooms.includes(room))
+      ? selectedRoomsForAuto.filter((room) => selectableRooms.includes(room))
       : allowedRooms;
 
     // out / mentor بآخر القائمة، فما تُستخدم إلا عند الحاجة
@@ -1901,7 +1922,7 @@ export default function Dashboard() {
                       ? `القاعات المتاحة لفئة "${planCategory}": ${formatRoomRanges(
                           allowedRooms,
                         )} (${allowedRooms.length} قاعة). قاعات out/mentor آخر خيار.`
-                      : "اختر فئة الخطة أولًا لتحديد القاعات المتاحة (متطلبات: قاعات 1-6، دبلوم/مدمج: قاعات 1-5 و7-16 و40-46)."}
+                      : "اختر فئة الخطة أولًا لتحديد القاعات المتاحة (متطلبات: قاعات 1-6، دبلوم/مدمج: قاعات 1-5 و7-16 و40/42/46/47/48/49 و100-102)."}
                   </p>
                 </div>
               </div>
@@ -1961,7 +1982,7 @@ export default function Dashboard() {
                         setSelectedRoomsForAuto(values);
                       }}
                     >
-                      {sortRoomsByPriority(allowedRooms).map((room) => (
+                      {sortRoomsByPriority(selectableRooms).map((room) => (
                         <option key={room} value={room}>
                           {roomLabel(room)}
                         </option>
@@ -2011,7 +2032,7 @@ export default function Dashboard() {
                       onChange={(e) => setLinkRoom(e.target.value)}
                     >
                       <option value="">اختر القاعة</option>
-                      {sortRoomsByPriority(allowedRooms).map((room) => (
+                      {sortRoomsByPriority(selectableRooms).map((room) => (
                         <option key={room} value={room}>
                           {roomLabel(room)}
                         </option>
@@ -2152,7 +2173,7 @@ export default function Dashboard() {
                                 }
                               >
                                 <option value="">— اختر قاعة —</option>
-                                {sortRoomsByPriority(allowedRooms).map(
+                                {sortRoomsByPriority(selectableRooms).map(
                                   (room) => (
                                     <option key={room} value={room}>
                                       {roomLabel(room)}
