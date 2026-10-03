@@ -14,6 +14,32 @@ const TAG_OPTIONS = [
 ];
 
 const Icons = {
+  grid: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="3" y="3" width="7" height="7" rx="1" />
+      <rect x="14" y="3" width="7" height="7" rx="1" />
+      <rect x="3" y="14" width="7" height="7" rx="1" />
+      <rect x="14" y="14" width="7" height="7" rx="1" />
+    </svg>
+  ),
+  layers: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+      <path d="m3 13 9 5 9-5" />
+    </svg>
+  ),
+  cap: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m2 9 10-5 10 5-10 5L2 9Z" />
+      <path d="M6 11.5V16c0 1.5 3 3 6 3s6-1.5 6-3v-4.5" />
+    </svg>
+  ),
+  book: (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2V5Z" />
+      <path d="M8 7h7" />
+    </svg>
+  ),
   plus: (
     <svg viewBox="0 0 24 24" aria-hidden="true">
       <path d="M12 5v14M5 12h14" />
@@ -63,6 +89,21 @@ const Icons = {
     </svg>
   ),
 };
+
+const CATEGORY_META = {
+  مدمج: { tone: "purple", icon: Icons.layers },
+  دبلوم: { tone: "teal", icon: Icons.cap },
+  متطلبات: { tone: "orange", icon: Icons.book },
+};
+
+const STATUS_PILLS = [
+  { value: "الكل", icon: Icons.grid, tone: "blue" },
+  { value: "مفعّلة", icon: Icons.check, tone: "green" },
+  { value: "معطّلة", icon: Icons.close, tone: "red" },
+];
+
+const toneOf = (room) =>
+  CATEGORY_META[(room.categories || [])[0]]?.tone || "blue";
 
 const emptyForm = {
   roomNumber: "",
@@ -258,7 +299,9 @@ export default function RoomsPage() {
   }
 
   const roomLabel = (room) =>
-    room.tag ? `قاعة ${room.room_number} (${room.tag})` : `قاعة ${room.room_number}`;
+    room.tag
+      ? `قاعة ${room.room_number} (${room.tag})`
+      : `قاعة ${room.room_number}`;
 
   /* ============== UI ============== */
 
@@ -363,29 +406,33 @@ export default function RoomsPage() {
           </div>
 
           <div className="rooms-filter-pills">
-            {["الكل", ...CATEGORY_OPTIONS].map((cat) => (
+            {STATUS_PILLS.map((s) => (
+              <button
+                key={s.value}
+                type="button"
+                className={`rooms-pill tone-${s.tone} ${
+                  statusFilter === s.value ? "active" : ""
+                }`}
+                onClick={() => setStatusFilter(s.value)}
+              >
+                {s.icon}
+                {s.value}
+              </button>
+            ))}
+
+            {CATEGORY_OPTIONS.map((cat) => (
               <button
                 key={cat}
                 type="button"
-                className={`rooms-pill ${categoryFilter === cat ? "active" : ""}`}
-                onClick={() => setCategoryFilter(cat)}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          <div className="rooms-filter-pills">
-            {["الكل", "مفعّلة", "معطّلة"].map((status) => (
-              <button
-                key={status}
-                type="button"
-                className={`rooms-pill ghost ${
-                  statusFilter === status ? "active" : ""
+                className={`rooms-pill tone-${CATEGORY_META[cat].tone} ${
+                  categoryFilter === cat ? "active" : ""
                 }`}
-                onClick={() => setStatusFilter(status)}
+                onClick={() =>
+                  setCategoryFilter(categoryFilter === cat ? "الكل" : cat)
+                }
               >
-                {status}
+                {CATEGORY_META[cat].icon}
+                {cat}
               </button>
             ))}
           </div>
@@ -409,80 +456,78 @@ export default function RoomsPage() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              <label className="rooms-field">
-                <span>رقم/اسم القاعة *</span>
-                <input
-                  type="text"
-                  value={form.roomNumber}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, roomNumber: e.target.value }))
-                  }
-                  placeholder="مثال: 12 أو A101"
-                  required
-                />
-              </label>
+              <div className="rooms-form-grid">
+                <label className="rooms-field">
+                  <span>رقم/اسم القاعة *</span>
+                  <input
+                    type="text"
+                    value={form.roomNumber}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, roomNumber: e.target.value }))
+                    }
+                    placeholder="مثال: 12 أو A101"
+                    required
+                  />
+                </label>
 
-              <div className="rooms-field">
-                <span>الوسم (اختياري)</span>
-                <div className="rooms-filter-pills">
-                  {TAG_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value || "none"}
-                      type="button"
-                      className={`rooms-pill ghost ${
-                        form.tag === opt.value ? "active" : ""
-                      }`}
-                      onClick={() =>
-                        setForm((f) => ({ ...f, tag: opt.value }))
-                      }
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+                <label className="rooms-field">
+                  <span>الوسم (اختياري)</span>
+                  <select
+                    value={form.tag}
+                    onChange={(e) =>
+                      setForm((f) => ({ ...f, tag: e.target.value }))
+                    }
+                  >
+                    {TAG_OPTIONS.map((opt) => (
+                      <option key={opt.value || "none"} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
 
-              <div className="rooms-field">
-                <span>الفئات المسموحة *</span>
-                <div className="rooms-filter-pills">
-                  {CATEGORY_OPTIONS.map((category) => (
-                    <button
-                      key={category}
-                      type="button"
-                      className={`rooms-pill ${
-                        form.categories.includes(category) ? "active" : ""
-                      }`}
-                      onClick={() => toggleCategory(category)}
-                    >
-                      {form.categories.includes(category) && Icons.check}
-                      {category}
-                    </button>
-                  ))}
+                <div className="rooms-field full">
+                  <span>الفئات المسموحة *</span>
+                  <div className="rooms-filter-pills">
+                    {CATEGORY_OPTIONS.map((category) => (
+                      <button
+                        key={category}
+                        type="button"
+                        className={`rooms-pill tone-${CATEGORY_META[category].tone} ${
+                          form.categories.includes(category) ? "active" : ""
+                        }`}
+                        onClick={() => toggleCategory(category)}
+                      >
+                        {CATEGORY_META[category].icon}
+                        {category}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
 
               <div className="rooms-form-actions">
                 <button
-                  type="submit"
-                  className="rooms-submit-btn"
-                  disabled={submitting}
-                >
-                  {submitting
-                    ? "جارٍ الحفظ..."
-                    : editingId
-                      ? "حفظ التعديل"
-                      : "إضافة القاعة"}
-                </button>
-
-                <button
                   type="button"
-                  className="secondary-action"
+                  className="rooms-cancel-btn"
                   onClick={() => {
                     setShowForm(false);
                     resetForm();
                   }}
                 >
                   إلغاء
+                </button>
+                <button
+                  type="submit"
+                  className="rooms-submit-btn"
+                  disabled={submitting}
+                >
+                  {Icons.check}
+                  {submitting
+                    ? "جارٍ الحفظ..."
+                    : editingId
+                      ? "حفظ التعديل"
+                      : "حفظ"}
                 </button>
               </div>
             </form>
@@ -501,19 +546,20 @@ export default function RoomsPage() {
               {filteredRooms.map((room) => (
                 <div
                   key={room.id}
-                  className={`room-card ${!room.is_active ? "inactive" : ""}`}
+                  className={`room-card tone-${toneOf(room)} ${!room.is_active ? "inactive" : ""}`}
                 >
                   <div className="room-card-top">
-                    <div className="room-card-number">
-                      <span className="room-card-icon">{Icons.room}</span>
-                      {roomLabel(room)}
+                    <div className="room-card-main">
+                      <span className="room-card-icon">
+                        {CATEGORY_META[(room.categories || [])[0]]?.icon ||
+                          Icons.room}
+                      </span>
+                      <div className="room-card-number">{roomLabel(room)}</div>
                     </div>
 
                     <button
                       type="button"
-                      className={`status-toggle ${
-                        room.is_active ? "active" : "disabled"
-                      }`}
+                      className={`status-toggle ${room.is_active ? "active" : "disabled"}`}
                       onClick={() => toggleActive(room)}
                     >
                       {room.is_active ? "مفعّلة" : "معطّلة"}
@@ -522,22 +568,27 @@ export default function RoomsPage() {
 
                   <div className="room-card-tags">
                     {(room.categories || []).map((cat) => (
-                      <span className="room-category-tag" key={cat}>
+                      <span
+                        className={`room-category-tag tone-${CATEGORY_META[cat]?.tone || "blue"}`}
+                        key={cat}
+                      >
                         {cat}
                       </span>
                     ))}
-
                     {room.tag && (
                       <span className="room-special-tag">{room.tag}</span>
                     )}
                   </div>
 
                   <div className="room-card-actions">
-                    <button type="button" onClick={() => startEdit(room)}>
+                    <button
+                      type="button"
+                      className="edit-btn"
+                      onClick={() => startEdit(room)}
+                    >
                       {Icons.edit}
                       تعديل
                     </button>
-
                     <button
                       type="button"
                       className="danger"
