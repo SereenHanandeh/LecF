@@ -207,22 +207,72 @@ const getPeriodValue = (row) =>
 
 /* =========================================================
    Rooms
-   - قاعات 1 إلى 6: مخصصة لفئة "متطلبات" فقط
-   - باقي القاعات (7-14 و 40-46): لفئتي "دبلوم" و "مدمج"
+   - القاعات: 1-16 و 40-46
+   - قاعة 6 = out ، قاعة 15 = mentor (آخر خيار بالتوزيع التلقائي)
+   - "متطلبات": قاعات 1-6 (أو 1-5 إذا فُعّل الخيار)
+   - "دبلوم" و "مدمج": باقي القاعات (7-16 و 40-46)
 ========================================================= */
 
-const REQUIREMENT_ROOMS = Array.from({ length: 6 }, (_, i) => String(i + 1)); // 1..6
+const ROOM_LABELS = { 6: "out", 15: "mentor" };
 
-const DIPLOMA_MERGED_ROOMS = [
-  ...Array.from({ length: 8 }, (_, i) => String(i + 7)), // 7..14
-  ...Array.from({ length: 7 }, (_, i) => String(i + 40)), // 40..46
-];
+// قاعات تُستخدم فقط إذا ما في بديل
+const LOW_PRIORITY_ROOMS = ["6", "15"];
 
-const VALID_ROOMS = [...REQUIREMENT_ROOMS, ...DIPLOMA_MERGED_ROOMS];
+const range = (from, to) =>
+  Array.from({ length: to - from + 1 }, (_, i) => String(from + i));
+
+const REQUIREMENT_ROOMS = range(1, 6); // 1..6
+
+const DIPLOMA_MERGED_ROOMS = [...range(7, 16), ...range(40, 46)]; // 7..16 + 40..46
+
+const VALID_ROOMS = [...range(1, 16), ...range(40, 46)];
+
+const roomLabel = (room) =>
+  ROOM_LABELS[room] ? `قاعة ${room} (${ROOM_LABELS[room]})` : `قاعة ${room}`;
 
 // يرجع مجموعة القاعات المسموحة حسب فئة الخطة الحالية
-const getRoomsPoolForCategory = (category) =>
-  category === "متطلبات" ? REQUIREMENT_ROOMS : DIPLOMA_MERGED_ROOMS;
+const getRoomsPoolForCategory = (category, onlyOneToFive = false) => {
+  if (category === "متطلبات") {
+    return onlyOneToFive
+      ? REQUIREMENT_ROOMS.filter((room) => room !== "6")
+      : REQUIREMENT_ROOMS;
+  }
+
+  return DIPLOMA_MERGED_ROOMS;
+};
+
+// القاعات العادية أولًا (تصاعديًا) ثم out/mentor بالآخر
+const sortRoomsByPriority = (rooms) =>
+  [...rooms].sort((a, b) => {
+    const la = LOW_PRIORITY_ROOMS.includes(a) ? 1 : 0;
+    const lb = LOW_PRIORITY_ROOMS.includes(b) ? 1 : 0;
+
+    if (la !== lb) return la - lb;
+
+    return Number(a) - Number(b);
+  });
+
+// 7,8,...,16,40,... => "7–16، 40–46"
+const formatRoomRanges = (rooms) => {
+  const nums = rooms.map(Number).sort((a, b) => a - b);
+
+  if (!nums.length) return "";
+
+  const parts = [];
+  let start = nums[0];
+  let prev = nums[0];
+
+  for (let i = 1; i <= nums.length; i++) {
+    if (nums[i] !== prev + 1) {
+      parts.push(start === prev ? `${start}` : `${start}–${prev}`);
+      start = nums[i];
+    }
+
+    prev = nums[i];
+  }
+
+  return parts.join("، ");
+};
 
 /* =========================================================
    Dashboard
@@ -248,7 +298,15 @@ export default function Dashboard() {
   const [roomAssignMode, setRoomAssignMode] = useState("auto"); // "auto" | "manual"
 
   const [selectedRoomsForAuto, setSelectedRoomsForAuto] = useState([]);
-  const [manualRoomAssignments, setManualRoomAssignmentsState] = useState({}); // { [professorName]: roomNumber }
+  const [manualRoomAssignments, setManualRoomAssignmentsState] = useState({}); // { [periodKey||professorName]: roomNumber }
+
+  // استخدام القاعات 1-5 فقط (استبعاد قاعة 6 out) لفئة "متطلبات"
+  const [requirementsOneToFive, setRequirementsOneToFive] = useState(false);
+
+  // ربط قاعة بأستاذ أو أكثر: [{ roomNumber, professorNames: [] }]
+  const [roomLinks, setRoomLinks] = useState([]);
+  const [linkRoom, setLinkRoom] = useState("");
+  const [linkProfessors, setLinkProfessors] = useState([]);
 
   const MINIMUM_PERIODS = 4;
 
@@ -373,8 +431,8 @@ export default function Dashboard() {
   );
 
   const allowedRooms = useMemo(
-    () => getRoomsPoolForCategory(planCategory),
-    [planCategory],
+    () => getRoomsPoolForCategory(planCategory, requirementsOneToFive),
+    [planCategory, requirementsOneToFive],
   );
 
   // عدد الأساتذة الفريدين لكل فترة (يأخذ بعين الاعتبار التاريخ أيضًا في وضع "كل التواريخ")
@@ -413,12 +471,14 @@ export default function Dashboard() {
     );
   }, [periodProfessorCounts]);
 
-  // الفترات التي تتجاوز الحد الأقصى (6) لفئة "متطلبات"
+  // الفترات التي تتجاوز عدد قاعات فئة "متطلبات" (6، أو 5 إذا فُعّل خيار 1-5)
   const periodsOverRequirementLimit = useMemo(() => {
     if (planCategory !== "متطلبات") return [];
 
-    return periodProfessorCounts.filter((item) => item.count > 6);
-  }, [periodProfessorCounts, planCategory]);
+    return periodProfessorCounts.filter(
+      (item) => item.count > allowedRooms.length,
+    );
+  }, [periodProfessorCounts, planCategory, allowedRooms]);
 
   const readiness = useMemo(() => {
     let score = 0;
@@ -438,6 +498,18 @@ export default function Dashboard() {
     invalidRows,
   ]);
 
+  // كل أستاذ في كل فترة لازم يكون له قاعة
+  const totalProfessorPeriods = useMemo(
+    () =>
+      periodProfessorGroups.reduce((sum, g) => sum + g.professors.length, 0),
+    [periodProfessorGroups],
+  );
+
+  const missingRooms = Math.max(
+    0,
+    totalProfessorPeriods - roomAssignments.length,
+  );
+
   const canGenerate =
     rows.length > 0 &&
     (dateMode === "all" ? allDatesRange !== null : Boolean(selectedDate)) &&
@@ -445,6 +517,7 @@ export default function Dashboard() {
     selectedDateRows.length > 0 &&
     planCategory &&
     periodsOverRequirementLimit.length === 0 &&
+    missingRooms === 0 &&
     !isGenerating;
 
   useEffect(() => {
@@ -492,12 +565,15 @@ export default function Dashboard() {
     setSelectedProfessors([]);
   }, [selectedDate, dateMode]);
 
-  // عند تغيير فئة الخطة، تُعاد ضبط اختيارات القاعات (تلقائي ويدوي)
-  // لأن مجموعة القاعات المسموحة تتغيّر بتغيّر الفئة
+  // عند تغيير فئة الخطة أو خيار 1-5، تُعاد ضبط اختيارات القاعات والربط
+  // لأن مجموعة القاعات المسموحة تتغيّر
   useEffect(() => {
     setSelectedRoomsForAuto([]);
     setManualRoomAssignmentsState({});
-  }, [planCategory]);
+    setRoomLinks([]);
+    setLinkRoom("");
+    setLinkProfessors([]);
+  }, [planCategory, requirementsOneToFive]);
 
   /* =========================================================
      Upload
@@ -534,6 +610,11 @@ export default function Dashboard() {
       setSelectedRoomsForAuto([]);
       setManualRoomAssignmentsState({});
       setRoomAssignMode("auto");
+
+      setRoomLinks([]);
+      setLinkRoom("");
+      setLinkProfessors([]);
+      setRequirementsOneToFive(false);
 
       setMinimumPeriodsEnabled(false);
       setPlanCategory("");
@@ -627,6 +708,108 @@ export default function Dashboard() {
   };
 
   /* =========================================================
+     Room links (قاعة ↔ أستاذ أو أكثر)
+  ========================================================= */
+
+  // أستاذ -> قاعة مربوطة (فقط إذا القاعة ضمن المسموح للفئة)
+  const professorLinkedRoom = useMemo(() => {
+    const map = new Map();
+
+    roomLinks.forEach(({ roomNumber, professorNames }) => {
+      if (!allowedRooms.includes(roomNumber)) return;
+
+      professorNames.forEach((name) => map.set(name, roomNumber));
+    });
+
+    return map;
+  }, [roomLinks, allowedRooms]);
+
+  const addRoomLink = () => {
+    if (!linkRoom) {
+      setErrorMessage("اختر القاعة أولًا.");
+      return;
+    }
+
+    if (!linkProfessors.length) {
+      setErrorMessage("اختر أستاذًا واحدًا على الأقل لربطه بالقاعة.");
+      return;
+    }
+
+    setRoomLinks((current) => {
+      // الأستاذ يكون مربوط بقاعة وحدة فقط
+      const cleaned = current
+        .map((link) => ({
+          ...link,
+          professorNames: link.professorNames.filter(
+            (name) => !linkProfessors.includes(name),
+          ),
+        }))
+        .filter((link) => link.professorNames.length);
+
+      if (cleaned.some((link) => link.roomNumber === linkRoom)) {
+        return cleaned.map((link) =>
+          link.roomNumber === linkRoom
+            ? {
+                ...link,
+                professorNames: [...link.professorNames, ...linkProfessors],
+              }
+            : link,
+        );
+      }
+
+      return [
+        ...cleaned,
+        { roomNumber: linkRoom, professorNames: [...linkProfessors] },
+      ];
+    });
+
+    setLinkRoom("");
+    setLinkProfessors([]);
+    setErrorMessage("");
+  };
+
+  const removeRoomLink = (roomNumber, professorName) =>
+    setRoomLinks((current) =>
+      current
+        .map((link) =>
+          link.roomNumber === roomNumber
+            ? {
+                ...link,
+                professorNames: link.professorNames.filter(
+                  (name) => name !== professorName,
+                ),
+              }
+            : link,
+        )
+        .filter((link) => link.professorNames.length),
+    );
+
+  // أستاذان مربوطان بنفس القاعة وبنفس الفترة = تعارض
+  const roomLinkConflicts = useMemo(() => {
+    const out = [];
+
+    periodProfessorGroups.forEach((group) => {
+      const byRoom = {};
+
+      group.professors.forEach((p) => {
+        const room = professorLinkedRoom.get(p.professorName);
+        if (!room) return;
+
+        if (!byRoom[room]) byRoom[room] = [];
+        byRoom[room].push(p.professorName);
+      });
+
+      Object.entries(byRoom)
+        .filter(([, names]) => names.length > 1)
+        .forEach(([room, names]) =>
+          out.push({ period: group.period, date: group.date, room, names }),
+        );
+    });
+
+    return out;
+  }, [periodProfessorGroups, professorLinkedRoom]);
+
+  /* =========================================================
      Room Assignment (auto & manual)
   ========================================================= */
 
@@ -643,43 +826,80 @@ export default function Dashboard() {
       return;
     }
 
-    const roomsPool = selectedRoomsForAuto.length
+    const basePool = selectedRoomsForAuto.length
       ? selectedRoomsForAuto.filter((room) => allowedRooms.includes(room))
       : allowedRooms;
 
-    // القاعات تُحسب فقط داخل نفس الفترة، وليس لكل اليوم
-    const maxProfessorsInAnyPeriod = periodProfessorGroups.reduce(
-      (max, group) => Math.max(max, group.professors.length),
-      0,
-    );
+    // out / mentor بآخر القائمة، فما تُستخدم إلا عند الحاجة
+    const roomsPool = sortRoomsByPriority(basePool);
 
-    if (roomsPool.length < maxProfessorsInAnyPeriod) {
-      setErrorMessage(
-        `عدد القاعات المتاحة لفئة "${planCategory}" (${roomsPool.length}) أقل من أكبر عدد أساتذة في فترة واحدة (${maxProfessorsInAnyPeriod})، اختاري قاعات أكثر.`,
-      );
-      setRoomAssignmentsState([]);
-      return;
-    }
-
+    const lastRoomOfProfessor = new Map(); // لتقليل تغيير قاعة الأستاذ بين الفترات
     const newAssignments = [];
 
-    periodProfessorGroups.forEach((group) => {
-      group.professors.forEach((professor, index) => {
+    for (const group of periodProfessorGroups) {
+      const usedRooms = new Set();
+      const roomOf = new Map();
+
+      // 1) الأساتذة المربوطون بقاعة (إذا تعارضوا بنفس الفترة، الثاني يُوزَّع تلقائيًا)
+      group.professors.forEach((p) => {
+        const linked = professorLinkedRoom.get(p.professorName);
+
+        if (linked && !usedRooms.has(linked)) {
+          usedRooms.add(linked);
+          roomOf.set(p.professorName, linked);
+        }
+      });
+
+      // 2) الباقي تلقائي من القاعات الفاضية بنفس الفترة
+      const rest = group.professors.filter(
+        (p) => !roomOf.has(p.professorName),
+      );
+      const freeRooms = roomsPool.filter((room) => !usedRooms.has(room));
+
+      if (freeRooms.length < rest.length) {
+        const label =
+          dateMode === "all"
+            ? `${formatDate(group.date)} - ${group.period}`
+            : group.period;
+
+        setErrorMessage(
+          `القاعات المتاحة لا تكفي في فترة (${label}): المطلوب ${rest.length} والمتاح ${freeRooms.length}. اختر قاعات أكثر أو فك بعض الربط.`,
+        );
+        setRoomAssignmentsState([]);
+        return;
+      }
+
+      rest.forEach((p) => {
+        const last = lastRoomOfProfessor.get(p.professorName);
+
+        const room =
+          last && !LOW_PRIORITY_ROOMS.includes(last) && freeRooms.includes(last)
+            ? last
+            : freeRooms[0];
+
+        freeRooms.splice(freeRooms.indexOf(room), 1);
+        roomOf.set(p.professorName, room);
+      });
+
+      group.professors.forEach((p) => {
+        const roomNumber = roomOf.get(p.professorName);
+        lastRoomOfProfessor.set(p.professorName, roomNumber);
+
         newAssignments.push({
-          professorId: professor.professorId,
-          professorName: professor.professorName,
+          professorId: p.professorId,
+          professorName: p.professorName,
           date: group.date,
           period: group.period,
-          roomNumber: roomsPool[index], // مختلف عن زملائه بنفس الفترة فقط
+          roomNumber,
         });
       });
-    });
+    }
 
     setRoomAssignmentsState(newAssignments);
     setErrorMessage("");
   };
 
-  // إعادة التوزيع التلقائي عند تغيّر الأساتذة أو القاعات المختارة أو الفئة، فقط في وضع "تلقائي"
+  // إعادة التوزيع التلقائي عند تغيّر الأساتذة أو القاعات المختارة أو الفئة أو الربط، فقط في وضع "تلقائي"
   useEffect(() => {
     if (roomAssignMode !== "auto") return;
     autoAssignRooms();
@@ -689,6 +909,8 @@ export default function Dashboard() {
     selectedRoomsForAuto.join("|"),
     roomAssignMode,
     planCategory,
+    allowedRooms.join("|"),
+    JSON.stringify(roomLinks),
   ]);
 
   // اختيار قاعة أستاذ واحد يدويًا
@@ -757,6 +979,11 @@ export default function Dashboard() {
   const handleGenerate = async () => {
     if (!canGenerate) return;
 
+    if (duplicateManualRooms.length > 0) {
+      setErrorMessage("في قاعة مكررة بنفس الفترة، عدّل التوزيع اليدوي أولًا.");
+      return;
+    }
+
     if (planCategory === "متطلبات" && periodsOverRequirementLimit.length > 0) {
       const details = periodsOverRequirementLimit
         .map((item) =>
@@ -767,7 +994,7 @@ export default function Dashboard() {
         .join("، ");
 
       setErrorMessage(
-        `لا يمكن إنشاء خطة "متطلبات": عدد الأساتذة في نفس الفترة أكثر من 6 قاعات متاحة (1-6). الفترات المتجاوزة: ${details}`,
+        `لا يمكن إنشاء خطة "متطلبات": عدد الأساتذة في نفس الفترة أكثر من القاعات المتاحة (${allowedRooms.length}). الفترات المتجاوزة: ${details}`,
       );
 
       return;
@@ -1008,11 +1235,8 @@ export default function Dashboard() {
               <span>الأساتذة</span>
               <strong>{professors.length}</strong>
             </div>
-
           </div>
 
-
-            
           <div className="stat-item">
             <span className="stat-icon orange">{Icons.users}</span>
 
@@ -1030,7 +1254,7 @@ export default function Dashboard() {
               )}
             </div>
           </div>
-          
+
           <div className="stat-item">
             <span className="stat-icon red">{Icons.warning}</span>
 
@@ -1222,7 +1446,7 @@ export default function Dashboard() {
                         <strong>{selectedDateRows.length}</strong>
                       </div>
 
-                        <div className="stat-item">
+                      <div className="stat-item">
                         <span className="stat-icon orange">{Icons.users}</span>
 
                         <div>
@@ -1246,8 +1470,6 @@ export default function Dashboard() {
                         <span>الأساتذة</span>
                         <strong>{selectedDateProfessors}</strong>
                       </div>
-
-                    
                     </div>
                   )}
                 </div>
@@ -1370,6 +1592,26 @@ export default function Dashboard() {
                   </span>
                 </label>
               )}
+
+              {planCategory === "متطلبات" && (
+                <label className="minimum-period-option">
+                  <input
+                    type="checkbox"
+                    checked={requirementsOneToFive}
+                    onChange={(e) => setRequirementsOneToFive(e.target.checked)}
+                  />
+                  <span className="minimum-period-check">
+                    {requirementsOneToFive && Icons.check}
+                  </span>
+                  <span className="minimum-period-label">
+                    <strong>استخدام القاعات 1–5 فقط</strong>
+                    <small>
+                      استبعاد قاعة 6 (out). بدون التفعيل تُستخدم 1–6 وقاعة 6
+                      آخر خيار.
+                    </small>
+                  </span>
+                </label>
+              )}
             </div>
 
             <div className="plan-category-grid">
@@ -1451,9 +1693,10 @@ export default function Dashboard() {
                   <div>
                     <strong>تجاوز الحد الأقصى للقاعات في بعض الفترات</strong>
                     <span>
-                      فئة "متطلبات" تحتوي على 6 قاعات فقط (1-6)، ولا يمكن أن
-                      يتجاوز عدد الأساتذة في نفس الفترة 6 أساتذة. الفترات
-                      المتجاوزة:{" "}
+                      فئة "متطلبات" تحتوي على {allowedRooms.length} قاعات فقط (
+                      {formatRoomRanges(allowedRooms)})، ولا يمكن أن يتجاوز عدد
+                      الأساتذة في نفس الفترة {allowedRooms.length} أساتذة.
+                      الفترات المتجاوزة:{" "}
                       {periodsOverRequirementLimit
                         .map((item) =>
                           dateMode === "all"
@@ -1651,9 +1894,9 @@ export default function Dashboard() {
                   <h3>تخصيص القاعات</h3>
                   <p>
                     {planCategory
-                      ? `القاعات المتاحة لفئة "${planCategory}": قاعات ${allowedRooms[0]}–${
-                          allowedRooms[allowedRooms.length - 1]
-                        } (${allowedRooms.length} قاعة).`
+                      ? `القاعات المتاحة لفئة "${planCategory}": ${formatRoomRanges(
+                          allowedRooms,
+                        )} (${allowedRooms.length} قاعة). قاعات out/mentor آخر خيار.`
                       : "اختر فئة الخطة أولًا لتحديد القاعات المتاحة (متطلبات: قاعات 1-6، دبلوم/مدمج: باقي القاعات)."}
                   </p>
                 </div>
@@ -1714,9 +1957,9 @@ export default function Dashboard() {
                         setSelectedRoomsForAuto(values);
                       }}
                     >
-                      {allowedRooms.map((room) => (
+                      {sortRoomsByPriority(allowedRooms).map((room) => (
                         <option key={room} value={room}>
-                          قاعة {room}
+                          {roomLabel(room)}
                         </option>
                       ))}
                     </select>
@@ -1751,6 +1994,110 @@ export default function Dashboard() {
                       مسح التحديد (توزيع على كل قاعات الفئة)
                     </button>
                   )}
+
+                  {/* ربط قاعة بأستاذ / أكثر */}
+                  <div style={{ marginTop: "14px" }}>
+                    <strong style={{ fontSize: "13px" }}>
+                      ربط قاعة بأستاذ / أكثر
+                    </strong>
+
+                    <select
+                      className="side-select"
+                      value={linkRoom}
+                      onChange={(e) => setLinkRoom(e.target.value)}
+                    >
+                      <option value="">اختر القاعة</option>
+                      {sortRoomsByPriority(allowedRooms).map((room) => (
+                        <option key={room} value={room}>
+                          {roomLabel(room)}
+                        </option>
+                      ))}
+                    </select>
+
+                    <div className="professor-select">
+                      <select
+                        multiple
+                        value={linkProfessors}
+                        onChange={(e) =>
+                          setLinkProfessors(
+                            Array.from(
+                              e.target.selectedOptions,
+                              (option) => option.value,
+                            ),
+                          )
+                        }
+                      >
+                        {professors.map((name) => (
+                          <option key={name} value={name}>
+                            {name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="secondary-action"
+                      onClick={addRoomLink}
+                    >
+                      إضافة ربط القاعة
+                    </button>
+
+                    {roomLinks.length > 0 && (
+                      <div className="affinity-list">
+                        {roomLinks.map((link) => (
+                          <div className="affinity-row" key={link.roomNumber}>
+                            <div>
+                              <strong>{roomLabel(link.roomNumber)}</strong>
+
+                              {link.professorNames.map((name) => (
+                                <span key={name} style={{ display: "block" }}>
+                                  ← {name}{" "}
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      removeRoomLink(link.roomNumber, name)
+                                    }
+                                  >
+                                    {Icons.trash}
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {roomLinkConflicts.length > 0 && (
+                      <div
+                        className="upload-warning-card"
+                        style={{ marginTop: "8px" }}
+                      >
+                        <div className="upload-warning-icon">
+                          {Icons.warning}
+                        </div>
+                        <div>
+                          <strong>تعارض في ربط القاعات</strong>
+                          <span>
+                            {roomLinkConflicts
+                              .map(
+                                (c) =>
+                                  `${
+                                    dateMode === "all"
+                                      ? `${formatDate(c.date)} - `
+                                      : ""
+                                  }${c.period}: ${roomLabel(c.room)} (${c.names.join(
+                                    "، ",
+                                  )})`,
+                              )
+                              .join(" | ")}{" "}
+                            — الأستاذ الثاني بنفس الفترة سيُوزَّع تلقائيًا.
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </>
               ) : (
                 <div className="manual-room-list manual-room-scroll">
@@ -1801,11 +2148,13 @@ export default function Dashboard() {
                                 }
                               >
                                 <option value="">— اختر قاعة —</option>
-                                {allowedRooms.map((room) => (
-                                  <option key={room} value={room}>
-                                    قاعة {room}
-                                  </option>
-                                ))}
+                                {sortRoomsByPriority(allowedRooms).map(
+                                  (room) => (
+                                    <option key={room} value={room}>
+                                      {roomLabel(room)}
+                                    </option>
+                                  ),
+                                )}
                               </select>
                             </div>
                           );
@@ -1830,14 +2179,23 @@ export default function Dashboard() {
                           {duplicateManualRooms
                             .map((item) =>
                               dateMode === "all"
-                                ? `${formatDate(item.date)} - ${item.period}: قاعة ${item.room}`
-                                : `${item.period}: قاعة ${item.room}`,
+                                ? `${formatDate(item.date)} - ${item.period}: ${roomLabel(item.room)}`
+                                : `${item.period}: ${roomLabel(item.room)}`,
                             )
                             .join("، ")}
                         </span>
                       </div>
                     </div>
                   )}
+                </div>
+              )}
+
+              {missingRooms > 0 && (
+                <div
+                  className="minimum-period-disabled"
+                  style={{ marginTop: "8px" }}
+                >
+                  ينقص تخصيص قاعة لـ {missingRooms} فترة
                 </div>
               )}
 
@@ -1879,7 +2237,7 @@ export default function Dashboard() {
                                 {item.professorName}
                               </span>
                               <span className="room-badge">
-                                قاعة {item.roomNumber}
+                                {roomLabel(item.roomNumber)}
                               </span>
                             </div>
                           ))}
