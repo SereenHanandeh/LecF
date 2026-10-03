@@ -235,13 +235,13 @@ const LOW_PRIORITY_ROOMS = ["6", "15", ...SPECIAL_ROOMS];
 const range = (from, to) =>
   Array.from({ length: to - from + 1 }, (_, i) => String(from + i));
 
-const REQUIREMENT_ROOMS = range(1, 6); // 1..6
+const REQUIREMENT_ROOMS = range(1, 6); 
 
 const DIPLOMA_MERGED_ROOMS = [
-  ...range(1, 5), // 1..5 (مشتركة مع المتطلبات)
-  ...range(7, 16), // 7..16
-  ...HIGH_ROOMS, // 40/42/46/47/48/49
-  ...SPECIAL_ROOMS, // 100/101/102 (آخر أولوية)
+  ...range(1, 5), 
+  ...range(7, 16),
+  ...HIGH_ROOMS, 
+  ...SPECIAL_ROOMS, 
 ];
 
 const VALID_ROOMS = [...range(1, 16), ...HIGH_ROOMS, ...SPECIAL_ROOMS];
