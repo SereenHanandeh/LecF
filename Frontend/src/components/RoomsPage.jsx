@@ -7,7 +7,6 @@ import "../assets/RoomsPage.css";
 const CATEGORY_OPTIONS = ["مدمج", "دبلوم", "متطلبات"];
 
 const TAG_OPTIONS = [
-  { value: "", label: "بدون وسم" },
   { value: "out", label: "out" },
   { value: "mentor", label: "mentor" },
   { value: "خاصة", label: "خاصة" },
@@ -479,20 +478,21 @@ export default function RoomsPage() {
 
                 <label className="rooms-field">
                   <span>الوسم (اختياري)</span>
-                  <select
+                  <input
+                    type="text"
+                    list="tag-suggestions"
                     value={form.tag}
                     onChange={(e) =>
                       setForm((f) => ({ ...f, tag: e.target.value }))
                     }
-                  >
+                    placeholder="اكتب الوسم أو اختر من الاقتراحات"
+                  />
+                  <datalist id="tag-suggestions">
                     {TAG_OPTIONS.map((opt) => (
-                      <option key={opt.value || "none"} value={opt.value}>
-                        {opt.label}
-                      </option>
+                      <option key={opt.value} value={opt.value} />
                     ))}
-                  </select>
+                  </datalist>
                 </label>
-
                 <div className="rooms-field full">
                   <span>الفئات المسموحة *</span>
                   <div className="rooms-filter-pills">
