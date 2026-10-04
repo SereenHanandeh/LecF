@@ -229,6 +229,13 @@ export default function RoomsPage() {
       return;
     }
 
+    if (/[()]/.test(form.roomNumber)) {
+      setError(
+        'لا تكتبي الوسم بين قوسين داخل حقل رقم القاعة. استخدمي حقل "الوسم" المخصص لذلك، مثال: رقم القاعة = 100، والوسم = خدمات طلابية.',
+      );
+      return;
+    }
+
     if (!form.categories.length) {
       setError("اختر فئة واحدة على الأقل لهذه القاعة.");
       return;
