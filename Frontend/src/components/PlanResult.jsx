@@ -158,6 +158,11 @@ const getPlanDateRange = (data) => {
   return first === last ? first : `${first}_الى_${last}`;
 };
 
+const getPhone = (assignment) =>
+  assignment.professor_phone ??
+  assignment.professorPhone ??
+  assignment.phone ??
+  "-";
 // =====================================================
 // Time Helpers
 // =====================================================
@@ -342,12 +347,12 @@ const PERIOD_COLORS = [
   "FFFEE2E2", // أحمر فاتح
 ];
 
-// تنسيق الجسم + ألوان الفترات كـ Conditional Formatting (تتحدث تلقائيًا مع التعديل)
 const styleLiveBody = (worksheet, periodColorMap, borderLastRow, cfLastRow) => {
   for (let r = 2; r <= borderLastRow; r++) {
     const row = worksheet.getRow(r);
 
-    for (let c = 1; c <= 9; c++) {
+    for (let c = 1; c <= 10; c++) {
+      // ✅ كان 9
       const cell = row.getCell(c);
 
       cell.alignment = { vertical: "middle", horizontal: "center" };
@@ -368,7 +373,7 @@ const styleLiveBody = (worksheet, periodColorMap, borderLastRow, cfLastRow) => {
     rules.push({
       type: "expression",
       priority: priority++,
-      formulae: [`$F2="${String(period).replace(/"/g, '""')}"`],
+      formulae: [`$G2="${String(period).replace(/"/g, '""')}"`], // ✅ كان $F2 (الفترة انتقلت من F إلى G)
       style: {
         fill: {
           type: "pattern",
@@ -381,12 +386,11 @@ const styleLiveBody = (worksheet, periodColorMap, borderLastRow, cfLastRow) => {
 
   if (rules.length) {
     worksheet.addConditionalFormatting({
-      ref: `A2:I${cfLastRow}`,
+      ref: `A2:J${cfLastRow}`, // ✅ كان A2:I
       rules,
     });
   }
 };
-
 // =====================================================
 // Component
 // =====================================================
@@ -454,6 +458,7 @@ export default function PlanResult() {
     crn: true,
     courseName: true,
     professor: true,
+    phone: true,
     room: true,
     date: true,
     period: true,
@@ -1737,6 +1742,7 @@ export default function PlanResult() {
         { header: "CRN", key: "crn", width: 14 },
         { header: "Course Name", key: "courseName", width: 32 },
         { header: "Professor", key: "professor", width: 28 },
+        { header: "Phone", key: "phone", width: 32 },
         { header: "Studio", key: "room", width: 12 },
         { header: "Date", key: "date", width: 14 },
         { header: "Period", key: "period", width: 14 },
@@ -1746,12 +1752,13 @@ export default function PlanResult() {
       ];
 
       const keys = columns.map((c) => c.key);
-      const letters = ["A", "B", "C", "D", "E", "F", "G", "H", "I"];
+      const letters = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
       const toRow = (assignment) => ({
         crn: assignment.crn ?? "-",
         courseName: getCourseName(assignment),
         professor: getProfessorName(assignment),
+        phone: getPhone(assignment),
         room: getRoomNumber(assignment),
         date: formatDate(assignment.date),
         period: getPeriod(assignment),
@@ -1759,7 +1766,6 @@ export default function PlanResult() {
         to: formatTime12Hour(getTimeTo(assignment)),
         supervisor: getSupervisorName(assignment),
       });
-
       const styleHeader = (worksheet) => {
         const headerRow = worksheet.getRow(1);
 
@@ -1767,7 +1773,8 @@ export default function PlanResult() {
         headerRow.alignment = { vertical: "middle", horizontal: "center" };
         headerRow.height = 24;
 
-        for (let c = 1; c <= 9; c++) {
+        for (let c = 1; c <= 10; c++) {
+          // ✅ كان 9
           const cell = headerRow.getCell(c);
 
           cell.fill = {
@@ -1804,6 +1811,7 @@ export default function PlanResult() {
       rowsData.forEach((r) => mainSheet.addRow(r));
 
       // أعمدة مساعدة مخفية: J = رقم التكرار ، K = المفتاح (مشرف|رقم)
+      // أعمدة مساعدة مخفية: K = رقم التكرار ، L = المفتاح (مشرف|رقم)
       const counters = new Map();
 
       for (let r = 2; r <= mainLast; r++) {
@@ -1817,19 +1825,19 @@ export default function PlanResult() {
           counters.set(sup, idx);
         }
 
-        mainSheet.getCell(`J${r}`).value = {
-          formula: `IF(I${r}="","",COUNTIF(I$2:I${r},I${r}))`,
+        mainSheet.getCell(`K${r}`).value = {
+          formula: `IF(J${r}="","",COUNTIF(J$2:J${r},J${r}))`, // ✅ Supervisor الآن J
           result: idx,
         };
 
-        mainSheet.getCell(`K${r}`).value = {
-          formula: `IF(I${r}="","",I${r}&"|"&J${r})`,
+        mainSheet.getCell(`L${r}`).value = {
+          formula: `IF(J${r}="","",J${r}&"|"&K${r})`,
           result: sup ? `${sup}|${idx}` : "",
         };
       }
 
-      mainSheet.getColumn(10).hidden = true;
-      mainSheet.getColumn(11).hidden = true;
+      mainSheet.getColumn(11).hidden = true; // K
+      mainSheet.getColumn(12).hidden = true; // L
 
       styleHeader(mainSheet);
       styleLiveBody(
@@ -1888,41 +1896,41 @@ export default function PlanResult() {
       // شيت لكل مشرف (معادلات تسحب من الشيت الرئيسي)
       // =========================================
 
-      for (const [supervisorName, items] of bySupervisor.entries()) {
-        const sheet = workbook.addWorksheet(sanitizeSheetName(supervisorName), {
-          views: [{ rightToLeft: true }],
-        });
+   for (const [supervisorName, items] of bySupervisor.entries()) {
+  const sheet = workbook.addWorksheet(sanitizeSheetName(supervisorName), {
+    views: [{ rightToLeft: true }],
+  });
 
-        sheet.columns = columns;
+  sheet.columns = columns;
 
-        // K1 = اسم المشرف الحقيقي (يُستخدم في البحث)
-        sheet.getCell("K1").value = supervisorName;
+  // M1 = اسم المشرف الحقيقي (يُستخدم في البحث)
+  sheet.getCell("M1").value = supervisorName;
 
-        const total = items.length + 1 + SUP_EXTRA_ROWS;
+  const total = items.length + 1 + SUP_EXTRA_ROWS;
 
-        for (let r = 2; r <= total; r++) {
-          const item = items[r - 2];
+  for (let r = 2; r <= total; r++) {
+    const item = items[r - 2];
 
-          // J = موضع الصف داخل الشيت الرئيسي
-          sheet.getCell(`J${r}`).value = {
-            formula: `IFERROR(MATCH($K$1&"|"&(ROW()-1),${mainRange("K")},0),"")`,
-            result: item ? item.index + 1 : "",
-          };
+    // L = موضع الصف داخل الشيت الرئيسي
+    sheet.getCell(`L${r}`).value = {
+      formula: `IFERROR(MATCH($M$1&"|"&(ROW()-1),${mainRange("L")},0),"")`,
+      result: item ? item.index + 1 : "",
+    };
 
-          letters.forEach((letter, i) => {
-            sheet.getCell(`${letter}${r}`).value = {
-              formula: `IF($J${r}="","",INDEX(${mainRange(letter)},$J${r})&"")`,
-              result: item ? String(item.data[keys[i]] ?? "") : "",
-            };
-          });
-        }
+    letters.forEach((letter, i) => {
+      sheet.getCell(`${letter}${r}`).value = {
+        formula: `IF($L${r}="","",INDEX(${mainRange(letter)},$L${r})&"")`,
+        result: item ? String(item.data[keys[i]] ?? "") : "",
+      };
+    });
+  }
 
-        sheet.getColumn(10).hidden = true;
-        sheet.getColumn(11).hidden = true;
+  sheet.getColumn(12).hidden = true; // L
+  sheet.getColumn(13).hidden = true; // M
 
-        styleHeader(sheet);
-        styleLiveBody(sheet, periodColorMap, total, total);
-      }
+  styleHeader(sheet);
+  styleLiveBody(sheet, periodColorMap, total, total);
+}
 
       // =========================================
       // شيت مخفي بأسماء المشرفين + قائمة منسدلة في عمود Supervisor
@@ -1937,7 +1945,7 @@ export default function PlanResult() {
       });
 
       for (let r = 2; r <= mainLast; r++) {
-        mainSheet.getCell(`I${r}`).dataValidation = {
+        mainSheet.getCell(`J${r}`).dataValidation = {
           type: "list",
           allowBlank: true,
           formulae: [`'${LISTS}'!$A$1:$A$${Math.max(listNames.length, 1)}`],
@@ -1988,6 +1996,7 @@ export default function PlanResult() {
         { header: "CRN", key: "crn", width: 14 },
         { header: "Course Name", key: "courseName", width: 32 },
         { header: "Professor", key: "professor", width: 28 },
+        { header: "Phone", key: "phone", width: 20 },
         { header: "Studio", key: "room", width: 12 },
         { header: "Date", key: "date", width: 14 },
         { header: "Period", key: "period", width: 14 },
@@ -2016,6 +2025,7 @@ export default function PlanResult() {
           crn: assignment.crn ?? "-",
           courseName: getCourseName(assignment),
           professor: getProfessorName(assignment),
+          phone: getPhone(assignment),  
           room: getRoomNumber(assignment),
           date: formatDate(assignment.date),
           period: getPeriod(assignment),
@@ -2467,6 +2477,7 @@ export default function PlanResult() {
                 ["crn", "CRN"],
                 ["courseName", "Course name"],
                 ["professor", "Professor"],
+                ["phone", "Phone"],
                 ["room", "Studio"],
                 ["date", "Date"],
                 ["period", "Period"],
@@ -2530,6 +2541,8 @@ export default function PlanResult() {
                     {visibleColumns.courseName && <th>Course name</th>}
 
                     {visibleColumns.professor && <th>Professor</th>}
+
+                    {visibleColumns.phone && <th>Phone</th>}
 
                     {visibleColumns.room && <th>Studio</th>}
 
@@ -2600,6 +2613,14 @@ export default function PlanResult() {
 
                                 <span>{getProfessorName(assignment)}</span>
                               </div>
+                            </td>
+                          )}
+
+                          {visibleColumns.phone && (
+                            <td>
+                              <span className="phone-text" dir="ltr">
+                                {getPhone(assignment)}
+                              </span>
                             </td>
                           )}
 
@@ -2861,6 +2882,7 @@ export default function PlanResult() {
                     <col className="print-col-course" />
 
                     <col className="print-col-professor" />
+                    <col className="print-col-phone" />
                     <col className="print-col-studio" />
 
                     <col className="print-col-date" />
@@ -2881,6 +2903,8 @@ export default function PlanResult() {
                       <th>Course Name</th>
 
                       <th>Professor</th>
+
+                      <th>Phone</th>
 
                       <th>Studio</th>
 
@@ -2912,6 +2936,8 @@ export default function PlanResult() {
                             <td className="print-professor" dir="auto">
                               {getProfessorName(assignment)}
                             </td>
+
+                            <td dir="ltr">{getPhone(assignment)}</td>
 
                             <td>{getRoomNumber(assignment)}</td>
 
