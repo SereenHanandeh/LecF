@@ -1452,40 +1452,41 @@
 
 }
 
-/* ===== جدول الشاشة: عرض ثابت + تمرير أفقي ===== */
+/* =====================================================
+   جدول الشاشة بدون سكرول
+===================================================== */
+
+.table-container {
+  overflow-x: visible;
+}
 
 .screen-plan-table {
   table-layout: fixed;
   width: 100%;
-  min-width: 1320px;
+  min-width: 0;
 }
 
 .screen-plan-table th,
 .screen-plan-table td {
-  padding-inline: 8px;
-  overflow: hidden;
+  padding: 8px 6px;
+  font-size: 12px;
   overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
-.screen-plan-table th:nth-child(1)  { width: 44px;  }
-.screen-plan-table th:nth-child(2)  { width: 80px;  }
-.screen-plan-table th:nth-child(3)  { width: 170px; }
-.screen-plan-table th:nth-child(4)  { width: 150px; }
-.screen-plan-table th:nth-child(5)  { width: 120px; }
-.screen-plan-table th:nth-child(6)  { width: 110px; }
-.screen-plan-table th:nth-child(7)  { width: 120px; }
-.screen-plan-table th:nth-child(8)  { width: 100px; }
-.screen-plan-table th:nth-child(9)  { width: 100px; }
-.screen-plan-table th:nth-child(10) { width: 100px; }
-.screen-plan-table th:nth-child(11) { width: 200px; }
-.screen-plan-table th:nth-child(12) { width: 130px; }
+.screen-plan-table th {
+  white-space: normal;
+}
 
+/* حقول التعديل تتقيد بعرض الخلية */
+.screen-plan-table select,
 .screen-plan-table .edit-supervisor-select,
 .screen-plan-table .edit-room-input {
   width: 100% !important;
   min-width: 0 !important;
   max-width: 100%;
   font-size: 12px;
+  padding: 5px 4px;
 }
 
 .screen-plan-table .toggle-supervisor-scope-btn {
@@ -1502,18 +1503,89 @@
 .screen-plan-table .edit-btn,
 .screen-plan-table .save-btn,
 .screen-plan-table .cancel-btn {
-  padding: 6px 8px;
+  padding: 5px 8px;
+  font-size: 12px;
 }
 
 .screen-plan-table .date-badge,
 .screen-plan-table .period-badge,
 .screen-plan-table .time-badge {
-  white-space: nowrap;
-  padding: 4px 6px;
-  font-size: 12px;
+  white-space: normal;
+  padding: 3px 5px;
+  font-size: 11.5px;
 }
 
-.table-container {
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+.screen-plan-table .supervisor-avatar,
+.screen-plan-table .professor-dot {
+  display: none;
+}
+
+/* =====================================================
+   الهاتف: كل صف يصير بطاقة (بدون سكرول)
+===================================================== */
+
+@media (max-width: 768px) {
+  .screen-plan-table,
+  .screen-plan-table tbody,
+  .screen-plan-table tr,
+  .screen-plan-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .screen-plan-table thead {
+    display: none;
+  }
+
+  .screen-plan-table tr {
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    margin-bottom: 12px;
+    padding: 6px 10px;
+    background: var(--surface);
+  }
+
+  .screen-plan-table td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px dashed var(--line);
+    font-size: 13px;
+    text-align: end;
+  }
+
+  .screen-plan-table td:last-child {
+    border-bottom: none;
+  }
+
+  .screen-plan-table td:nth-child(2)::before  { content: "CRN"; }
+  .screen-plan-table td:nth-child(3)::before  { content: "المقرر"; }
+  .screen-plan-table td:nth-child(4)::before  { content: "الأستاذ"; }
+  .screen-plan-table td:nth-child(5)::before  { content: "الهاتف"; }
+  .screen-plan-table td:nth-child(6)::before  { content: "القاعة"; }
+  .screen-plan-table td:nth-child(7)::before  { content: "التاريخ"; }
+  .screen-plan-table td:nth-child(8)::before  { content: "الفترة"; }
+  .screen-plan-table td:nth-child(9)::before  { content: "من"; }
+  .screen-plan-table td:nth-child(10)::before { content: "إلى"; }
+  .screen-plan-table td:nth-child(11)::before { content: "المشرف"; }
+
+  .screen-plan-table td::before {
+    font-weight: 600;
+    color: var(--ink-soft);
+    flex-shrink: 0;
+  }
+
+  .screen-plan-table td.select-column {
+    justify-content: flex-start;
+  }
+
+  .screen-plan-table td.action-column {
+    justify-content: center;
+  }
+
+  .screen-plan-table select {
+    max-width: 60%;
+  }
 }
