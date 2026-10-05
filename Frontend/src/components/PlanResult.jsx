@@ -534,6 +534,11 @@ export default function PlanResult() {
   const [editingShowAllSupervisors, setEditingShowAllSupervisors] =
     useState(false);
 
+  const [selectedRowIds, setSelectedRowIds] = useState(new Set());
+  const [bulkSupervisor, setBulkSupervisor] = useState("");
+  const [bulkShowAllSupervisors, setBulkShowAllSupervisors] = useState(false);
+  const [bulkSaving, setBulkSaving] = useState(false);
+
   // =====================================================
   // Plan Status (Accept / Reject)
   // =====================================================
@@ -1221,6 +1226,19 @@ export default function PlanResult() {
     filterPeriod,
   ]);
 
+  // الصفوف المحددة والظاهرة حاليًا (ما تغيّره هو ما تراه)
+  const selectedAssignments = useMemo(
+    () =>
+      filteredPlanData.filter((assignment) =>
+        selectedRowIds.has(String(getSessionGroupId(assignment))),
+      ),
+    [filteredPlanData, selectedRowIds],
+  );
+
+  const allVisibleSelected =
+    filteredPlanData.length > 0 &&
+    selectedAssignments.length === filteredPlanData.length;
+
   // =====================================================
   // Supervisor Statistics
   // =====================================================
@@ -1730,6 +1748,203 @@ export default function PlanResult() {
   };
 
   // =====================================================
+  // Bulk Selection / Bulk Edit
+  // =====================================================
+
+  const toggleRowSelection = (rowId) => {
+    const key = String(rowId);
+
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisible = () => {
+    setSelectedRowIds((prev) => {
+      const next = new Set(prev);
+
+      filteredPlanData.forEach((assignment) => {
+        const key = String(getSessionGroupId(assignment));
+
+        if (allVisibleSelected) next.delete(key);
+        else next.add(key);
+      });
+
+      return next;
+    });
+  };
+
+  const clearSelection = () => {
+    setSelectedRowIds(new Set());
+    setBulkSupervisor("");
+    setBulkShowAllSupervisors(false);
+  };
+
+  const applyBulkSupervisor = async () => {
+    if (!selectedAssignments.length) {
+      alert("⚠️ اختر صفًا واحدًا على الأقل.");
+      return;
+    }
+
+    const targetSupervisorId = Number(bulkSupervisor);
+
+    if (!bulkSupervisor || !Number.isInteger(targetSupervisorId)) {
+      alert("⚠️ اختر المشرف الجديد.");
+      return;
+    }
+
+    // تصنيف الصفوف: تُنقل / نفس المشرف / أستاذ مرتبط بمشرف آخر
+    const toMove = [];
+    const skippedSame = [];
+    const skippedAffinity = [];
+
+    selectedAssignments.forEach((assignment) => {
+      const current = getSupervisorId(assignment);
+      const affinity = getProfessorAffinitySupervisorId(assignment);
+
+      if (String(current) === String(targetSupervisorId)) {
+        skippedSame.push(assignment);
+        return;
+      }
+
+      if (
+        affinity !== null &&
+        affinity !== undefined &&
+        String(affinity) !== String(targetSupervisorId)
+      ) {
+        skippedAffinity.push(assignment);
+        return;
+      }
+
+      toMove.push(assignment);
+    });
+
+    if (!toMove.length) {
+      alert(
+        "⚠️ لا توجد صفوف قابلة للنقل: كلها عند هذا المشرف أصلًا أو مرتبطة بمشرف آخر.",
+      );
+      return;
+    }
+
+    const targetSupervisor =
+      allSupervisorsList.find(
+        (s) =>
+          String(s?.id ?? s?.supervisor_id ?? s?.supervisorId) ===
+          String(targetSupervisorId),
+      ) ||
+      supervisors.find(
+        (s) =>
+          String(s?.id ?? s?.supervisor_id ?? s?.supervisorId) ===
+          String(targetSupervisorId),
+      );
+
+    const targetName =
+      targetSupervisor?.name ??
+      targetSupervisor?.supervisor_name ??
+      targetSupervisor?.supervisorName ??
+      "";
+
+    const confirmed = window.confirm(
+      `سيتم نقل ${toMove.length} صف إلى المشرف "${targetName}".\nمتابعة؟`,
+    );
+
+    if (!confirmed) return;
+
+    setBulkSaving(true);
+
+    const movedIds = new Set();
+    const failed = [];
+
+    // بالتتابع كي لا تتعارض عمليات الحفظ في الـ backend
+    for (const assignment of toMove) {
+      const sessionGroupId = getSessionGroupId(assignment);
+
+      try {
+        await moveAssignment(planId, {
+          sessionGroupId: Number(sessionGroupId),
+          fromSupervisorId: Number(getSupervisorId(assignment)),
+          toSupervisorId: targetSupervisorId,
+        });
+
+        movedIds.add(String(sessionGroupId));
+      } catch (err) {
+        failed.push({
+          assignment,
+          reason:
+            err?.response?.data?.error ||
+            err?.response?.data?.message ||
+            err?.message ||
+            "Failed",
+        });
+      }
+    }
+
+    if (isMountedRef.current) {
+      if (movedIds.size) {
+        setPlanData((prev) =>
+          prev.map((item) =>
+            movedIds.has(String(getSessionGroupId(item)))
+              ? {
+                  ...item,
+                  supervisor_id: targetSupervisorId,
+                  supervisorId: targetSupervisorId,
+                  supervisor_name: targetName,
+                  supervisor: targetName,
+                }
+              : item,
+          ),
+        );
+      }
+
+      // الصفوف الفاشلة تبقى محددة لإعادة المحاولة
+      setSelectedRowIds(
+        new Set(failed.map((f) => String(getSessionGroupId(f.assignment)))),
+      );
+
+      if (!failed.length) {
+        setBulkSupervisor("");
+        setBulkShowAllSupervisors(false);
+      }
+
+      setBulkSaving(false);
+    }
+
+    fetchPlan({ silent: true });
+
+    const lines = [`✅ تم نقل ${movedIds.size} صف إلى "${targetName}".`];
+
+    if (skippedSame.length) {
+      lines.push(`↪️ ${skippedSame.length} صف تم تجاهله (عند نفس المشرف).`);
+    }
+
+    if (skippedAffinity.length) {
+      const names = [
+        ...new Set(skippedAffinity.map((a) => getProfessorName(a))),
+      ];
+
+      lines.push(
+        `🔗 ${skippedAffinity.length} صف تم تجاهله لأن الأستاذ مرتبط بمشرف آخر: ${names.join("، ")}`,
+      );
+    }
+
+    if (failed.length) {
+      lines.push(`❌ فشل نقل ${failed.length} صف:`);
+
+      failed.slice(0, 5).forEach((f) => {
+        lines.push(`• ${getProfessorName(f.assignment)}: ${f.reason}`);
+      });
+
+      if (failed.length > 5) lines.push(`... و${failed.length - 5} آخرين`);
+    }
+
+    alert(lines.join("\n"));
+  };
+  // =====================================================
   // Accept / Reject Plan
   // =====================================================
 
@@ -1785,291 +2000,293 @@ export default function PlanResult() {
   // Download Excel - Current Filtered Data
   // =====================================================
 
- const downloadExcel = async () => {
-  try {
-    if (!planData.length) {
-      alert("⚠️ لا توجد بيانات لتنزيلها.");
-      return;
-    }
-
-    const MAIN = "الخطة الكاملة";
-    const LISTS = "المشرفون";
-    const MAIN_EXTRA_ROWS = 200;
-    const SUP_EXTRA_ROWS = 50;
-    const LIVE = EXCEL_LIVE_SUPERVISOR_SHEETS;
-
-    const dataToExport = sortForExcel(planData);
-    const rowsData = dataToExport.map(toExcelRow);
-    const periodColorMap = buildPeriodColorMap(planData);
-
-    const keys = EXCEL_COLUMNS.map((c) => c.key);
-    const letters = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
-
-    const mainWidths = computeColumnWidths(EXCEL_COLUMNS, rowsData);
-    const mainLast = dataToExport.length + 1 + MAIN_EXTRA_ROWS;
-    const mainRange = (col) => `'${MAIN}'!$${col}$2:$${col}$${mainLast}`;
-
-    const workbook = new ExcelJS.Workbook();
-    workbook.creator = "Lecture Supervisor System";
-    workbook.created = new Date();
-    workbook.calcProperties = { fullCalcOnLoad: true };
-
-    // =========================================
-    // الشيت الرئيسي
-    // =========================================
-
-    const mainSheet = workbook.addWorksheet(MAIN, {
-      views: [{ rightToLeft: true }],
-    });
-
-    mainSheet.columns = withWidths(mainWidths);
-    rowsData.forEach((row) => mainSheet.addRow(row));
-
-    if (LIVE) {
-      const counters = new Map();
-
-      for (let r = 2; r <= mainLast; r++) {
-        const rowData = rowsData[r - 2];
-        const sup = rowData ? String(rowData.supervisor) : "";
-
-        let idx = "";
-
-        if (sup) {
-          idx = (counters.get(sup) || 0) + 1;
-          counters.set(sup, idx);
-        }
-
-        mainSheet.getCell(`K${r}`).value = {
-          formula: `IF(J${r}="","",COUNTIF(J$2:J${r},J${r}))`,
-          result: idx,
-        };
-
-        mainSheet.getCell(`L${r}`).value = {
-          formula: `IF(J${r}="","",J${r}&"|"&K${r})`,
-          result: sup ? `${sup}|${idx}` : "",
-        };
+  const downloadExcel = async () => {
+    try {
+      if (!planData.length) {
+        alert("⚠️ لا توجد بيانات لتنزيلها.");
+        return;
       }
 
-      mainSheet.getColumn(11).hidden = true;
-      mainSheet.getColumn(12).hidden = true;
-    }
+      const MAIN = "الخطة الكاملة";
+      const LISTS = "المشرفون";
+      const MAIN_EXTRA_ROWS = 200;
+      const SUP_EXTRA_ROWS = 50;
+      const LIVE = EXCEL_LIVE_SUPERVISOR_SHEETS;
 
-    styleHeaderRow(mainSheet);
-    styleBodyRows(mainSheet, {
-      borderLastRow: dataToExport.length + 1,
-      styleLastRow: mainLast,
-      heights: rowsData.map((row) => computeRowHeight(row, mainWidths)),
-    });
-    addPeriodConditionalFormatting(mainSheet, periodColorMap, mainLast);
+      const dataToExport = sortForExcel(planData);
+      const rowsData = dataToExport.map(toExcelRow);
+      const periodColorMap = buildPeriodColorMap(planData);
 
-    // =========================================
-    // تجميع البيانات حسب المشرف (بعد الترتيب)
-    // =========================================
+      const keys = EXCEL_COLUMNS.map((c) => c.key);
+      const letters = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
-    const bySupervisor = new Map();
+      const mainWidths = computeColumnWidths(EXCEL_COLUMNS, rowsData);
+      const mainLast = dataToExport.length + 1 + MAIN_EXTRA_ROWS;
+      const mainRange = (col) => `'${MAIN}'!$${col}$2:$${col}$${mainLast}`;
 
-    dataToExport.forEach((assignment, index) => {
-      const name = getSupervisorName(assignment);
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "Lecture Supervisor System";
+      workbook.created = new Date();
+      workbook.calcProperties = { fullCalcOnLoad: true };
 
-      if (!name || name === "-") return;
+      // =========================================
+      // الشيت الرئيسي
+      // =========================================
 
-      if (!bySupervisor.has(name)) bySupervisor.set(name, []);
-
-      bySupervisor.get(name).push({ data: rowsData[index], index });
-    });
-
-    const usedSheetNames = new Set([MAIN, LISTS]);
-
-    const sanitizeSheetName = (name) => {
-      let clean = String(name)
-        .replace(/[:\\/?*[\]]/g, "")
-        .trim();
-
-      if (!clean) clean = "مشرف";
-      if (clean.length > 31) clean = clean.slice(0, 31);
-
-      let finalName = clean;
-      let counter = 2;
-
-      while (usedSheetNames.has(finalName)) {
-        const suffix = `_${counter}`;
-        finalName = clean.slice(0, 31 - suffix.length) + suffix;
-        counter++;
-      }
-
-      usedSheetNames.add(finalName);
-      return finalName;
-    };
-
-    // =========================================
-    // شيت لكل مشرف
-    // =========================================
-
-    for (const [supervisorName, items] of bySupervisor.entries()) {
-      const sheet = workbook.addWorksheet(sanitizeSheetName(supervisorName), {
+      const mainSheet = workbook.addWorksheet(MAIN, {
         views: [{ rightToLeft: true }],
       });
 
-      const itemRows = items.map((item) => item.data);
-      const widths = LIVE
-        ? mainWidths
-        : computeColumnWidths(EXCEL_COLUMNS, itemRows);
-
-      sheet.columns = withWidths(widths);
-
-      const total = items.length + 1 + SUP_EXTRA_ROWS;
+      mainSheet.columns = withWidths(mainWidths);
+      rowsData.forEach((row) => mainSheet.addRow(row));
 
       if (LIVE) {
-        sheet.getCell("M1").value = supervisorName;
+        const counters = new Map();
 
-        for (let r = 2; r <= total; r++) {
-          const item = items[r - 2];
+        for (let r = 2; r <= mainLast; r++) {
+          const rowData = rowsData[r - 2];
+          const sup = rowData ? String(rowData.supervisor) : "";
 
-          sheet.getCell(`L${r}`).value = {
-            formula: `IFERROR(MATCH($M$1&"|"&(ROW()-1),${mainRange("L")},0),"")`,
-            result: item ? item.index + 1 : "",
+          let idx = "";
+
+          if (sup) {
+            idx = (counters.get(sup) || 0) + 1;
+            counters.set(sup, idx);
+          }
+
+          mainSheet.getCell(`K${r}`).value = {
+            formula: `IF(J${r}="","",COUNTIF(J$2:J${r},J${r}))`,
+            result: idx,
           };
 
-          letters.forEach((letter, i) => {
-            sheet.getCell(`${letter}${r}`).value = {
-              formula: `IF($L${r}="","",INDEX(${mainRange(letter)},$L${r})&"")`,
-              result: item ? String(item.data[keys[i]] ?? "") : "",
-            };
-          });
+          mainSheet.getCell(`L${r}`).value = {
+            formula: `IF(J${r}="","",J${r}&"|"&K${r})`,
+            result: sup ? `${sup}|${idx}` : "",
+          };
         }
 
-        sheet.getColumn(12).hidden = true;
-        sheet.getColumn(13).hidden = true;
-      } else {
-        // قيم عادية: قابلة للتعديل والإضافة بحرية
-        itemRows.forEach((row) => sheet.addRow(row));
+        mainSheet.getColumn(11).hidden = true;
+        mainSheet.getColumn(12).hidden = true;
       }
+
+      styleHeaderRow(mainSheet);
+      styleBodyRows(mainSheet, {
+        borderLastRow: dataToExport.length + 1,
+        styleLastRow: mainLast,
+        heights: rowsData.map((row) => computeRowHeight(row, mainWidths)),
+      });
+      addPeriodConditionalFormatting(mainSheet, periodColorMap, mainLast);
+
+      // =========================================
+      // تجميع البيانات حسب المشرف (بعد الترتيب)
+      // =========================================
+
+      const bySupervisor = new Map();
+
+      dataToExport.forEach((assignment, index) => {
+        const name = getSupervisorName(assignment);
+
+        if (!name || name === "-") return;
+
+        if (!bySupervisor.has(name)) bySupervisor.set(name, []);
+
+        bySupervisor.get(name).push({ data: rowsData[index], index });
+      });
+
+      const usedSheetNames = new Set([MAIN, LISTS]);
+
+      const sanitizeSheetName = (name) => {
+        let clean = String(name)
+          .replace(/[:\\/?*[\]]/g, "")
+          .trim();
+
+        if (!clean) clean = "مشرف";
+        if (clean.length > 31) clean = clean.slice(0, 31);
+
+        let finalName = clean;
+        let counter = 2;
+
+        while (usedSheetNames.has(finalName)) {
+          const suffix = `_${counter}`;
+          finalName = clean.slice(0, 31 - suffix.length) + suffix;
+          counter++;
+        }
+
+        usedSheetNames.add(finalName);
+        return finalName;
+      };
+
+      // =========================================
+      // شيت لكل مشرف
+      // =========================================
+
+      for (const [supervisorName, items] of bySupervisor.entries()) {
+        const sheet = workbook.addWorksheet(sanitizeSheetName(supervisorName), {
+          views: [{ rightToLeft: true }],
+        });
+
+        const itemRows = items.map((item) => item.data);
+        const widths = LIVE
+          ? mainWidths
+          : computeColumnWidths(EXCEL_COLUMNS, itemRows);
+
+        sheet.columns = withWidths(widths);
+
+        const total = items.length + 1 + SUP_EXTRA_ROWS;
+
+        if (LIVE) {
+          sheet.getCell("M1").value = supervisorName;
+
+          for (let r = 2; r <= total; r++) {
+            const item = items[r - 2];
+
+            sheet.getCell(`L${r}`).value = {
+              formula: `IFERROR(MATCH($M$1&"|"&(ROW()-1),${mainRange("L")},0),"")`,
+              result: item ? item.index + 1 : "",
+            };
+
+            letters.forEach((letter, i) => {
+              sheet.getCell(`${letter}${r}`).value = {
+                formula: `IF($L${r}="","",INDEX(${mainRange(letter)},$L${r})&"")`,
+                result: item ? String(item.data[keys[i]] ?? "") : "",
+              };
+            });
+          }
+
+          sheet.getColumn(12).hidden = true;
+          sheet.getColumn(13).hidden = true;
+        } else {
+          // قيم عادية: قابلة للتعديل والإضافة بحرية
+          itemRows.forEach((row) => sheet.addRow(row));
+        }
+
+        styleHeaderRow(sheet);
+        styleBodyRows(sheet, {
+          borderLastRow: LIVE ? total : items.length + 1,
+          styleLastRow: total,
+          heights: LIVE
+            ? []
+            : itemRows.map((row) => computeRowHeight(row, widths)),
+        });
+        addPeriodConditionalFormatting(sheet, periodColorMap, total);
+      }
+
+      // =========================================
+      // شيت مخفي بأسماء المشرفين + قائمة منسدلة
+      // =========================================
+
+      const listNames = [...bySupervisor.keys()];
+
+      const listSheet = workbook.addWorksheet(LISTS, { state: "hidden" });
+
+      listNames.forEach((name, i) => {
+        listSheet.getCell(`A${i + 1}`).value = name;
+      });
+
+      for (let r = 2; r <= mainLast; r++) {
+        mainSheet.getCell(`J${r}`).dataValidation = {
+          type: "list",
+          allowBlank: true,
+          formulae: [`'${LISTS}'!$A$1:$A$${Math.max(listNames.length, 1)}`],
+        };
+      }
+
+      // =========================================
+      // تنزيل الملف
+      // =========================================
+
+      const buffer = await workbook.xlsx.writeBuffer();
+
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      const dateRange = getPlanDateRange(dataToExport);
+
+      link.href = url;
+      link.download = `خطة_${dateRange || planId}.xlsx`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("❌ Excel download error:", err);
+      alert("❌ حدث خطأ أثناء إنشاء ملف Excel.");
+    }
+  };
+
+  const downloadExcelFiltered = async () => {
+    try {
+      if (!filteredPlanData.length) {
+        alert("⚠️ لا توجد بيانات لتنزيلها حسب الفلتر الحالي.");
+        return;
+      }
+
+      const dataToExport = sortForExcel(filteredPlanData);
+      const rowsData = dataToExport.map(toExcelRow);
+
+      // الألوان من الخطة كاملة كي تبقى ثابتة حتى مع الفلتر
+      const periodColorMap = buildPeriodColorMap(planData);
+
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "Lecture Supervisor System";
+      workbook.created = new Date();
+
+      const sheetTitle = filterSupervisor
+        ? `مشرف - ${filterSupervisor}`
+        : "الخطة (مفلترة)";
+
+      const cleanTitle = sheetTitle.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
+
+      const sheet = workbook.addWorksheet(cleanTitle || "الخطة", {
+        views: [{ rightToLeft: true }],
+      });
+
+      const widths = computeColumnWidths(EXCEL_COLUMNS, rowsData);
+      const lastRow = rowsData.length + 1;
+
+      sheet.columns = withWidths(widths);
+      rowsData.forEach((row) => sheet.addRow(row));
 
       styleHeaderRow(sheet);
       styleBodyRows(sheet, {
-        borderLastRow: LIVE ? total : items.length + 1,
-        styleLastRow: total,
-        heights: LIVE ? [] : itemRows.map((row) => computeRowHeight(row, widths)),
+        borderLastRow: lastRow,
+        styleLastRow: lastRow,
+        heights: rowsData.map((row) => computeRowHeight(row, widths)),
       });
-      addPeriodConditionalFormatting(sheet, periodColorMap, total);
+      addPeriodConditionalFormatting(sheet, periodColorMap, lastRow);
+
+      const buffer = await workbook.xlsx.writeBuffer();
+
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      const dateRange = getPlanDateRange(dataToExport);
+
+      link.href = url;
+      link.download = filterSupervisor
+        ? `مشرف_${filterSupervisor}_${dateRange || planId}.xlsx`
+        : `خطة_${dateRange || planId}_مفلترة.xlsx`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("❌ Excel filtered download error:", err);
+      alert("❌ حدث خطأ أثناء إنشاء ملف Excel المفلتر.");
     }
-
-    // =========================================
-    // شيت مخفي بأسماء المشرفين + قائمة منسدلة
-    // =========================================
-
-    const listNames = [...bySupervisor.keys()];
-
-    const listSheet = workbook.addWorksheet(LISTS, { state: "hidden" });
-
-    listNames.forEach((name, i) => {
-      listSheet.getCell(`A${i + 1}`).value = name;
-    });
-
-    for (let r = 2; r <= mainLast; r++) {
-      mainSheet.getCell(`J${r}`).dataValidation = {
-        type: "list",
-        allowBlank: true,
-        formulae: [`'${LISTS}'!$A$1:$A$${Math.max(listNames.length, 1)}`],
-      };
-    }
-
-    // =========================================
-    // تنزيل الملف
-    // =========================================
-
-    const buffer = await workbook.xlsx.writeBuffer();
-
-    const blob = new Blob([buffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    const dateRange = getPlanDateRange(dataToExport);
-
-    link.href = url;
-    link.download = `خطة_${dateRange || planId}.xlsx`;
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error("❌ Excel download error:", err);
-    alert("❌ حدث خطأ أثناء إنشاء ملف Excel.");
-  }
-};
-
-  const downloadExcelFiltered = async () => {
-  try {
-    if (!filteredPlanData.length) {
-      alert("⚠️ لا توجد بيانات لتنزيلها حسب الفلتر الحالي.");
-      return;
-    }
-
-    const dataToExport = sortForExcel(filteredPlanData);
-    const rowsData = dataToExport.map(toExcelRow);
-
-    // الألوان من الخطة كاملة كي تبقى ثابتة حتى مع الفلتر
-    const periodColorMap = buildPeriodColorMap(planData);
-
-    const workbook = new ExcelJS.Workbook();
-    workbook.creator = "Lecture Supervisor System";
-    workbook.created = new Date();
-
-    const sheetTitle = filterSupervisor
-      ? `مشرف - ${filterSupervisor}`
-      : "الخطة (مفلترة)";
-
-    const cleanTitle = sheetTitle.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
-
-    const sheet = workbook.addWorksheet(cleanTitle || "الخطة", {
-      views: [{ rightToLeft: true }],
-    });
-
-    const widths = computeColumnWidths(EXCEL_COLUMNS, rowsData);
-    const lastRow = rowsData.length + 1;
-
-    sheet.columns = withWidths(widths);
-    rowsData.forEach((row) => sheet.addRow(row));
-
-    styleHeaderRow(sheet);
-    styleBodyRows(sheet, {
-      borderLastRow: lastRow,
-      styleLastRow: lastRow,
-      heights: rowsData.map((row) => computeRowHeight(row, widths)),
-    });
-    addPeriodConditionalFormatting(sheet, periodColorMap, lastRow);
-
-    const buffer = await workbook.xlsx.writeBuffer();
-
-    const blob = new Blob([buffer], {
-      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    });
-
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-
-    const dateRange = getPlanDateRange(dataToExport);
-
-    link.href = url;
-    link.download = filterSupervisor
-      ? `مشرف_${filterSupervisor}_${dateRange || planId}.xlsx`
-      : `خطة_${dateRange || planId}_مفلترة.xlsx`;
-
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error("❌ Excel filtered download error:", err);
-    alert("❌ حدث خطأ أثناء إنشاء ملف Excel المفلتر.");
-  }
-};
+  };
   // =====================================================
   // No Plan
   // =====================================================
@@ -2509,6 +2726,76 @@ export default function PlanResult() {
             <div className="assignment-count">{filteredPlanData.length}</div>
           </div>
 
+          {selectedAssignments.length > 0 && (
+            <div className="bulk-bar">
+              <span className="bulk-bar-count">
+                ✓ {selectedAssignments.length} صف محدد
+              </span>
+
+              <select
+                value={bulkSupervisor}
+                onChange={(e) => setBulkSupervisor(e.target.value)}
+                disabled={bulkSaving}
+              >
+                <option value="">اختر المشرف الجديد</option>
+
+                {(bulkShowAllSupervisors
+                  ? allSupervisorsList
+                  : supervisors
+                ).map((supervisor) => {
+                  const id =
+                    supervisor?.id ??
+                    supervisor?.supervisor_id ??
+                    supervisor?.supervisorId;
+
+                  const name =
+                    supervisor?.name ??
+                    supervisor?.supervisor_name ??
+                    supervisor?.supervisorName ??
+                    supervisor?.full_name ??
+                    "";
+
+                  if (id === null || id === undefined || id === "") return null;
+
+                  return (
+                    <option key={String(id)} value={String(id)}>
+                      {name}
+                    </option>
+                  );
+                })}
+              </select>
+
+              <button
+                type="button"
+                className="bulk-toggle-btn"
+                onClick={() => setBulkShowAllSupervisors((prev) => !prev)}
+                disabled={bulkSaving}
+              >
+                {bulkShowAllSupervisors
+                  ? "↩️ المشرفون المختارون فقط"
+                  : "👥 عرض جميع المشرفين"}
+              </button>
+
+              <button
+                type="button"
+                className="bulk-apply-btn"
+                onClick={applyBulkSupervisor}
+                disabled={bulkSaving || !bulkSupervisor}
+              >
+                {bulkSaving ? "⏳ جاري النقل..." : "✓ تطبيق على المحدد"}
+              </button>
+
+              <button
+                type="button"
+                className="bulk-clear-btn"
+                onClick={clearSelection}
+                disabled={bulkSaving}
+              >
+                ✕ إلغاء التحديد
+              </button>
+            </div>
+          )}
+
           {planData.length > 0 ? (
             <div className="table-container">
               {/* =================================================
@@ -2518,6 +2805,22 @@ export default function PlanResult() {
               <table className="assignments-table screen-plan-table">
                 <thead>
                   <tr>
+                    <th className="select-column">
+                      <input
+                        type="checkbox"
+                        checked={allVisibleSelected}
+                        ref={(el) => {
+                          if (el) {
+                            el.indeterminate =
+                              selectedAssignments.length > 0 &&
+                              !allVisibleSelected;
+                          }
+                        }}
+                        onChange={toggleSelectAllVisible}
+                        disabled={!filteredPlanData.length || bulkSaving}
+                        title="تحديد كل الصفوف الظاهرة"
+                      />
+                    </th>
                     {visibleColumns.crn && <th>CRN</th>}
 
                     {visibleColumns.courseName && <th>Course name</th>}
@@ -2567,8 +2870,28 @@ export default function PlanResult() {
                       const affinitySupervisorId =
                         getProfessorAffinitySupervisorId(assignment);
 
+                      const isRowSelected =
+                        rowId !== null &&
+                        rowId !== undefined &&
+                        selectedRowIds.has(String(rowId));
+
                       return (
-                        <tr key={`${rowId}-${index}`}>
+                        <tr
+                          key={`${rowId}-${index}`}
+                          className={isRowSelected ? "row-selected" : ""}
+                        >
+                          <td className="select-column">
+                            <input
+                              type="checkbox"
+                              checked={isRowSelected}
+                              onChange={() => toggleRowSelection(rowId)}
+                              disabled={
+                                bulkSaving ||
+                                rowId === null ||
+                                rowId === undefined
+                              }
+                            />
+                          </td>
                           {/* CRN */}
                           {visibleColumns.crn && (
                             <td>
@@ -2835,7 +3158,7 @@ export default function PlanResult() {
                       <td
                         colSpan={
                           Object.values(visibleColumns).filter(Boolean).length +
-                          1
+                          2
                         }
                         className="no-results"
                       >
