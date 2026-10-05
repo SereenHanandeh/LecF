@@ -683,9 +683,12 @@
 .assignments-table,
 .conflicts-table {
   width: 100%;
-  min-width: 780px;
   border-collapse: collapse;
   font-size: 13.5px;
+}
+
+.conflicts-table {
+  min-width: 780px;
 }
 
 .assignments-table thead th,
@@ -1447,4 +1450,51 @@
     margin: 10mm;
   }
 
+}
+
+/* ===== منع تمدد الجدول أثناء التعديل ===== */
+
+.screen-plan-table {
+  table-layout: fixed;
+  width: 100%;
+  min-width: 0;
+}
+
+.screen-plan-table th,
+.screen-plan-table td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding-inline: 8px;
+}
+
+/* أعراض ثابتة للأعمدة */
+.screen-plan-table th.select-column  { width: 40px; }
+.screen-plan-table th.action-column  { width: 150px; }
+
+/* حقول التعديل تتقيد بعرض الخلية */
+.screen-plan-table .edit-supervisor-select,
+.screen-plan-table .edit-room-input {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: 100%;
+  font-size: 12px;
+}
+
+.screen-plan-table .toggle-supervisor-scope-btn {
+  display: block;
+  width: 100%;
+  white-space: normal;
+  line-height: 1.3;
+}
+
+/* أزرار Save / Cancel تتناسب مع العمود */
+.screen-plan-table .edit-actions {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.screen-plan-table .edit-btn,
+.screen-plan-table .save-btn,
+.screen-plan-table .cancel-btn {
+  padding: 6px 8px;
 }

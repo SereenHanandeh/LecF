@@ -2939,13 +2939,7 @@ export default function PlanResult() {
                                     setEditingRoom(e.target.value)
                                   }
                                   disabled={isSaving}
-                                  style={{
-                                    minWidth: "110px",
-                                    padding: "4px 6px",
-                                    border: "1px solid #d1d5db",
-                                    borderRadius: "6px",
-                                    textAlign: "center",
-                                  }}
+                                
                                 >
                                   <option value="">اختر القاعة</option>
 
