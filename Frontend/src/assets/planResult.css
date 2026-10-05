@@ -1457,7 +1457,7 @@
 .screen-plan-table {
   table-layout: fixed;
   width: 100%;
-  min-width: 1250px;   /* عرض كافٍ لكل الأعمدة؛ على الشاشات الصغيرة يظهر scroll */
+  min-width: 1150px;   /* عرض كافٍ لكل الأعمدة؛ على الشاشات الصغيرة يظهر scroll */
 }
 
 .screen-plan-table th,
