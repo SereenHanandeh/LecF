@@ -191,79 +191,46 @@ const formatTime = (value) => {
   return String(value);
 };
 
+const parseTimeParts = (value) => {
+  if (value === null || value === undefined || value === "") return null;
+
+  const match = String(value)
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp]\.?[Mm]\.?|ص|م)?$/);
+
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const marker = (match[3] || "").toLowerCase().replace(/\./g, "");
+
+  let meridiem;
+  if (marker === "am" || marker === "ص") meridiem = "AM";
+  else if (marker === "pm" || marker === "م") meridiem = "PM";
+  else meridiem = hour >= 12 ? "PM" : "AM"; // صيغة 24 ساعة بدون علامة
+
+  return { hour, minute, meridiem };
+};
+
 const formatTime12Hour = (value) => {
-  if (value === null || value === undefined || value === "") {
-    return "-";
-  }
+  if (value === null || value === undefined || value === "") return "-";
 
-  const text = String(value).trim();
+  const parts = parseTimeParts(value);
+  if (!parts) return String(value);
 
-  // لو أصلاً بصيغة 12 ساعة (فيها AM/PM)
-  const already12 = text.match(/^(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)$/);
+  const hour12 = parts.hour % 12 === 0 ? 12 : parts.hour % 12;
 
-  if (already12) {
-    const hour = String(Number(already12[1])).padStart(2, "0");
-    return `${hour}:${already12[2]} ${already12[3].toUpperCase()}`;
-  }
-
-  // صيغة 24 ساعة HH:MM أو HH:MM:SS
-  const match24 = text.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
-
-  if (match24) {
-    let hour = Number(match24[1]);
-    const minute = match24[2];
-    const period = hour >= 12 ? "PM" : "AM";
-
-    let hour12 = hour % 12;
-    if (hour12 === 0) hour12 = 12;
-
-    return `${String(hour12).padStart(2, "0")}:${minute} ${period}`;
-  }
-
-  return text;
+  return `${String(hour12).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")} ${parts.meridiem}`;
 };
 
 const timeToMinutes = (value) => {
-  if (value === null || value === undefined || value === "") {
-    return Number.MAX_SAFE_INTEGER;
-  }
+  const parts = parseTimeParts(value);
+  if (!parts) return Number.MAX_SAFE_INTEGER;
 
-  const text = String(value).trim().toUpperCase();
+  let hour = parts.hour % 12;
+  if (parts.meridiem === "PM") hour += 12;
 
-  // 12-hour format
-  const match12 = text.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
-
-  if (match12) {
-    let hour = Number(match12[1]);
-    const minute = Number(match12[2]);
-    const meridiem = match12[3];
-
-    if (meridiem === "AM" && hour === 12) {
-      hour = 0;
-    }
-
-    if (meridiem === "PM" && hour !== 12) {
-      hour += 12;
-    }
-
-    return hour * 60 + minute;
-  }
-
-  // 24-hour format
-  const match24 = text.match(/^(\d{1,2}):(\d{2})$/);
-
-  if (match24) {
-    return Number(match24[1]) * 60 + Number(match24[2]);
-  }
-
-  // 24-hour with seconds
-  const match24Seconds = text.match(/^(\d{1,2}):(\d{2}):(\d{2})$/);
-
-  if (match24Seconds) {
-    return Number(match24Seconds[1]) * 60 + Number(match24Seconds[2]);
-  }
-
-  return Number.MAX_SAFE_INTEGER;
+  return hour * 60 + parts.minute;
 };
 
 // =====================================================
@@ -347,25 +314,170 @@ const PERIOD_COLORS = [
   "FFFEE2E2", // أحمر فاتح
 ];
 
-const styleLiveBody = (worksheet, periodColorMap, borderLastRow, cfLastRow) => {
-  for (let r = 2; r <= borderLastRow; r++) {
-    const row = worksheet.getRow(r);
+// =====================================================
+// Excel Helpers
+// =====================================================
 
-    for (let c = 1; c <= 10; c++) {
-      // ✅ كان 9
+// true  = ترتيب حسب التاريخ ثم From | false = حسب From فقط (ثم التاريخ)
+const EXCEL_SORT_DATE_FIRST = false;
+
+// false = شيتات المشرفين قيم عادية قابلة للتعديل
+// true  = شيتات المشرفين معادلات مرتبطة بالشيت الرئيسي (السلوك القديم)
+const EXCEL_LIVE_SUPERVISOR_SHEETS = false;
+
+const EXCEL_FONT = { name: "Calibri", size: 15, bold: true };
+const EXCEL_BORDER_SIDE = { style: "thin", color: { argb: "FF000000" } };
+const EXCEL_BORDER = {
+  top: EXCEL_BORDER_SIDE,
+  bottom: EXCEL_BORDER_SIDE,
+  left: EXCEL_BORDER_SIDE,
+  right: EXCEL_BORDER_SIDE,
+};
+const EXCEL_HEADER_HEIGHT = 36;
+const EXCEL_ROW_HEIGHT = 32;
+const EXCEL_COLUMN_COUNT = 10;
+
+const EXCEL_COLUMNS = [
+  { header: "CRN", key: "crn" },
+  { header: "Course Name", key: "courseName" },
+  { header: "Professor", key: "professor" },
+  { header: "Phone", key: "phone" },
+  { header: "Studio", key: "room" },
+  { header: "Date", key: "date" },
+  { header: "Period", key: "period" },
+  { header: "From", key: "from" },
+  { header: "To", key: "to" },
+  { header: "Supervisor", key: "supervisor" },
+];
+
+const toExcelRow = (assignment) => ({
+  crn: assignment.crn ?? "-",
+  courseName: getCourseName(assignment),
+  professor: getProfessorName(assignment),
+  phone: getPhone(assignment),
+  room: getRoomNumber(assignment),
+  date: formatDate(assignment.date),
+  period: getPeriod(assignment),
+  from: formatTime12Hour(getTimeFrom(assignment)),
+  to: formatTime12Hour(getTimeTo(assignment)),
+  supervisor: getSupervisorName(assignment),
+});
+
+// ترتيب حسب عمود From تصاعديًا
+const sortForExcel = (data) =>
+  [...data].sort((a, b) => {
+    const dateCompare = getDateValue(a.date).localeCompare(
+      getDateValue(b.date),
+    );
+
+    if (EXCEL_SORT_DATE_FIRST && dateCompare !== 0) return dateCompare;
+
+    const fromA = timeToMinutes(getTimeFrom(a));
+    const fromB = timeToMinutes(getTimeFrom(b));
+    if (fromA !== fromB) return fromA - fromB;
+
+    if (dateCompare !== 0) return dateCompare;
+
+    const toA = timeToMinutes(getTimeTo(a));
+    const toB = timeToMinutes(getTimeTo(b));
+    if (toA !== toB) return toA - toB;
+
+    return String(getProfessorName(a)).localeCompare(
+      String(getProfessorName(b)),
+      "ar",
+    );
+  });
+
+// عرض كل عمود حسب أطول قيمة فيه (الخط 15 عريض فنضرب في 1.6)
+const computeColumnWidths = (columns, rows) =>
+  columns.map((col) => {
+    const maxLen = rows.reduce(
+      (max, row) => Math.max(max, String(row[col.key] ?? "").length),
+      String(col.header).length,
+    );
+
+    return Math.min(60, Math.max(12, Math.ceil(maxLen * 1.6) + 4));
+  });
+
+const withWidths = (widths) =>
+  EXCEL_COLUMNS.map((col, i) => ({ ...col, width: widths[i] }));
+
+// ارتفاع الصف حسب عدد الأسطر المتوقعة للنص الطويل
+const computeRowHeight = (row, widths) => {
+  let maxLines = 1;
+
+  EXCEL_COLUMNS.forEach((col, i) => {
+    const len = String(row[col.key] ?? "").length;
+    const charsPerLine = Math.max(1, Math.floor((widths[i] - 2) / 1.6));
+    maxLines = Math.max(maxLines, Math.ceil(len / charsPerLine));
+  });
+
+  return Math.max(EXCEL_ROW_HEIGHT, maxLines * 22);
+};
+
+// كل فترة تأخذ لونًا ثابتًا
+const buildPeriodColorMap = (data) => {
+  const periods = [
+    ...new Set(data.map(getPeriod).filter((value) => value && value !== "-")),
+  ].sort((a, b) => String(a).localeCompare(String(b), "ar"));
+
+  const map = new Map();
+
+  periods.forEach((period, index) => {
+    map.set(period, PERIOD_COLORS[index % PERIOD_COLORS.length]);
+  });
+
+  return map;
+};
+
+const styleHeaderRow = (worksheet) => {
+  const headerRow = worksheet.getRow(1);
+  headerRow.height = EXCEL_HEADER_HEIGHT;
+
+  for (let c = 1; c <= EXCEL_COLUMN_COUNT; c++) {
+    const cell = headerRow.getCell(c);
+
+    cell.font = { ...EXCEL_FONT, color: { argb: "FFFFFFFF" } };
+    cell.alignment = {
+      vertical: "middle",
+      horizontal: "center",
+      wrapText: true,
+    };
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF2563EB" },
+    };
+    cell.border = EXCEL_BORDER;
+  }
+};
+
+// الخط والمحاذاة والارتفاع لكل الصفوف، والحدود حتى borderLastRow
+const styleBodyRows = (
+  worksheet,
+  { borderLastRow, styleLastRow, heights = [] },
+) => {
+  for (let r = 2; r <= styleLastRow; r++) {
+    const row = worksheet.getRow(r);
+    row.height = heights[r - 2] ?? EXCEL_ROW_HEIGHT;
+
+    for (let c = 1; c <= EXCEL_COLUMN_COUNT; c++) {
       const cell = row.getCell(c);
 
-      cell.alignment = { vertical: "middle", horizontal: "center" };
-
-      cell.border = {
-        top: { style: "thin", color: { argb: "FFE5E7EB" } },
-        bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
-        left: { style: "thin", color: { argb: "FFE5E7EB" } },
-        right: { style: "thin", color: { argb: "FFE5E7EB" } },
+      cell.font = EXCEL_FONT;
+      cell.alignment = {
+        vertical: "middle",
+        horizontal: "center",
+        wrapText: true,
       };
+
+      if (r <= borderLastRow) cell.border = EXCEL_BORDER;
     }
   }
+};
 
+// تلوين الصف حسب الفترة (يتحدّث تلقائيًا عند تعديل عمود Period)
+const addPeriodConditionalFormatting = (worksheet, periodColorMap, lastRow) => {
   const rules = [];
   let priority = 1;
 
@@ -373,7 +485,7 @@ const styleLiveBody = (worksheet, periodColorMap, borderLastRow, cfLastRow) => {
     rules.push({
       type: "expression",
       priority: priority++,
-      formulae: [`$G2="${String(period).replace(/"/g, '""')}"`], // ✅ كان $F2 (الفترة انتقلت من F إلى G)
+      formulae: [`$G2="${String(period).replace(/"/g, '""')}"`],
       style: {
         fill: {
           type: "pattern",
@@ -386,7 +498,7 @@ const styleLiveBody = (worksheet, periodColorMap, borderLastRow, cfLastRow) => {
 
   if (rules.length) {
     worksheet.addConditionalFormatting({
-      ref: `A2:J${cfLastRow}`, // ✅ كان A2:I
+      ref: `A2:J${lastRow}`,
       rules,
     });
   }
@@ -474,48 +586,6 @@ export default function PlanResult() {
   const [editingId, setEditingId] = useState(null);
   const [savingId, setSavingId] = useState(null);
 
-  // كل فترة تأخذ لونًا ثابتًا (نفس اللون في كل الشيتات)
-  const buildPeriodColorMap = (data) => {
-    const periods = [
-      ...new Set(data.map(getPeriod).filter((value) => value && value !== "-")),
-    ].sort((a, b) => String(a).localeCompare(String(b), "ar"));
-
-    const map = new Map();
-
-    periods.forEach((period, index) => {
-      map.set(period, PERIOD_COLORS[index % PERIOD_COLORS.length]);
-    });
-
-    return map;
-  };
-
-  const styleBodyByPeriod = (worksheet, periodColorMap) => {
-    worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
-
-      const period = String(row.getCell("period").value ?? "");
-      const color = periodColorMap.get(period);
-
-      row.eachCell((cell) => {
-        cell.alignment = { vertical: "middle", horizontal: "center" };
-
-        cell.border = {
-          top: { style: "thin", color: { argb: "FFE5E7EB" } },
-          bottom: { style: "thin", color: { argb: "FFE5E7EB" } },
-          left: { style: "thin", color: { argb: "FFE5E7EB" } },
-          right: { style: "thin", color: { argb: "FFE5E7EB" } },
-        };
-
-        if (color) {
-          cell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: color },
-          };
-        }
-      });
-    });
-  };
   // =====================================================
   // Mounted Ref
   // =====================================================
@@ -1715,103 +1785,47 @@ export default function PlanResult() {
   // Download Excel - Current Filtered Data
   // =====================================================
 
-  const downloadExcel = async () => {
-    try {
-      const dataToExport = planData;
+ const downloadExcel = async () => {
+  try {
+    if (!planData.length) {
+      alert("⚠️ لا توجد بيانات لتنزيلها.");
+      return;
+    }
 
-      if (!dataToExport.length) {
-        alert("⚠️ لا توجد بيانات لتنزيلها.");
-        return;
-      }
+    const MAIN = "الخطة الكاملة";
+    const LISTS = "المشرفون";
+    const MAIN_EXTRA_ROWS = 200;
+    const SUP_EXTRA_ROWS = 50;
+    const LIVE = EXCEL_LIVE_SUPERVISOR_SHEETS;
 
-      const MAIN = "الخطة الكاملة";
-      const LISTS = "المشرفون";
-      const MAIN_EXTRA_ROWS = 200; // صفوف احتياطية لإضافة صفوف جديدة في الشيت الرئيسي
-      const SUP_EXTRA_ROWS = 50; // صفوف احتياطية في شيت كل مشرف
+    const dataToExport = sortForExcel(planData);
+    const rowsData = dataToExport.map(toExcelRow);
+    const periodColorMap = buildPeriodColorMap(planData);
 
-      const periodColorMap = buildPeriodColorMap(planData);
+    const keys = EXCEL_COLUMNS.map((c) => c.key);
+    const letters = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
 
-      const workbook = new ExcelJS.Workbook();
-      workbook.creator = "Lecture Supervisor System";
-      workbook.created = new Date();
+    const mainWidths = computeColumnWidths(EXCEL_COLUMNS, rowsData);
+    const mainLast = dataToExport.length + 1 + MAIN_EXTRA_ROWS;
+    const mainRange = (col) => `'${MAIN}'!$${col}$2:$${col}$${mainLast}`;
 
-      // يجبر Excel على إعادة حساب المعادلات عند الفتح
-      workbook.calcProperties = { fullCalcOnLoad: true };
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "Lecture Supervisor System";
+    workbook.created = new Date();
+    workbook.calcProperties = { fullCalcOnLoad: true };
 
-      const columns = [
-        { header: "CRN", key: "crn", width: 14 },
-        { header: "Course Name", key: "courseName", width: 32 },
-        { header: "Professor", key: "professor", width: 28 },
-        { header: "Phone", key: "phone", width: 32 },
-        { header: "Studio", key: "room", width: 12 },
-        { header: "Date", key: "date", width: 14 },
-        { header: "Period", key: "period", width: 14 },
-        { header: "From", key: "from", width: 12 },
-        { header: "To", key: "to", width: 12 },
-        { header: "Supervisor", key: "supervisor", width: 28 },
-      ];
+    // =========================================
+    // الشيت الرئيسي
+    // =========================================
 
-      const keys = columns.map((c) => c.key);
-      const letters = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J"];
+    const mainSheet = workbook.addWorksheet(MAIN, {
+      views: [{ rightToLeft: true }],
+    });
 
-      const toRow = (assignment) => ({
-        crn: assignment.crn ?? "-",
-        courseName: getCourseName(assignment),
-        professor: getProfessorName(assignment),
-        phone: getPhone(assignment),
-        room: getRoomNumber(assignment),
-        date: formatDate(assignment.date),
-        period: getPeriod(assignment),
-        from: formatTime12Hour(getTimeFrom(assignment)),
-        to: formatTime12Hour(getTimeTo(assignment)),
-        supervisor: getSupervisorName(assignment),
-      });
-      const styleHeader = (worksheet) => {
-        const headerRow = worksheet.getRow(1);
+    mainSheet.columns = withWidths(mainWidths);
+    rowsData.forEach((row) => mainSheet.addRow(row));
 
-        headerRow.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 12 };
-        headerRow.alignment = { vertical: "middle", horizontal: "center" };
-        headerRow.height = 24;
-
-        for (let c = 1; c <= 10; c++) {
-          // ✅ كان 9
-          const cell = headerRow.getCell(c);
-
-          cell.fill = {
-            type: "pattern",
-            pattern: "solid",
-            fgColor: { argb: "FF2563EB" },
-          };
-
-          cell.border = {
-            top: { style: "thin", color: { argb: "FFB0B0B0" } },
-            bottom: { style: "thin", color: { argb: "FFB0B0B0" } },
-            left: { style: "thin", color: { argb: "FFB0B0B0" } },
-            right: { style: "thin", color: { argb: "FFB0B0B0" } },
-          };
-        }
-      };
-
-      const mainLast = dataToExport.length + 1 + MAIN_EXTRA_ROWS;
-
-      // مرجع عمود في الشيت الرئيسي
-      const mainRange = (col) => `'${MAIN}'!$${col}$2:$${col}$${mainLast}`;
-
-      const rowsData = dataToExport.map(toRow);
-
-      // =========================================
-      // شيت 1: الخطة الكاملة (المصدر الوحيد للبيانات)
-      // =========================================
-
-      const mainSheet = workbook.addWorksheet(MAIN, {
-        views: [{ rightToLeft: true }],
-      });
-
-      mainSheet.columns = columns;
-      rowsData.forEach((r) => mainSheet.addRow(r));
-
-      // أعمدة مساعدة مخفية: J = رقم التكرار ، K = المفتاح (مشرف|رقم)
-      // أعمدة مساعدة مخفية: K = رقم التكرار ، L = المفتاح (مشرف|رقم)
+    if (LIVE) {
       const counters = new Map();
 
       for (let r = 2; r <= mainLast; r++) {
@@ -1826,7 +1840,7 @@ export default function PlanResult() {
         }
 
         mainSheet.getCell(`K${r}`).value = {
-          formula: `IF(J${r}="","",COUNTIF(J$2:J${r},J${r}))`, // ✅ Supervisor الآن J
+          formula: `IF(J${r}="","",COUNTIF(J$2:J${r},J${r}))`,
           result: idx,
         };
 
@@ -1836,258 +1850,226 @@ export default function PlanResult() {
         };
       }
 
-      mainSheet.getColumn(11).hidden = true; // K
-      mainSheet.getColumn(12).hidden = true; // L
+      mainSheet.getColumn(11).hidden = true;
+      mainSheet.getColumn(12).hidden = true;
+    }
 
-      styleHeader(mainSheet);
-      styleLiveBody(
-        mainSheet,
-        periodColorMap,
-        dataToExport.length + 1,
-        mainLast,
-      );
+    styleHeaderRow(mainSheet);
+    styleBodyRows(mainSheet, {
+      borderLastRow: dataToExport.length + 1,
+      styleLastRow: mainLast,
+      heights: rowsData.map((row) => computeRowHeight(row, mainWidths)),
+    });
+    addPeriodConditionalFormatting(mainSheet, periodColorMap, mainLast);
 
-      // =========================================
-      // تجميع البيانات حسب المشرف (مع موضع الصف في الشيت الرئيسي)
-      // =========================================
+    // =========================================
+    // تجميع البيانات حسب المشرف (بعد الترتيب)
+    // =========================================
 
-      const bySupervisor = new Map();
+    const bySupervisor = new Map();
 
-      dataToExport.forEach((assignment, index) => {
-        const name = getSupervisorName(assignment);
+    dataToExport.forEach((assignment, index) => {
+      const name = getSupervisorName(assignment);
 
-        if (!name || name === "-") return;
+      if (!name || name === "-") return;
 
-        if (!bySupervisor.has(name)) {
-          bySupervisor.set(name, []);
-        }
+      if (!bySupervisor.has(name)) bySupervisor.set(name, []);
 
-        bySupervisor.get(name).push({ data: rowsData[index], index });
-      });
+      bySupervisor.get(name).push({ data: rowsData[index], index });
+    });
 
-      // =========================================
-      // أسماء الشيتات
-      // =========================================
+    const usedSheetNames = new Set([MAIN, LISTS]);
 
-      const usedSheetNames = new Set([MAIN, LISTS]);
+    const sanitizeSheetName = (name) => {
+      let clean = String(name)
+        .replace(/[:\\/?*[\]]/g, "")
+        .trim();
 
-      const sanitizeSheetName = (name) => {
-        let clean = String(name)
-          .replace(/[:\\/?*[\]]/g, "")
-          .trim();
+      if (!clean) clean = "مشرف";
+      if (clean.length > 31) clean = clean.slice(0, 31);
 
-        if (!clean) clean = "مشرف";
-        if (clean.length > 31) clean = clean.slice(0, 31);
+      let finalName = clean;
+      let counter = 2;
 
-        let finalName = clean;
-        let counter = 2;
+      while (usedSheetNames.has(finalName)) {
+        const suffix = `_${counter}`;
+        finalName = clean.slice(0, 31 - suffix.length) + suffix;
+        counter++;
+      }
 
-        while (usedSheetNames.has(finalName)) {
-          const suffix = `_${counter}`;
-          finalName = clean.slice(0, 31 - suffix.length) + suffix;
-          counter++;
-        }
-
-        usedSheetNames.add(finalName);
-        return finalName;
-      };
-
-      // =========================================
-      // شيت لكل مشرف (معادلات تسحب من الشيت الرئيسي)
-      // =========================================
-
-   for (const [supervisorName, items] of bySupervisor.entries()) {
-  const sheet = workbook.addWorksheet(sanitizeSheetName(supervisorName), {
-    views: [{ rightToLeft: true }],
-  });
-
-  sheet.columns = columns;
-
-  // M1 = اسم المشرف الحقيقي (يُستخدم في البحث)
-  sheet.getCell("M1").value = supervisorName;
-
-  const total = items.length + 1 + SUP_EXTRA_ROWS;
-
-  for (let r = 2; r <= total; r++) {
-    const item = items[r - 2];
-
-    // L = موضع الصف داخل الشيت الرئيسي
-    sheet.getCell(`L${r}`).value = {
-      formula: `IFERROR(MATCH($M$1&"|"&(ROW()-1),${mainRange("L")},0),"")`,
-      result: item ? item.index + 1 : "",
+      usedSheetNames.add(finalName);
+      return finalName;
     };
 
-    letters.forEach((letter, i) => {
-      sheet.getCell(`${letter}${r}`).value = {
-        formula: `IF($L${r}="","",INDEX(${mainRange(letter)},$L${r})&"")`,
-        result: item ? String(item.data[keys[i]] ?? "") : "",
-      };
-    });
-  }
+    // =========================================
+    // شيت لكل مشرف
+    // =========================================
 
-  sheet.getColumn(12).hidden = true; // L
-  sheet.getColumn(13).hidden = true; // M
-
-  styleHeader(sheet);
-  styleLiveBody(sheet, periodColorMap, total, total);
-}
-
-      // =========================================
-      // شيت مخفي بأسماء المشرفين + قائمة منسدلة في عمود Supervisor
-      // =========================================
-
-      const listNames = [...bySupervisor.keys()];
-
-      const listSheet = workbook.addWorksheet(LISTS, { state: "hidden" });
-
-      listNames.forEach((name, i) => {
-        listSheet.getCell(`A${i + 1}`).value = name;
-      });
-
-      for (let r = 2; r <= mainLast; r++) {
-        mainSheet.getCell(`J${r}`).dataValidation = {
-          type: "list",
-          allowBlank: true,
-          formulae: [`'${LISTS}'!$A$1:$A$${Math.max(listNames.length, 1)}`],
-        };
-      }
-
-      // =========================================
-      // تنزيل الملف
-      // =========================================
-
-      const buffer = await workbook.xlsx.writeBuffer();
-
-      const blob = new Blob([buffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      const dateRange = getPlanDateRange(dataToExport);
-
-      link.href = url;
-      link.download = `خطة_${dateRange || planId}.xlsx`;
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("❌ Excel download error:", err);
-      alert("❌ حدث خطأ أثناء إنشاء ملف Excel.");
-    }
-  };
-
-  const downloadExcelFiltered = async () => {
-    try {
-      if (!filteredPlanData.length) {
-        alert("⚠️ لا توجد بيانات لتنزيلها حسب الفلتر الحالي.");
-        return;
-      }
-
-      const workbook = new ExcelJS.Workbook();
-      workbook.creator = "Lecture Supervisor System";
-      workbook.created = new Date();
-
-      const columns = [
-        { header: "CRN", key: "crn", width: 14 },
-        { header: "Course Name", key: "courseName", width: 32 },
-        { header: "Professor", key: "professor", width: 28 },
-        { header: "Phone", key: "phone", width: 20 },
-        { header: "Studio", key: "room", width: 12 },
-        { header: "Date", key: "date", width: 14 },
-        { header: "Period", key: "period", width: 14 },
-        { header: "From", key: "from", width: 12 },
-        { header: "To", key: "to", width: 12 },
-        { header: "Supervisor", key: "supervisor", width: 28 },
-      ];
-
-      const sheetTitle = filterSupervisor
-        ? `مشرف - ${filterSupervisor}`
-        : "الخطة (مفلترة)";
-
-      const cleanTitle = sheetTitle.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
-
-      // نبني الألوان من الخطة كاملة كي تبقى ألوان الفترات ثابتة حتى مع الفلتر
-      const periodColorMap = buildPeriodColorMap(planData);
-
-      const sheet = workbook.addWorksheet(cleanTitle || "الخطة", {
+    for (const [supervisorName, items] of bySupervisor.entries()) {
+      const sheet = workbook.addWorksheet(sanitizeSheetName(supervisorName), {
         views: [{ rightToLeft: true }],
       });
 
-      sheet.columns = columns;
+      const itemRows = items.map((item) => item.data);
+      const widths = LIVE
+        ? mainWidths
+        : computeColumnWidths(EXCEL_COLUMNS, itemRows);
 
-      filteredPlanData.forEach((assignment) => {
-        sheet.addRow({
-          crn: assignment.crn ?? "-",
-          courseName: getCourseName(assignment),
-          professor: getProfessorName(assignment),
-          phone: getPhone(assignment),  
-          room: getRoomNumber(assignment),
-          date: formatDate(assignment.date),
-          period: getPeriod(assignment),
-          from: formatTime12Hour(getTimeFrom(assignment)),
-          to: formatTime12Hour(getTimeTo(assignment)),
-          supervisor: getSupervisorName(assignment),
-        });
+      sheet.columns = withWidths(widths);
+
+      const total = items.length + 1 + SUP_EXTRA_ROWS;
+
+      if (LIVE) {
+        sheet.getCell("M1").value = supervisorName;
+
+        for (let r = 2; r <= total; r++) {
+          const item = items[r - 2];
+
+          sheet.getCell(`L${r}`).value = {
+            formula: `IFERROR(MATCH($M$1&"|"&(ROW()-1),${mainRange("L")},0),"")`,
+            result: item ? item.index + 1 : "",
+          };
+
+          letters.forEach((letter, i) => {
+            sheet.getCell(`${letter}${r}`).value = {
+              formula: `IF($L${r}="","",INDEX(${mainRange(letter)},$L${r})&"")`,
+              result: item ? String(item.data[keys[i]] ?? "") : "",
+            };
+          });
+        }
+
+        sheet.getColumn(12).hidden = true;
+        sheet.getColumn(13).hidden = true;
+      } else {
+        // قيم عادية: قابلة للتعديل والإضافة بحرية
+        itemRows.forEach((row) => sheet.addRow(row));
+      }
+
+      styleHeaderRow(sheet);
+      styleBodyRows(sheet, {
+        borderLastRow: LIVE ? total : items.length + 1,
+        styleLastRow: total,
+        heights: LIVE ? [] : itemRows.map((row) => computeRowHeight(row, widths)),
       });
-
-      const headerRow = sheet.getRow(1);
-
-      headerRow.font = {
-        bold: true,
-        color: { argb: "FFFFFFFF" },
-        size: 12,
-      };
-
-      headerRow.alignment = { vertical: "middle", horizontal: "center" };
-      headerRow.height = 24;
-
-      headerRow.eachCell((cell) => {
-        cell.fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: "FF2563EB" },
-        };
-
-        cell.border = {
-          top: { style: "thin", color: { argb: "FFB0B0B0" } },
-          bottom: { style: "thin", color: { argb: "FFB0B0B0" } },
-          left: { style: "thin", color: { argb: "FFB0B0B0" } },
-          right: { style: "thin", color: { argb: "FFB0B0B0" } },
-        };
-      });
-      styleBodyByPeriod(sheet, periodColorMap);
-
-      const buffer = await workbook.xlsx.writeBuffer();
-
-      const blob = new Blob([buffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
-
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-
-      const dateRange = getPlanDateRange(filteredPlanData);
-
-      link.href = url;
-      link.download = filterSupervisor
-        ? `مشرف_${filterSupervisor}_${dateRange || planId}.xlsx`
-        : `خطة_${dateRange || planId}_مفلترة.xlsx`;
-
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error("❌ Excel filtered download error:", err);
-      alert("❌ حدث خطأ أثناء إنشاء ملف Excel المفلتر.");
+      addPeriodConditionalFormatting(sheet, periodColorMap, total);
     }
-  };
+
+    // =========================================
+    // شيت مخفي بأسماء المشرفين + قائمة منسدلة
+    // =========================================
+
+    const listNames = [...bySupervisor.keys()];
+
+    const listSheet = workbook.addWorksheet(LISTS, { state: "hidden" });
+
+    listNames.forEach((name, i) => {
+      listSheet.getCell(`A${i + 1}`).value = name;
+    });
+
+    for (let r = 2; r <= mainLast; r++) {
+      mainSheet.getCell(`J${r}`).dataValidation = {
+        type: "list",
+        allowBlank: true,
+        formulae: [`'${LISTS}'!$A$1:$A$${Math.max(listNames.length, 1)}`],
+      };
+    }
+
+    // =========================================
+    // تنزيل الملف
+    // =========================================
+
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    const dateRange = getPlanDateRange(dataToExport);
+
+    link.href = url;
+    link.download = `خطة_${dateRange || planId}.xlsx`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("❌ Excel download error:", err);
+    alert("❌ حدث خطأ أثناء إنشاء ملف Excel.");
+  }
+};
+
+  const downloadExcelFiltered = async () => {
+  try {
+    if (!filteredPlanData.length) {
+      alert("⚠️ لا توجد بيانات لتنزيلها حسب الفلتر الحالي.");
+      return;
+    }
+
+    const dataToExport = sortForExcel(filteredPlanData);
+    const rowsData = dataToExport.map(toExcelRow);
+
+    // الألوان من الخطة كاملة كي تبقى ثابتة حتى مع الفلتر
+    const periodColorMap = buildPeriodColorMap(planData);
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = "Lecture Supervisor System";
+    workbook.created = new Date();
+
+    const sheetTitle = filterSupervisor
+      ? `مشرف - ${filterSupervisor}`
+      : "الخطة (مفلترة)";
+
+    const cleanTitle = sheetTitle.replace(/[:\\/?*[\]]/g, "").slice(0, 31);
+
+    const sheet = workbook.addWorksheet(cleanTitle || "الخطة", {
+      views: [{ rightToLeft: true }],
+    });
+
+    const widths = computeColumnWidths(EXCEL_COLUMNS, rowsData);
+    const lastRow = rowsData.length + 1;
+
+    sheet.columns = withWidths(widths);
+    rowsData.forEach((row) => sheet.addRow(row));
+
+    styleHeaderRow(sheet);
+    styleBodyRows(sheet, {
+      borderLastRow: lastRow,
+      styleLastRow: lastRow,
+      heights: rowsData.map((row) => computeRowHeight(row, widths)),
+    });
+    addPeriodConditionalFormatting(sheet, periodColorMap, lastRow);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    const dateRange = getPlanDateRange(dataToExport);
+
+    link.href = url;
+    link.download = filterSupervisor
+      ? `مشرف_${filterSupervisor}_${dateRange || planId}.xlsx`
+      : `خطة_${dateRange || planId}_مفلترة.xlsx`;
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("❌ Excel filtered download error:", err);
+    alert("❌ حدث خطأ أثناء إنشاء ملف Excel المفلتر.");
+  }
+};
   // =====================================================
   // No Plan
   // =====================================================
