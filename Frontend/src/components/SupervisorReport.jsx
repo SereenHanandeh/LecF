@@ -101,7 +101,9 @@ export default function SupervisorReport() {
         setStats(toArray(statsRes.value));
 
         // getPlans فقط لترقيم الخطط (خطة 1، خطة 2 ...)، وفشله لا يمنع التقرير
-        setPlans(plansRes.status === "fulfilled" ? toArray(plansRes.value) : []);
+        setPlans(
+          plansRes.status === "fulfilled" ? toArray(plansRes.value) : [],
+        );
       } catch (err) {
         if (cancelled) return;
 
@@ -169,6 +171,10 @@ export default function SupervisorReport() {
   const totals = useMemo(
     () => ({
       plans: rows.length,
+      days: rows.reduce(
+        (sum, r) => sum + (Number(countDays(r.dateFrom, r.dateTo)) || 0),
+        0,
+      ),
       periods: rows.reduce((sum, r) => sum + r.periods, 0),
       assignments: rows.reduce((sum, r) => sum + r.assignments, 0),
     }),
@@ -208,9 +214,7 @@ export default function SupervisorReport() {
 
         {loading && <div className="report-state">جاري تحميل التقرير...</div>}
 
-        {!loading && error && (
-          <div className="report-state error">{error}</div>
-        )}
+        {!loading && error && <div className="report-state error">{error}</div>}
 
         {!loading && !error && !supervisor && (
           <div className="report-state">
@@ -236,6 +240,11 @@ export default function SupervisorReport() {
 
             {/* Summary */}
             <section className="report-summary">
+              <div className="report-stat">
+                <span>إجمالي الأيام</span>
+                <strong>{totals.days}</strong>
+              </div>
+
               <div className="report-stat">
                 <span>عدد الخطط</span>
                 <strong>{totals.plans}</strong>
@@ -279,7 +288,8 @@ export default function SupervisorReport() {
 
                         <td>
                           <strong>
-                            خطة {planNumbers.get(String(row.planId)) ?? row.planId}
+                            خطة{" "}
+                            {planNumbers.get(String(row.planId)) ?? row.planId}
                           </strong>
                         </td>
 
@@ -298,7 +308,8 @@ export default function SupervisorReport() {
 
                   <tfoot>
                     <tr>
-                      <td colSpan={5}>الإجمالي</td>
+                      <td colSpan={4}>الإجمالي</td>
+                      <td>{totals.days}</td>
                       <td>{totals.periods}</td>
                       <td>{totals.assignments}</td>
                     </tr>
