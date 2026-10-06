@@ -191,9 +191,8 @@ const formatTime = (value) => {
   return String(value);
 };
 
-// الساعات من 1 إلى 6 بدون علامة تُعتبر PM (عدّل الرقم حسب دوامكم)
-const PM_IF_HOUR_BELOW = 7;
 
+// period اختياري: إذا الوقت بدون علامة نستخدم الفترة لتحديد AM/PM
 const parseTimeParts = (value) => {
   if (value === null || value === undefined || value === "") return null;
 
@@ -210,17 +209,14 @@ const parseTimeParts = (value) => {
   let meridiem;
   if (marker === "am" || marker === "ص") meridiem = "AM";
   else if (marker === "pm" || marker === "م") meridiem = "PM";
-  else if (hour >= 13 || hour === 0) meridiem = hour >= 12 ? "PM" : "AM";
-  else if (hour === 12) meridiem = "PM";
-  else meridiem = hour < PM_IF_HOUR_BELOW ? "PM" : "AM";
+  else meridiem = "PM"; // كل أوقات النظام مسائية
 
   return { hour, minute, meridiem };
 };
-
-const formatTime12Hour = (value) => {
+const formatTime12Hour = (value, period) => {
   if (value === null || value === undefined || value === "") return "-";
 
-  const parts = parseTimeParts(value);
+  const parts = parseTimeParts(value, period);
   if (!parts) return String(value);
 
   const hour12 = parts.hour % 12 === 0 ? 12 : parts.hour % 12;
@@ -228,8 +224,8 @@ const formatTime12Hour = (value) => {
   return `${String(hour12).padStart(2, "0")}:${String(parts.minute).padStart(2, "0")} ${parts.meridiem}`;
 };
 
-const timeToMinutes = (value) => {
-  const parts = parseTimeParts(value);
+const timeToMinutes = (value, period) => {
+  const parts = parseTimeParts(value, period);
   if (!parts) return Number.MAX_SAFE_INTEGER;
 
   let hour = parts.hour % 12;
@@ -363,8 +359,8 @@ const toExcelRow = (assignment) => ({
   room: getRoomNumber(assignment),
   date: formatDate(assignment.date),
   period: getPeriod(assignment),
-  from: formatTime12Hour(getTimeFrom(assignment)),
-  to: formatTime12Hour(getTimeTo(assignment)),
+  from: formatTime12Hour(getTimeFrom(assignment), getPeriod(assignment)),
+  to: formatTime12Hour(getTimeTo(assignment), getPeriod(assignment)),
   supervisor: getSupervisorName(assignment),
 });
 
@@ -377,14 +373,14 @@ const sortForExcel = (data) =>
 
     if (EXCEL_SORT_DATE_FIRST && dateCompare !== 0) return dateCompare;
 
-    const fromA = timeToMinutes(getTimeFrom(a));
-    const fromB = timeToMinutes(getTimeFrom(b));
+        const fromA = timeToMinutes(getTimeFrom(a), getPeriod(a));
+    const fromB = timeToMinutes(getTimeFrom(b), getPeriod(b));
     if (fromA !== fromB) return fromA - fromB;
 
     if (dateCompare !== 0) return dateCompare;
 
-    const toA = timeToMinutes(getTimeTo(a));
-    const toB = timeToMinutes(getTimeTo(b));
+        const toA = timeToMinutes(getTimeTo(a), getPeriod(a));
+    const toB = timeToMinutes(getTimeTo(b), getPeriod(b));
     if (toA !== toB) return toA - toB;
 
     return String(getProfessorName(a)).localeCompare(
@@ -1184,18 +1180,15 @@ export default function PlanResult() {
         return dateA.localeCompare(dateB);
       }
 
-      const fromA = timeToMinutes(getTimeFrom(a));
-
-      const fromB = timeToMinutes(getTimeFrom(b));
+            const fromA = timeToMinutes(getTimeFrom(a), getPeriod(a));
+      const fromB = timeToMinutes(getTimeFrom(b), getPeriod(b));
 
       if (fromA !== fromB) {
         return fromA - fromB;
       }
 
-      const toA = timeToMinutes(getTimeTo(a));
-
-      const toB = timeToMinutes(getTimeTo(b));
-
+            const toA = timeToMinutes(getTimeTo(a), getPeriod(a));
+      const toB = timeToMinutes(getTimeTo(b), getPeriod(b));
       if (toA !== toB) {
         return toA - toB;
       }
