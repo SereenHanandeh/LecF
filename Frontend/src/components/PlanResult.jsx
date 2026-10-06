@@ -191,6 +191,9 @@ const formatTime = (value) => {
   return String(value);
 };
 
+// الساعات من 1 إلى 6 بدون علامة تُعتبر PM (عدّل الرقم حسب دوامكم)
+const PM_IF_HOUR_BELOW = 7;
+
 const parseTimeParts = (value) => {
   if (value === null || value === undefined || value === "") return null;
 
@@ -207,7 +210,9 @@ const parseTimeParts = (value) => {
   let meridiem;
   if (marker === "am" || marker === "ص") meridiem = "AM";
   else if (marker === "pm" || marker === "م") meridiem = "PM";
-  else meridiem = hour >= 12 ? "PM" : "AM"; // صيغة 24 ساعة بدون علامة
+  else if (hour >= 13 || hour === 0) meridiem = hour >= 12 ? "PM" : "AM";
+  else if (hour === 12) meridiem = "PM";
+  else meridiem = hour < PM_IF_HOUR_BELOW ? "PM" : "AM";
 
   return { hour, minute, meridiem };
 };
