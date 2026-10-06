@@ -2020,6 +2020,18 @@ export default function PlanResult() {
 
       const dataToExport = sortForExcel(planData);
       const rowsData = dataToExport.map(toExcelRow);
+      console.log(
+        "TIMES:",
+        JSON.stringify(
+          dataToExport.slice(0, 10).map((a) => ({
+            from: getTimeFrom(a),
+            to: getTimeTo(a),
+            period: getPeriod(a),
+          })),
+          null,
+          2,
+        ),
+      );
       const periodColorMap = buildPeriodColorMap(planData);
 
       const keys = EXCEL_COLUMNS.map((c) => c.key);
@@ -2944,7 +2956,6 @@ export default function PlanResult() {
                                     setEditingRoom(e.target.value)
                                   }
                                   disabled={isSaving}
-                                
                                 >
                                   <option value="">اختر القاعة</option>
 
