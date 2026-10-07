@@ -206,13 +206,13 @@ const parseTimeParts = (value) => {
   const minute = Number(match[2]);
   const marker = (match[3] || "").toLowerCase().replace(/\./g, "");
 
-  let meridiem;
+    let meridiem;
   if (marker === "am" || marker === "ص") meridiem = "AM";
   else if (marker === "pm" || marker === "م") meridiem = "PM";
-  else meridiem = "PM"; // كل أوقات النظام مسائية
-
+    else meridiem = hour >= 12 ? "PM" : "AM"; // 24 ساعة // 24 ساعة
   return { hour, minute, meridiem };
 };
+
 const formatTime12Hour = (value, period) => {
   if (value === null || value === undefined || value === "") return "-";
 
