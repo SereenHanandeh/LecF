@@ -208,8 +208,8 @@ const parseTimeParts = (value) => {
 
     let meridiem;
   if (marker === "am" || marker === "ص") meridiem = "AM";
-  else if (marker === "pm" || marker === "م") meridiem = "PM";
-    else meridiem = hour >= 12 ? "PM" : "AM"; // 24 ساعة // 24 ساعة
+  else if (marker === "pm" || marker === "م") meridiem = "PM";  
+   else meridiem = hour >= 12 ? "PM" : "AM";
   return { hour, minute, meridiem };
 };
 
