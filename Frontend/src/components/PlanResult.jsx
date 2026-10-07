@@ -191,7 +191,6 @@ const formatTime = (value) => {
   return String(value);
 };
 
-
 // period اختياري: إذا الوقت بدون علامة نستخدم الفترة لتحديد AM/PM
 const parseTimeParts = (value) => {
   if (value === null || value === undefined || value === "") return null;
@@ -206,10 +205,10 @@ const parseTimeParts = (value) => {
   const minute = Number(match[2]);
   const marker = (match[3] || "").toLowerCase().replace(/\./g, "");
 
-    let meridiem;
+  let meridiem;
   if (marker === "am" || marker === "ص") meridiem = "AM";
-  else if (marker === "pm" || marker === "م") meridiem = "PM";  
-   else meridiem = hour >= 12 ? "PM" : "AM";
+  else if (marker === "pm" || marker === "م") meridiem = "PM";
+  else meridiem = hour >= 12 ? "PM" : "AM";
   return { hour, minute, meridiem };
 };
 
@@ -373,13 +372,13 @@ const sortForExcel = (data) =>
 
     if (EXCEL_SORT_DATE_FIRST && dateCompare !== 0) return dateCompare;
 
-        const fromA = timeToMinutes(getTimeFrom(a), getPeriod(a));
+    const fromA = timeToMinutes(getTimeFrom(a), getPeriod(a));
     const fromB = timeToMinutes(getTimeFrom(b), getPeriod(b));
     if (fromA !== fromB) return fromA - fromB;
 
     if (dateCompare !== 0) return dateCompare;
 
-        const toA = timeToMinutes(getTimeTo(a), getPeriod(a));
+    const toA = timeToMinutes(getTimeTo(a), getPeriod(a));
     const toB = timeToMinutes(getTimeTo(b), getPeriod(b));
     if (toA !== toB) return toA - toB;
 
@@ -1180,14 +1179,14 @@ export default function PlanResult() {
         return dateA.localeCompare(dateB);
       }
 
-            const fromA = timeToMinutes(getTimeFrom(a), getPeriod(a));
+      const fromA = timeToMinutes(getTimeFrom(a), getPeriod(a));
       const fromB = timeToMinutes(getTimeFrom(b), getPeriod(b));
 
       if (fromA !== fromB) {
         return fromA - fromB;
       }
 
-            const toA = timeToMinutes(getTimeTo(a), getPeriod(a));
+      const toA = timeToMinutes(getTimeTo(a), getPeriod(a));
       const toB = timeToMinutes(getTimeTo(b), getPeriod(b));
       if (toA !== toB) {
         return toA - toB;
@@ -1513,30 +1512,7 @@ export default function PlanResult() {
 
   const saveAssignment = async (assignment) => {
     const sessionGroupId = getSessionGroupId(assignment);
-
     const currentSupervisorId = getSupervisorId(assignment);
-
-    console.log("=================================");
-
-    console.log("💾 SAVE ASSIGNMENT START");
-
-    console.log("📦 assignment:", assignment);
-
-    console.log("📌 editingId:", editingId);
-
-    console.log(
-      "📌 editingSupervisor:",
-      JSON.stringify(editingSupervisor),
-      typeof editingSupervisor,
-    );
-
-    console.log("📌 sessionGroupId:", sessionGroupId);
-
-    console.log("📌 currentSupervisorId:", currentSupervisorId);
-
-    // =========================================
-    // التحقق من Session Group ID
-    // =========================================
 
     if (
       sessionGroupId === null ||
@@ -1544,13 +1520,8 @@ export default function PlanResult() {
       sessionGroupId === ""
     ) {
       alert("❌ Session Group ID is missing.");
-
       return;
     }
-
-    // =========================================
-    // التحقق من المشرف الحالي
-    // =========================================
 
     if (
       currentSupervisorId === null ||
@@ -1559,21 +1530,10 @@ export default function PlanResult() {
       !Number.isInteger(Number(currentSupervisorId))
     ) {
       alert("❌ Current Supervisor ID is missing.");
-
       return;
     }
 
-    // =========================================
-    // تنظيف قيمة المشرف المختار
-    // =========================================
-
     const rawSupervisorId = editingSupervisor;
-
-    console.log(
-      "🔎 rawSupervisorId:",
-      JSON.stringify(rawSupervisorId),
-      typeof rawSupervisorId,
-    );
 
     if (
       rawSupervisorId === undefined ||
@@ -1582,59 +1542,41 @@ export default function PlanResult() {
       rawSupervisorId === "undefined" ||
       rawSupervisorId === "null"
     ) {
-      console.error(
-        "❌ editingSupervisor contains invalid value:",
-        rawSupervisorId,
-      );
-
       alert("⚠️ Please select a valid supervisor.");
-
       return;
     }
 
     const targetSupervisorId = Number(rawSupervisorId);
 
-    console.log(
-      "🎯 targetSupervisorId:",
-      targetSupervisorId,
-      typeof targetSupervisorId,
-    );
-
-    // =========================================
-    // التحقق من أن ID رقم صحيح
-    // =========================================
-
     if (!Number.isInteger(targetSupervisorId)) {
-      console.error("❌ Invalid target supervisor ID:", rawSupervisorId);
-
       alert("⚠️ Please select a valid supervisor.");
-
       return;
     }
-    // =========================================
-    // Affinity (فقط إذا تغيّر المشرف)
-    // =========================================
 
+    // ===== Affinity: تنبيه بدل المنع =====
     const affinitySupervisorId = getProfessorAffinitySupervisorId(assignment);
 
     const supervisorChanged =
       String(currentSupervisorId) !== String(targetSupervisorId);
 
-    if (
+    const hasAffinityOverride =
       supervisorChanged &&
       affinitySupervisorId !== null &&
       affinitySupervisorId !== undefined &&
-      String(targetSupervisorId) !== String(affinitySupervisorId)
-    ) {
-      alert("⚠️ هذا الأستاذ مرتبط بمشرف محدد ولا يمكن تغييره إلى مشرف آخر.");
-      setEditingSupervisor(String(affinitySupervisorId));
-      return;
+      String(targetSupervisorId) !== String(affinitySupervisorId);
+
+    if (hasAffinityOverride) {
+      const confirmed = window.confirm(
+        `⚠️ الأستاذ "${getProfessorName(assignment)}" مرتبط بمشرف محدد.\nهل تريد فعلًا تغيير المشرف؟`,
+      );
+
+      if (!confirmed) {
+        setEditingSupervisor(String(currentSupervisorId));
+        return;
+      }
     }
 
-    // =========================================
-    // القاعة
-    // =========================================
-
+    // ===== القاعة =====
     const currentRoomRaw = getRoomNumber(assignment);
     const currentRoom = currentRoomRaw === "-" ? "" : String(currentRoomRaw);
     const newRoom = String(editingRoom ?? "").trim();
@@ -1657,10 +1599,7 @@ export default function PlanResult() {
       return;
     }
 
-    // =========================================
-    // إرسال الطلبات
-    // =========================================
-
+    // ===== إرسال الطلبات =====
     try {
       setSavingId(sessionGroupId);
 
@@ -1669,6 +1608,7 @@ export default function PlanResult() {
           sessionGroupId: Number(sessionGroupId),
           fromSupervisorId: Number(currentSupervisorId),
           toSupervisorId: targetSupervisorId,
+          force: hasAffinityOverride,
         });
       }
 
@@ -1744,7 +1684,6 @@ export default function PlanResult() {
       setSavingId(null);
     }
   };
-
   // =====================================================
   // Bulk Selection / Bulk Edit
   // =====================================================
@@ -1796,10 +1735,9 @@ export default function PlanResult() {
       return;
     }
 
-    // تصنيف الصفوف: تُنقل / نفس المشرف / أستاذ مرتبط بمشرف آخر
     const toMove = [];
     const skippedSame = [];
-    const skippedAffinity = [];
+    const affinityOverrides = [];
 
     selectedAssignments.forEach((assignment) => {
       const current = getSupervisorId(assignment);
@@ -1815,17 +1753,14 @@ export default function PlanResult() {
         affinity !== undefined &&
         String(affinity) !== String(targetSupervisorId)
       ) {
-        skippedAffinity.push(assignment);
-        return;
+        affinityOverrides.push(assignment);
       }
 
       toMove.push(assignment);
     });
 
     if (!toMove.length) {
-      alert(
-        "⚠️ لا توجد صفوف قابلة للنقل: كلها عند هذا المشرف أصلًا أو مرتبطة بمشرف آخر.",
-      );
+      alert("⚠️ لا توجد صفوف قابلة للنقل: كلها عند هذا المشرف أصلًا.");
       return;
     }
 
@@ -1847,18 +1782,26 @@ export default function PlanResult() {
       targetSupervisor?.supervisorName ??
       "";
 
-    const confirmed = window.confirm(
-      `سيتم نقل ${toMove.length} صف إلى المشرف "${targetName}".\nمتابعة؟`,
-    );
+    let confirmMessage = `سيتم نقل ${toMove.length} صف إلى المشرف "${targetName}".`;
 
-    if (!confirmed) return;
+    if (affinityOverrides.length) {
+      const names = [
+        ...new Set(affinityOverrides.map((a) => getProfessorName(a))),
+      ];
+
+      confirmMessage += `\n\n⚠️ ${affinityOverrides.length} صف لأساتذة مرتبطين بمشرف محدد:\n${names.join("، ")}`;
+    }
+
+    confirmMessage += "\n\nمتابعة؟";
+
+    if (!window.confirm(confirmMessage)) return;
 
     setBulkSaving(true);
 
+    const overrideSet = new Set(affinityOverrides);
     const movedIds = new Set();
     const failed = [];
 
-    // بالتتابع كي لا تتعارض عمليات الحفظ في الـ backend
     for (const assignment of toMove) {
       const sessionGroupId = getSessionGroupId(assignment);
 
@@ -1867,6 +1810,7 @@ export default function PlanResult() {
           sessionGroupId: Number(sessionGroupId),
           fromSupervisorId: Number(getSupervisorId(assignment)),
           toSupervisorId: targetSupervisorId,
+          force: overrideSet.has(assignment),
         });
 
         movedIds.add(String(sessionGroupId));
@@ -1899,7 +1843,6 @@ export default function PlanResult() {
         );
       }
 
-      // الصفوف الفاشلة تبقى محددة لإعادة المحاولة
       setSelectedRowIds(
         new Set(failed.map((f) => String(getSessionGroupId(f.assignment)))),
       );
@@ -1918,16 +1861,6 @@ export default function PlanResult() {
 
     if (skippedSame.length) {
       lines.push(`↪️ ${skippedSame.length} صف تم تجاهله (عند نفس المشرف).`);
-    }
-
-    if (skippedAffinity.length) {
-      const names = [
-        ...new Set(skippedAffinity.map((a) => getProfessorName(a))),
-      ];
-
-      lines.push(
-        `🔗 ${skippedAffinity.length} صف تم تجاهله لأن الأستاذ مرتبط بمشرف آخر: ${names.join("، ")}`,
-      );
     }
 
     if (failed.length) {
@@ -3016,30 +2949,29 @@ export default function PlanResult() {
                               {isEditing ? (
                                 <div>
                                   {/* ✅ زر التبديل */}
-                                  {affinitySupervisorId === null && (
-                                    <button
-                                      type="button"
-                                      className="toggle-supervisor-scope-btn"
-                                      style={{
-                                        fontSize: "11px",
-                                        marginBottom: "4px",
-                                        background: "none",
-                                        border: "1px solid #d1d5db",
-                                        borderRadius: "6px",
-                                        padding: "2px 6px",
-                                        cursor: "pointer",
-                                      }}
-                                      onClick={() =>
-                                        setEditingShowAllSupervisors(
-                                          (prev) => !prev,
-                                        )
-                                      }
-                                    >
-                                      {editingShowAllSupervisors
-                                        ? "↩️ المشرفون المختارون فقط"
-                                        : "👥 عرض جميع المشرفين"}
-                                    </button>
-                                  )}
+
+                                  <button
+                                    type="button"
+                                    className="toggle-supervisor-scope-btn"
+                                    style={{
+                                      fontSize: "11px",
+                                      marginBottom: "4px",
+                                      background: "none",
+                                      border: "1px solid #d1d5db",
+                                      borderRadius: "6px",
+                                      padding: "2px 6px",
+                                      cursor: "pointer",
+                                    }}
+                                    onClick={() =>
+                                      setEditingShowAllSupervisors(
+                                        (prev) => !prev,
+                                      )
+                                    }
+                                  >
+                                    {editingShowAllSupervisors
+                                      ? "↩️ المشرفون المختارون فقط"
+                                      : "👥 عرض جميع المشرفين"}
+                                  </button>
 
                                   <select
                                     className="edit-supervisor-select"
@@ -3053,9 +2985,7 @@ export default function PlanResult() {
 
                                       setEditingSupervisor(e.target.value);
                                     }}
-                                    disabled={
-                                      isSaving || affinitySupervisorId !== null
-                                    }
+                                    disabled={isSaving}
                                   >
                                     <option value="">اختر المشرف</option>
 
@@ -3101,7 +3031,8 @@ export default function PlanResult() {
 
                                   {affinitySupervisorId !== null && (
                                     <small className="affinity-note">
-                                      🔗 هذا الأستاذ مرتبط بهذا المشرف
+                                      ⚠️ هذا الأستاذ مرتبط بمشرف محدد، سيظهر
+                                      تنبيه عند الحفظ{" "}
                                     </small>
                                   )}
                                 </div>
