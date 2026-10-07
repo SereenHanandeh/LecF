@@ -323,7 +323,7 @@ const EXCEL_SORT_DATE_FIRST = false;
 
 // false = شيتات المشرفين قيم عادية قابلة للتعديل
 // true  = شيتات المشرفين معادلات مرتبطة بالشيت الرئيسي (السلوك القديم)
-const EXCEL_LIVE_SUPERVISOR_SHEETS = false;
+const EXCEL_LIVE_SUPERVISOR_SHEETS = true;
 
 const EXCEL_FONT = { name: "Calibri", size: 15, bold: true };
 const EXCEL_BORDER_SIDE = { style: "thin", color: { argb: "FF000000" } };
