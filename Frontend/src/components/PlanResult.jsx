@@ -19,6 +19,9 @@ import {
   updatePlanStatus,
   updateProfessorRoom,
   listRooms,
+  deleteAssignments,
+  moveAssignmentsToPlan,
+  getPlans,
 } from "../api.js";
 
 // =====================================================
@@ -529,6 +532,13 @@ export default function PlanResult() {
   const [error, setError] = useState("");
   const [allRooms, setAllRooms] = useState([]);
 
+  const [bulkAction, setBulkAction] = useState("supervisor");
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  const [availablePlans, setAvailablePlans] = useState([]);
+  const [targetPlanId, setTargetPlanId] = useState("");
+  const [bulkMoving, setBulkMoving] = useState(false);
+
   const [editingSupervisor, setEditingSupervisor] = useState("");
   const [allSupervisorsList, setAllSupervisorsList] = useState([]);
   const [editingShowAllSupervisors, setEditingShowAllSupervisors] =
@@ -622,6 +632,20 @@ export default function PlanResult() {
       });
   }, []);
 
+  useEffect(() => {
+    getPlans()
+      .then((res) => {
+        const list = res?.data ?? res?.plans ?? res ?? [];
+        const filtered = Array.isArray(list)
+          ? list.filter((p) => String(p.id) !== String(planId))
+          : [];
+        setAvailablePlans(filtered);
+      })
+      .catch((err) => {
+        console.error("❌ Failed to load plans list:", err);
+        setAvailablePlans([]);
+      });
+  }, [planId]);
   // =====================================================
   // Load Plan
   // =====================================================
@@ -1720,6 +1744,8 @@ export default function PlanResult() {
     setSelectedRowIds(new Set());
     setBulkSupervisor("");
     setBulkShowAllSupervisors(false);
+    setBulkAction("supervisor");
+    setTargetPlanId("");
   };
 
   const applyBulkSupervisor = async () => {
@@ -1874,6 +1900,136 @@ export default function PlanResult() {
     }
 
     alert(lines.join("\n"));
+  };
+
+  const applyBulkDelete = async () => {
+    if (!selectedAssignments.length) {
+      alert("⚠️ اختر صفًا واحدًا على الأقل.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `هل أنت متأكد من حذف ${selectedAssignments.length} صف نهائيًا؟ لا يمكن التراجع عن هذا الإجراء.`,
+    );
+
+    if (!confirmed) return;
+
+    const sessionGroupIds = selectedAssignments
+      .map((a) => Number(getSessionGroupId(a)))
+      .filter(Number.isInteger);
+
+    if (!sessionGroupIds.length) {
+      alert("⚠️ لا توجد صفوف صالحة للحذف.");
+      return;
+    }
+
+    try {
+      setBulkDeleting(true);
+
+      const res = await deleteAssignments(planId, sessionGroupIds);
+
+      const deletedIds = new Set(
+        (res?.data?.sessionGroupIds ?? sessionGroupIds).map(String),
+      );
+
+      if (isMountedRef.current) {
+        setPlanData((prev) =>
+          prev.filter(
+            (item) => !deletedIds.has(String(getSessionGroupId(item))),
+          ),
+        );
+
+        setSelectedRowIds((prev) => {
+          const next = new Set(prev);
+          deletedIds.forEach((id) => next.delete(id));
+          return next;
+        });
+      }
+
+      alert(`✅ تم حذف ${res?.data?.deleted ?? deletedIds.size} صف بنجاح.`);
+
+      fetchPlan({ silent: true });
+    } catch (err) {
+      console.error("❌ Error deleting assignments:", err);
+      alert(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "فشل حذف الصفوف.",
+      );
+    } finally {
+      if (isMountedRef.current) setBulkDeleting(false);
+    }
+  };
+
+  const applyBulkMove = async () => {
+    if (!selectedAssignments.length) {
+      alert("⚠️ اختر صفًا واحدًا على الأقل.");
+      return;
+    }
+
+    if (!targetPlanId) {
+      alert("⚠️ اختر الخطة الهدف أولًا.");
+      return;
+    }
+
+    const targetPlan = availablePlans.find(
+      (p) => String(p.id) === String(targetPlanId),
+    );
+
+    const targetName = targetPlan?.name ?? `خطة #${targetPlanId}`;
+
+    const confirmed = window.confirm(
+      `سيتم نقل ${selectedAssignments.length} صف إلى "${targetName}".\nستختفي هذه الصفوف من الخطة الحالية.\n\nمتابعة؟`,
+    );
+
+    if (!confirmed) return;
+
+    const sessionGroupIds = selectedAssignments
+      .map((a) => Number(getSessionGroupId(a)))
+      .filter(Number.isInteger);
+
+    if (!sessionGroupIds.length) {
+      alert("⚠️ لا توجد صفوف صالحة للنقل.");
+      return;
+    }
+
+    try {
+      setBulkMoving(true);
+
+      const res = await moveAssignmentsToPlan(
+        planId,
+        targetPlanId,
+        sessionGroupIds,
+      );
+
+      const movedIds = new Set(sessionGroupIds.map(String));
+
+      if (isMountedRef.current) {
+        setPlanData((prev) =>
+          prev.filter((item) => !movedIds.has(String(getSessionGroupId(item)))),
+        );
+
+        setSelectedRowIds(new Set());
+        setTargetPlanId("");
+      }
+
+      alert(
+        `✅ تم نقل ${res?.data?.moved ?? movedIds.size} صف إلى "${targetName}".`,
+      );
+
+      fetchPlan({ silent: true });
+    } catch (err) {
+      console.error("❌ Error moving assignments:", err);
+      alert(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          err?.message ||
+          "فشل نقل الصفوف.",
+      );
+    } finally {
+      if (isMountedRef.current) setBulkMoving(false);
+    }
   };
   // =====================================================
   // Accept / Reject Plan
@@ -2670,72 +2826,158 @@ export default function PlanResult() {
           </div>
 
           {selectedAssignments.length > 0 && (
-            <div className="bulk-bar">
-              <span className="bulk-bar-count">
-                ✓ {selectedAssignments.length} صف محدد
-              </span>
+            <div className="bulk-bar bulk-bar-expanded">
+              <div className="bulk-bar-top">
+                <span className="bulk-bar-count">
+                  ✓ {selectedAssignments.length} صف محدد
+                </span>
 
-              <select
-                value={bulkSupervisor}
-                onChange={(e) => setBulkSupervisor(e.target.value)}
-                disabled={bulkSaving}
-              >
-                <option value="">اختر المشرف الجديد</option>
+                <div className="bulk-action-tabs">
+                  <button
+                    type="button"
+                    className={`bulk-action-tab ${bulkAction === "supervisor" ? "active" : ""}`}
+                    onClick={() => setBulkAction("supervisor")}
+                    disabled={bulkSaving || bulkDeleting || bulkMoving}
+                  >
+                    ✏️ تعديل المشرف
+                  </button>
 
-                {(bulkShowAllSupervisors
-                  ? allSupervisorsList
-                  : supervisors
-                ).map((supervisor) => {
-                  const id =
-                    supervisor?.id ??
-                    supervisor?.supervisor_id ??
-                    supervisor?.supervisorId;
+                  <button
+                    type="button"
+                    className={`bulk-action-tab danger ${bulkAction === "delete" ? "active" : ""}`}
+                    onClick={() => setBulkAction("delete")}
+                    disabled={bulkSaving || bulkDeleting || bulkMoving}
+                  >
+                    🗑️ حذف
+                  </button>
 
-                  const name =
-                    supervisor?.name ??
-                    supervisor?.supervisor_name ??
-                    supervisor?.supervisorName ??
-                    supervisor?.full_name ??
-                    "";
+                  <button
+                    type="button"
+                    className={`bulk-action-tab ${bulkAction === "move" ? "active" : ""}`}
+                    onClick={() => setBulkAction("move")}
+                    disabled={bulkSaving || bulkDeleting || bulkMoving}
+                  >
+                    📤 نقل إلى خطة أخرى
+                  </button>
+                </div>
 
-                  if (id === null || id === undefined || id === "") return null;
+                <button
+                  type="button"
+                  className="bulk-clear-btn"
+                  onClick={clearSelection}
+                  disabled={bulkSaving || bulkDeleting || bulkMoving}
+                >
+                  ✕ إلغاء التحديد
+                </button>
+              </div>
 
-                  return (
-                    <option key={String(id)} value={String(id)}>
-                      {name}
-                    </option>
-                  );
-                })}
-              </select>
+              {/* ===== وضع: تعديل المشرف ===== */}
+              {bulkAction === "supervisor" && (
+                <div className="bulk-bar-controls">
+                  <select
+                    value={bulkSupervisor}
+                    onChange={(e) => setBulkSupervisor(e.target.value)}
+                    disabled={bulkSaving}
+                  >
+                    <option value="">اختر المشرف الجديد</option>
 
-              <button
-                type="button"
-                className="bulk-toggle-btn"
-                onClick={() => setBulkShowAllSupervisors((prev) => !prev)}
-                disabled={bulkSaving}
-              >
-                {bulkShowAllSupervisors
-                  ? "↩️ المشرفون المختارون فقط"
-                  : "👥 عرض جميع المشرفين"}
-              </button>
+                    {(bulkShowAllSupervisors
+                      ? allSupervisorsList
+                      : supervisors
+                    ).map((supervisor) => {
+                      const id =
+                        supervisor?.id ??
+                        supervisor?.supervisor_id ??
+                        supervisor?.supervisorId;
 
-              <button
-                type="button"
-                className="bulk-apply-btn"
-                onClick={applyBulkSupervisor}
-                disabled={bulkSaving || !bulkSupervisor}
-              >
-                {bulkSaving ? "⏳ جاري النقل..." : "✓ تطبيق على المحدد"}
-              </button>
+                      const name =
+                        supervisor?.name ??
+                        supervisor?.supervisor_name ??
+                        supervisor?.supervisorName ??
+                        supervisor?.full_name ??
+                        "";
 
-              <button
-                type="button"
-                className="bulk-clear-btn"
-                onClick={clearSelection}
-                disabled={bulkSaving}
-              >
-                ✕ إلغاء التحديد
-              </button>
+                      if (id === null || id === undefined || id === "")
+                        return null;
+
+                      return (
+                        <option key={String(id)} value={String(id)}>
+                          {name}
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  <button
+                    type="button"
+                    className="bulk-toggle-btn"
+                    onClick={() => setBulkShowAllSupervisors((prev) => !prev)}
+                    disabled={bulkSaving}
+                  >
+                    {bulkShowAllSupervisors
+                      ? "↩️ المشرفون المختارون فقط"
+                      : "👥 عرض جميع المشرفين"}
+                  </button>
+
+                  <button
+                    type="button"
+                    className="bulk-apply-btn"
+                    onClick={applyBulkSupervisor}
+                    disabled={bulkSaving || !bulkSupervisor}
+                  >
+                    {bulkSaving ? "⏳ جاري النقل..." : "✓ تطبيق على المحدد"}
+                  </button>
+                </div>
+              )}
+
+              {/* ===== وضع: حذف ===== */}
+              {bulkAction === "delete" && (
+                <div className="bulk-bar-controls">
+                  <span className="bulk-delete-warning">
+                    ⚠️ سيتم حذف الصفوف المحددة نهائيًا من هذه الخطة.
+                  </span>
+
+                  <button
+                    type="button"
+                    className="bulk-apply-btn danger"
+                    onClick={applyBulkDelete}
+                    disabled={bulkDeleting}
+                  >
+                    {bulkDeleting ? "⏳ جاري الحذف..." : "🗑️ تأكيد الحذف"}
+                  </button>
+                </div>
+              )}
+
+              {/* ===== وضع: نقل إلى خطة أخرى ===== */}
+              {bulkAction === "move" && (
+                <div className="bulk-bar-controls">
+                  <select
+                    value={targetPlanId}
+                    onChange={(e) => setTargetPlanId(e.target.value)}
+                    disabled={bulkMoving}
+                  >
+                    <option value="">اختر الخطة الهدف</option>
+
+                    {availablePlans.map((plan) => (
+                      <option key={plan.id} value={plan.id}>
+                        {plan.name ?? `خطة #${plan.id}`}
+                        {plan.date_from
+                          ? ` (${formatDate(plan.date_from)})`
+                          : ""}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    className="bulk-apply-btn"
+                    onClick={applyBulkMove}
+                    disabled={bulkMoving || !targetPlanId}
+                  >
+                    {bulkMoving ? "⏳ جاري النقل..." : "📤 تأكيد النقل"}
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

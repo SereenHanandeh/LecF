@@ -218,4 +218,18 @@ export const updateRoom = (roomId, payload) =>
 export const deleteRoom = (roomId) =>
   api.delete(`/rooms/${roomId}`).then((res) => res.data?.data ?? res.data);
 
+
+export const deleteAssignments = (planId, sessionGroupIds) =>
+  api
+    .post(`/plan/${planId}/assignments/delete`, { sessionGroupIds })
+    .then((res) => res.data);
+
+export const moveAssignmentsToPlan = (planId, targetPlanId, sessionGroupIds) =>
+  api
+    .post(`/plan/${planId}/assignments/move-to-plan`, {
+      targetPlanId,
+      sessionGroupIds,
+    })
+    .then((res) => res.data);
+
 export default api;
