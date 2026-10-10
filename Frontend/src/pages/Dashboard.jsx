@@ -206,8 +206,10 @@ const Icons = {
   ),
 };
 
-// قاعات خاصة: متاحة للربط واليدوي ولاختيار التلقائي لكل الفئات
-const SPECIAL_ROOMS = ["100", "101", "102"];
+const LOW_ROOM_NUMBERS = ["1", "2", "3", "4", "5"];
+
+// قاعة الخدمات الطلابية: نتعرف عليها من الوسم
+const isStudentServices = (room) => String(room.tag || "").includes("خدمات");
 
 // 7,8,...,16,40,... => "7–16، 40"
 const formatRoomRanges = (rooms) => {
@@ -230,6 +232,22 @@ const formatRoomRanges = (rooms) => {
 
   return parts.join("، ");
 };
+
+const isRoomAllowedForCategory = (room, category) => {
+  const isLow = LOW_ROOM_NUMBERS.includes(String(room.room_number).trim());
+
+  switch (category) {
+    case "مدمج":
+      return true; // كل القاعات
+    case "دبلوم":
+      return !isLow; // كل القاعات ما عدا 1–5
+    case "متطلبات":
+      return isLow || isStudentServices(room); // 1–5 + الخدمات الطلابية فقط
+    default:
+      return false;
+  }
+};
+
 
 /* =========================================================
    Dashboard
@@ -258,9 +276,6 @@ export default function Dashboard() {
 
   const [selectedRoomsForAuto, setSelectedRoomsForAuto] = useState([]);
   const [manualRoomAssignments, setManualRoomAssignmentsState] = useState({}); // { [periodKey||professorName]: roomNumber }
-
-  // استخدام القاعات 1-5 فقط (استبعاد قاعة 6 out) لفئة "متطلبات"
-  const [requirementsOneToFive, setRequirementsOneToFive] = useState(false);
 
   const [groupRoomsBySupervisor, setGroupRoomsBySupervisor] = useState(true);
 
@@ -303,37 +318,16 @@ export default function Dashboard() {
   /* =========================================================
      Rooms (derived from API)
   ========================================================= */
+const allowedRooms = useMemo(() => {
+  if (!planCategory) return [];
 
-  // القاعات المسموحة للفئة الحالية (مع استبعاد قاعة 6 إذا فُعّل خيار 1-5)
-  const allowedRooms = useMemo(() => {
-    if (!planCategory) return [];
+  return allRooms
+    .filter((r) => isRoomAllowedForCategory(r, planCategory))
+    .map((r) => String(r.room_number));
+}, [allRooms, planCategory]);
 
-    return allRooms
-      .filter((r) => (r.categories || []).includes(planCategory))
-      .map((r) => String(r.room_number))
-      .filter(
-        (room) =>
-          !(
-            planCategory === "متطلبات" &&
-            requirementsOneToFive &&
-            room === "6"
-          ),
-      );
-  }, [allRooms, planCategory, requirementsOneToFive]);
-
-  const specialRoomNumbers = useMemo(
-    () =>
-      allRooms
-        .map((r) => String(r.room_number))
-        .filter((n) => SPECIAL_ROOMS.includes(n)),
-    [allRooms],
-  );
-
-  // القاعات التي تظهر في قوائم الاختيار (الفئة + الخاصة)
-  const selectableRooms = useMemo(
-    () => [...new Set([...allowedRooms, ...specialRoomNumbers])],
-    [allowedRooms, specialRoomNumbers],
-  );
+// ما عاد في قاعات خاصة تنضاف لكل الفئات
+const selectableRooms = allowedRooms;
 
   const roomTagMap = useMemo(
     () =>
@@ -609,7 +603,7 @@ export default function Dashboard() {
     setRoomLinks([]);
     setLinkRoom("");
     setLinkProfessors([]);
-  }, [planCategory, requirementsOneToFive]);
+  }, [planCategory]);
 
   /* =========================================================
      Upload
@@ -650,8 +644,7 @@ export default function Dashboard() {
       setRoomLinks([]);
       setLinkRoom("");
       setLinkProfessors([]);
-      setRequirementsOneToFive(false);
-
+    
       setMinimumPeriodsEnabled(false);
       setPlanCategory("");
 
@@ -1593,27 +1586,8 @@ export default function Dashboard() {
                   </label>
                 )}
 
-                {planCategory === "متطلبات" && (
-                  <label className="minimum-period-option">
-                    <input
-                      type="checkbox"
-                      checked={requirementsOneToFive}
-                      onChange={(e) =>
-                        setRequirementsOneToFive(e.target.checked)
-                      }
-                    />
-                    <span className="minimum-period-check">
-                      {requirementsOneToFive && Icons.check}
-                    </span>
-                    <span className="minimum-period-label">
-                      <strong>استخدام القاعات 1–5 فقط</strong>
-                      <small>
-                        استبعاد قاعة 6 (out). بدون التفعيل تُستخدم 1–6 وقاعة 6
-                        آخر خيار.
-                      </small>
-                    </span>
-                  </label>
-                )}
+              
+        
               </div>
 
               <div className="plan-category-grid">
