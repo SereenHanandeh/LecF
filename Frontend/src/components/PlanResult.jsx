@@ -329,6 +329,11 @@ const EXCEL_SORT_DATE_FIRST = false;
 const EXCEL_LIVE_SUPERVISOR_SHEETS = true;
 
 const EXCEL_FONT = { name: "Calibri", size: 15, bold: true };
+
+// عمود CRN في شيتات المشرفين: خط أكبر
+const CRN_FONT = { ...EXCEL_FONT, size: 23, bold: true };
+const CRN_ROW_HEIGHT = 38;
+
 const EXCEL_BORDER_SIDE = { style: "thin", color: { argb: "FF000000" } };
 const EXCEL_BORDER = {
   top: EXCEL_BORDER_SIDE,
@@ -404,6 +409,16 @@ const computeColumnWidths = (columns, rows) =>
 
 const withWidths = (widths) =>
   EXCEL_COLUMNS.map((col, i) => ({ ...col, width: widths[i] }));
+
+// عرض عمود CRN حسب أطول قيمة (الخط 23 أكبر من 15 فنضرب أكثر)
+const computeCrnWidth = (rows) => {
+  const maxLen = rows.reduce(
+    (max, row) => Math.max(max, String(row.crn ?? "").length),
+    String("CRN").length,
+  );
+
+  return Math.min(60, Math.max(14, Math.ceil(maxLen * 2.5) + 4));
+};
 
 // ارتفاع الصف حسب عدد الأسطر المتوقعة للنص الطويل
 const computeRowHeight = (row, widths) => {
@@ -2268,6 +2283,15 @@ export default function PlanResult() {
             : itemRows.map((row) => computeRowHeight(row, widths)),
         });
         addPeriodConditionalFormatting(sheet, periodColorMap, total);
+
+        // ===== عمود CRN: Bold + حجم 23 + عرض حسب المحتوى (شيتات المشرفين فقط) =====
+        sheet.getColumn(1).width = computeCrnWidth(itemRows);
+
+        for (let r = 2; r <= total; r++) {
+          const row = sheet.getRow(r);
+          row.height = Math.max(row.height || 0, CRN_ROW_HEIGHT);
+          row.getCell(1).font = CRN_FONT;
+        }
       }
 
       // =========================================
