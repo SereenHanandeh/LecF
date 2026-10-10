@@ -206,7 +206,7 @@ const Icons = {
   ),
 };
 
-const LOW_ROOM_NUMBERS = ["1", "2", "3", "4", "5"];
+const LOW_ROOM_NUMBERS = ["1", "2", "3", "4", "5","G 07 خدمات طلابية"];
 
 // قاعة الخدمات الطلابية: نتعرف عليها من الوسم
 const isStudentServices = (room) => String(room.tag || "").includes("خدمات");
