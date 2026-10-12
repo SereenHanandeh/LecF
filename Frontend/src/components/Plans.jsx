@@ -13,7 +13,6 @@ import {
 
 import "../assets/Plan.css";
 
-
 const API_BASE_URL = "http://localhost:5000";
 
 // =====================================================
@@ -879,7 +878,7 @@ export default function Plans() {
                         <td>
                           <button
                             type="button"
-                            className="sup-name-btn no-print"
+                            className="sup-name-btn"
                             onClick={() => openSupervisorReport(id)}
                             title="عرض تقرير المشرف"
                           >
@@ -895,11 +894,6 @@ export default function Plans() {
 
                             <span className="sup-chevron">{Icons.arrow}</span>
                           </button>
-
-                          {/* نص عادي للطباعة بدل الزر */}
-                          <span className="print-only sup-print-name">
-                            {supervisor.supervisor_name}
-                          </span>
                         </td>
 
                         {/* الفئة */}
@@ -930,14 +924,9 @@ export default function Plans() {
                             isSavingInitial ? "sup-initial-saving" : ""
                           }
                         >
-                          {/* نص عادي للطباعة بدل الزر */}
-                          <span className="print-only sup-print-name">
-                            {initial}
-                          </span>
-
                           {isEditingInitial ? (
                             <input
-                              className="sup-initial-input no-print"
+                              className="sup-initial-input"
                               type="number"
                               min="0"
                               step="1"
@@ -960,7 +949,7 @@ export default function Plans() {
                           ) : (
                             <button
                               type="button"
-                              className="sup-initial-badge no-print"
+                              className="sup-initial-badge"
                               onClick={() => startInitialEdit(supervisor)}
                               title="تعديل الرصيد الابتدائي (خطة 0)"
                             >
