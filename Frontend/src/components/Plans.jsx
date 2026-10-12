@@ -13,7 +13,6 @@ import {
 
 import "../assets/Plan.css";
 
-
 const API_BASE_URL = "http://localhost:5000";
 
 // =====================================================
@@ -116,19 +115,69 @@ function toArray(res) {
   return [];
 }
 
-// اسم الفئة من أي كائن مشرف (حسب اسم الحقل في الـ backend)
-function pickCategory(item) {
-  const value =
-    item?.category ??
-    item?.category_name ??
-    item?.categoryName ??
-    item?.supervisor_category ??
-    item?.group_name ??
-    null;
+function categoryText(value) {
+  if (value === null || value === undefined) return null;
 
-  const text = String(value ?? "").trim();
+  // فئة على شكل كائن: { id, name }
+  if (typeof value === "object") {
+    return categoryText(
+      value.name ?? value.name_ar ?? value.label ?? value.title ?? null,
+    );
+  }
+
+  const text = String(value).trim();
 
   return text || null;
+}
+
+// اسم الفئة من أي كائن مشرف (يجرب أسماء الحقول المعروفة ثم يكتشف تلقائيًا)
+function pickCategory(item) {
+  if (!item || typeof item !== "object") return null;
+
+  const knownKeys = [
+    "category",
+    "category_name",
+    "categoryName",
+    "supervisor_category",
+    "supervisorCategory",
+    "category_title",
+    "group_name",
+    "groupName",
+    "group",
+    "type",
+    "supervisor_type",
+    "class",
+    "tier",
+    "grade",
+    "الفئة",
+    "فئة",
+  ];
+
+  for (const key of knownKeys) {
+    const text = categoryText(item[key]);
+
+    if (text) return text;
+  }
+
+  // اكتشاف تلقائي: أي حقل اسمه يحوي category/group/فئة (عدا الـ id)
+  for (const [key, value] of Object.entries(item)) {
+    if (/id$/i.test(key)) continue;
+
+    if (/categ|group|tier|grade|فئ/i.test(key)) {
+      const text = categoryText(value);
+
+      if (text) return text;
+    }
+  }
+
+  return null;
+}
+
+function normalizeName(value) {
+  return String(value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
 }
 
 function formatDate(dateValue) {
@@ -322,6 +371,10 @@ export default function Plans() {
       console.log("📊 Received stats:", receivedStats);
       console.log("0️⃣ Received initial stats:", receivedInitial);
       console.log("🏷️ Received supervisors:", receivedSupervisors);
+      console.log(
+        "🏷️ Supervisor fields (first record):",
+        receivedSupervisors[0] ? Object.keys(receivedSupervisors[0]) : [],
+      );
 
       setPlans(receivedPlans);
       setSupervisorStats(receivedStats);
@@ -429,17 +482,30 @@ export default function Plans() {
   // ===================================================
 
   const categoryBySupervisor = useMemo(() => {
-    const map = new Map();
+    const byId = new Map();
+    const byName = new Map();
 
     supervisorsList.forEach((item) => {
       const category = pickCategory(item);
 
-      if (category) {
-        map.set(String(item.id ?? item.supervisor_id), category);
+      if (!category) return;
+
+      const id = item.id ?? item.supervisor_id;
+
+      if (id !== undefined && id !== null) {
+        byId.set(String(id), category);
+      }
+
+      const name = normalizeName(
+        item.name ?? item.supervisor_name ?? item.full_name,
+      );
+
+      if (name) {
+        byName.set(name, category);
       }
     });
 
-    return map;
+    return { byId, byName };
   }, [supervisorsList]);
 
   // ===================================================
@@ -496,7 +562,10 @@ export default function Plans() {
 
         const category =
           pickCategory(supervisor) ??
-          categoryBySupervisor.get(String(supervisor.supervisor_id)) ??
+          categoryBySupervisor.byId.get(String(supervisor.supervisor_id)) ??
+          categoryBySupervisor.byName.get(
+            normalizeName(supervisor.supervisor_name),
+          ) ??
           NO_CATEGORY;
 
         return {
@@ -879,7 +948,7 @@ export default function Plans() {
                         <td>
                           <button
                             type="button"
-                            className="sup-name-btn"
+                            className="sup-name-btn no-print"
                             onClick={() => openSupervisorReport(id)}
                             title="عرض تقرير المشرف"
                           >
@@ -895,6 +964,11 @@ export default function Plans() {
 
                             <span className="sup-chevron">{Icons.arrow}</span>
                           </button>
+
+                          {/* نص عادي للطباعة بدل الزر */}
+                          <span className="print-only sup-print-name">
+                            {supervisor.supervisor_name}
+                          </span>
                         </td>
 
                         {/* الفئة */}
@@ -925,9 +999,14 @@ export default function Plans() {
                             isSavingInitial ? "sup-initial-saving" : ""
                           }
                         >
+                          {/* نص عادي للطباعة بدل الزر */}
+                          <span className="print-only sup-print-name">
+                            {initial}
+                          </span>
+
                           {isEditingInitial ? (
                             <input
-                              className="sup-initial-input"
+                              className="sup-initial-input no-print"
                               type="number"
                               min="0"
                               step="1"
@@ -950,7 +1029,7 @@ export default function Plans() {
                           ) : (
                             <button
                               type="button"
-                              className="sup-initial-badge"
+                              className="sup-initial-badge no-print"
                               onClick={() => startInitialEdit(supervisor)}
                               title="تعديل الرصيد الابتدائي (خطة 0)"
                             >
