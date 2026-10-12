@@ -12,7 +12,6 @@ import {
 } from "../api.js";
 
 import "../assets/Plan.css";
-import "../assets/PlanInitialStats.css";
 import "../assets/PlanPrint.css";
 
 const API_BASE_URL = "http://localhost:5000";
