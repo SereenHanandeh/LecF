@@ -468,11 +468,14 @@ export default function Plans() {
 
       const number = String(planNumbers.get(String(plan.id)) ?? "");
 
+      const category = String(categoryText(plan.category) || "").toLowerCase();
+
       return (
         !query ||
         name.includes(query) ||
         id.includes(query) ||
-        number.includes(query)
+        number.includes(query) ||
+        category.includes(query)
       );
     });
   }, [acceptedPlans, search, planNumbers]);
@@ -1189,7 +1192,7 @@ export default function Plans() {
 
             <input
               type="text"
-              placeholder="ابحث باسم الخطة أو رقمها..."
+              placeholder="ابحث باسم الخطة أو رقمها أو فئتها..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -1280,7 +1283,7 @@ export default function Plans() {
                 <thead>
                   <tr>
                     <th>الخطة</th>
-
+                    <th>الفئة</th>
                     <th>المشرفون</th>
 
                     <th>التعيينات</th>
@@ -1310,6 +1313,8 @@ export default function Plans() {
                           plan.assignmentCount ??
                           0,
                       );
+                    const planCategoryLabel =
+                      categoryText(plan.category) || NO_CATEGORY;
 
                     const isDeleting =
                       Number(deletingPlanId) === Number(plan.id);
@@ -1342,6 +1347,20 @@ export default function Plans() {
                               </span>
                             </div>
                           </div>
+                        </td>
+
+                        {/* Category */}
+
+                        <td>
+                          <span
+                            className={`plan-category-badge ${
+                              planCategoryLabel === NO_CATEGORY
+                                ? "no-category"
+                                : ""
+                            }`}
+                          >
+                            {planCategoryLabel}
+                          </span>
                         </td>
 
                         {/* Supervisors */}
