@@ -396,6 +396,7 @@ const sortForExcel = (data) =>
     );
   });
 
+
 // عرض كل عمود حسب أطول قيمة فيه (الخط 15 عريض فنضرب في 1.6)
 const computeColumnWidths = (columns, rows) =>
   columns.map((col) => {
@@ -431,6 +432,30 @@ const computeRowHeight = (row, widths) => {
   });
 
   return Math.max(EXCEL_ROW_HEIGHT, maxLines * 22);
+};
+
+// =====================================================
+// Rooms Occupancy Helpers
+// =====================================================
+
+const LOW_ROOM_NUMBERS = ["1", "2", "3", "4", "5", "G 07 خدمات طلابية"];
+
+const isStudentServices = (room) => String(room.tag || "").includes("خدمات");
+
+// نفس منطق الداشبورد
+const isRoomAllowedForCategory = (room, category) => {
+  const isLow = LOW_ROOM_NUMBERS.includes(String(room.room_number).trim());
+
+  switch (category) {
+    case "مدمج":
+      return true;
+    case "دبلوم":
+      return !isLow;
+    case "متطلبات":
+      return isLow || isStudentServices(room);
+    default:
+      return true; // فئة غير معروفة: اعرض كل القاعات
+  }
 };
 
 // كل فترة تأخذ لونًا ثابتًا
@@ -564,6 +589,9 @@ export default function PlanResult() {
   const [bulkShowAllSupervisors, setBulkShowAllSupervisors] = useState(false);
   const [bulkSaving, setBulkSaving] = useState(false);
 
+  const [planCategory, setPlanCategory] = useState(
+  location.state?.planCategory ?? "",
+);
   // =====================================================
   // Plan Status (Accept / Reject)
   // =====================================================
@@ -715,6 +743,15 @@ export default function PlanResult() {
           setAffinities(planAffinities);
           setPlanStatus(data.status || "draft");
         }
+
+        const category =
+  data.category ??
+  data.plan_category ??
+  data.planCategory ??
+  data.plan?.category ??
+  "";
+
+if (category) setPlanCategory(category);
 
         // =================================================
         // Assignments
@@ -1391,6 +1428,80 @@ export default function PlanResult() {
     [allRooms],
   );
 
+  // =====================================================
+// Rooms Occupancy Table
+// =====================================================
+
+const roomsOccupancy = useMemo(() => {
+  // الفترات (تاريخ + فترة) مرتبة
+  const periodMap = new Map();
+
+  planData.forEach((a) => {
+    const date = getDateValue(a.date);
+    const period = getPeriod(a);
+    if (!date || !period || period === "-") return;
+
+    const key = `${date}|${period}`;
+    if (!periodMap.has(key)) {
+      periodMap.set(key, {
+        key,
+        date,
+        period,
+        from: timeToMinutes(getTimeFrom(a), period),
+      });
+    }
+  });
+
+  const periods = [...periodMap.values()].sort(
+    (a, b) => a.date.localeCompare(b.date) || a.from - b.from,
+  );
+
+  // القاعات حسب نوع الخطة
+  const rooms = allRooms
+    .filter((r) => isRoomAllowedForCategory(r, planCategory))
+    .sort((a, b) =>
+      String(a.room_number).localeCompare(String(b.room_number), "en", {
+        numeric: true,
+      }),
+    )
+    .map((r) => ({
+      number: String(r.room_number).trim(),
+      tag: r.tag || "",
+    }));
+
+  // القاعة|التاريخ|الفترة -> أسماء الأساتذة
+  const occupied = new Map();
+
+  planData.forEach((a) => {
+    const room = String(getRoomNumber(a)).trim();
+    const date = getDateValue(a.date);
+    const period = getPeriod(a);
+    if (!room || room === "-" || !date) return;
+
+    const key = `${room}|${date}|${period}`;
+    if (!occupied.has(key)) occupied.set(key, new Set());
+    occupied.get(key).add(getProfessorName(a));
+  });
+
+  return { periods, rooms, occupied };
+}, [planData, allRooms, planCategory]);
+
+const hasMultipleDates = useMemo(
+  () => new Set(roomsOccupancy.periods.map((p) => p.date)).size > 1,
+  [roomsOccupancy],
+);
+
+const printRoomsTable = () => {
+  document.body.classList.add("printing-rooms");
+
+  const cleanup = () => {
+    document.body.classList.remove("printing-rooms");
+    window.removeEventListener("afterprint", cleanup);
+  };
+
+  window.addEventListener("afterprint", cleanup);
+  window.print();
+};
   // =====================================================
   // Column Toggle
   // =====================================================
@@ -2532,6 +2643,8 @@ export default function PlanResult() {
           </div>
         )}
 
+        
+
         {/* =================================================
           Summary Cards
       ================================================= */}
@@ -3540,6 +3653,94 @@ export default function PlanResult() {
             </button>
           </div>
         </section>
+
+        {/* =================================================
+    Rooms Occupancy (يظهر بعد قبول الخطة فقط)
+================================================= */}
+{planStatus === "accepted" && (
+  <section className="panel rooms-occupancy-panel">
+    <div className="panel-heading">
+      <div>
+        <h2>🏢 إشغال القاعات</h2>
+        <p>
+          {planCategory
+            ? `قاعات فئة "${planCategory}" حسب الفترات`
+            : "كل القاعات حسب الفترات"}
+        </p>
+      </div>
+
+      <button
+        type="button"
+        className="btn btn-secondary"
+        onClick={printRoomsTable}
+      >
+        <span>🖨️</span>
+        <span>طباعة الجدول</span>
+      </button>
+    </div>
+
+    <div className="rooms-legend">
+      <span className="legend-item">
+        <i className="legend-dot full" /> مشغولة
+      </span>
+      <span className="legend-item">
+        <i className="legend-dot empty" /> فارغة
+      </span>
+    </div>
+
+    {roomsOccupancy.rooms.length && roomsOccupancy.periods.length ? (
+      <div className="table-container">
+        <table className="assignments-table rooms-occupancy-table">
+          <thead>
+            <tr>
+              <th>القاعة</th>
+
+              {roomsOccupancy.periods.map((p) => (
+                <th key={p.key}>
+                  {hasMultipleDates && (
+                    <div className="rooms-th-date">{formatDate(p.date)}</div>
+                  )}
+                  <div>{p.period}</div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+
+          <tbody>
+            {roomsOccupancy.rooms.map((room) => (
+              <tr key={room.number}>
+                <td>
+                  <strong>{room.number}</strong>
+                  {room.tag && <small className="room-tag">{room.tag}</small>}
+                </td>
+
+                {roomsOccupancy.periods.map((p) => {
+                  const profs = roomsOccupancy.occupied.get(
+                    `${room.number}|${p.date}|${p.period}`,
+                  );
+                  const isFull = Boolean(profs && profs.size);
+
+                  return (
+                    <td key={p.key}>
+                      <span
+                        className={`room-status ${isFull ? "full" : "empty"}`}
+                        title={isFull ? [...profs].join("، ") : "فارغة"}
+                      >
+                        {room.number}
+                      </span>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <div className="no-plan-data">لا توجد بيانات قاعات لعرضها.</div>
+    )}
+  </section>
+)}
 
         {/* =================================================
           Conflicts

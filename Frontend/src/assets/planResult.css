@@ -1651,3 +1651,46 @@
 .bulk-apply-btn.danger:hover {
   background: #b91c1c;
 }
+
+.rooms-legend { display: flex; gap: 16px; margin: 8px 0 12px; font-size: 13px; }
+.legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.legend-dot.full { background: #dc2626; }
+.legend-dot.empty { background: #16a34a; }
+
+.rooms-occupancy-table th,
+.rooms-occupancy-table td { text-align: center; white-space: nowrap; }
+.rooms-th-date { font-size: 11px; opacity: 0.8; }
+.room-tag { display: block; font-size: 11px; color: #6b7280; }
+
+.room-status {
+  display: inline-block;
+  min-width: 44px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+.room-status.full  { color: #dc2626; background: #fee2e2; border: 1px solid #dc2626; }
+.room-status.empty { color: #16a34a; background: #dcfce7; border: 1px solid #16a34a; }
+
+/* طباعة جدول القاعات فقط */
+@media print {
+  body.printing-rooms .plan-header,
+  body.printing-rooms .plan-content > *:not(.rooms-occupancy-panel) {
+    display: none !important;
+  }
+
+  body.printing-rooms .rooms-occupancy-panel {
+    display: block !important;
+    box-shadow: none;
+  }
+
+  body.printing-rooms .rooms-occupancy-panel .btn {
+    display: none !important;
+  }
+
+  body.printing-rooms .room-status {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
