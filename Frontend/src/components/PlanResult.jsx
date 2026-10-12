@@ -3119,12 +3119,8 @@ const printRoomsTable = () => {
           )}
 
           {planData.length > 0 ? (
-            <div className="table-container">
-              {/* =================================================
-                SCREEN TABLE
-                Session Group removed
-            ================================================= */}
-              <table className="assignments-table screen-plan-table">
+           <div className="rooms-table-scroll">
+  <table className="assignments-table rooms-occupancy-table">
                 <thead>
                   <tr>
                     <th className="select-column">

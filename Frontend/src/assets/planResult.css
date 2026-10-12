@@ -1652,14 +1652,47 @@
   background: #b91c1c;
 }
 
+/* =====================================================
+   Rooms Occupancy
+===================================================== */
+
 .rooms-legend { display: flex; gap: 16px; margin: 8px 0 12px; font-size: 13px; }
 .legend-item { display: inline-flex; align-items: center; gap: 6px; }
 .legend-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
 .legend-dot.full { background: #dc2626; }
 .legend-dot.empty { background: #16a34a; }
 
+/* حاوية خاصة بسكرول أفقي داخل اللوحة */
+.rooms-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+}
+
+.rooms-occupancy-table {
+  width: 100%;
+  min-width: max-content; /* لا يضغط الأعمدة على الشاشة، يظهر سكرول بدلها */
+  border-collapse: collapse;
+}
+
 .rooms-occupancy-table th,
-.rooms-occupancy-table td { text-align: center; white-space: nowrap; }
+.rooms-occupancy-table td {
+  text-align: center;
+  white-space: nowrap;
+  padding: 8px 10px;
+}
+
+/* عمود القاعة ثابت أثناء السكرول */
+.rooms-occupancy-table th:first-child,
+.rooms-occupancy-table td:first-child {
+  position: sticky;
+  inset-inline-start: 0;
+  background: var(--surface);
+  z-index: 1;
+  border-inline-end: 1px solid var(--line);
+}
+
 .rooms-th-date { font-size: 11px; opacity: 0.8; }
 .room-tag { display: block; font-size: 11px; color: #6b7280; }
 
@@ -1673,7 +1706,9 @@
 .room-status.full  { color: #dc2626; background: #fee2e2; border: 1px solid #dc2626; }
 .room-status.empty { color: #16a34a; background: #dcfce7; border: 1px solid #16a34a; }
 
-/* طباعة جدول القاعات فقط */
+/* =====================================================
+   طباعة جدول القاعات فقط
+===================================================== */
 @media print {
   body.printing-rooms .plan-header,
   body.printing-rooms .plan-content > *:not(.rooms-occupancy-panel) {
@@ -1683,13 +1718,45 @@
   body.printing-rooms .rooms-occupancy-panel {
     display: block !important;
     box-shadow: none;
+    width: 100% !important;
   }
 
   body.printing-rooms .rooms-occupancy-panel .btn {
     display: none !important;
   }
 
+  /* إلغاء السكرول وضغط الجدول ليتسع في عرض الصفحة */
+  body.printing-rooms .rooms-table-scroll {
+    overflow: visible !important;
+    border: none !important;
+  }
+
+  body.printing-rooms .rooms-occupancy-table {
+    min-width: 0 !important;
+    width: 100% !important;
+    table-layout: fixed;
+  }
+
+  body.printing-rooms .rooms-occupancy-table th,
+  body.printing-rooms .rooms-occupancy-table td {
+    white-space: normal !important;
+    padding: 3px 2px !important;
+    font-size: 9px !important;
+    border: 1px solid #000 !important;
+    word-break: break-word;
+  }
+
+  body.printing-rooms .rooms-occupancy-table th:first-child,
+  body.printing-rooms .rooms-occupancy-table td:first-child {
+    position: static;
+    width: 70px;
+  }
+
   body.printing-rooms .room-status {
+    display: block;
+    min-width: 0;
+    padding: 2px 0;
+    font-size: 10px;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
