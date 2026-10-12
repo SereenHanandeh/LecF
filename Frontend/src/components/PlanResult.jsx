@@ -744,8 +744,9 @@ export default function PlanResult() {
           setAffinities(planAffinities);
           setPlanStatus(data.status || "draft");
         }
-const name = data.name ?? data.plan_name ?? data.planName ?? data.plan?.name ?? "";
-if (name) setPlanName(name);
+        const name =
+          data.name ?? data.plan_name ?? data.planName ?? data.plan?.name ?? "";
+        if (name) setPlanName(name);
 
         const category =
           data.category ??
@@ -1495,14 +1496,14 @@ if (name) setPlanName(name);
   );
 
   const roomsDateLabel = useMemo(() => {
-  const dates = [...new Set(roomsOccupancy.periods.map((p) => p.date))];
+    const dates = [...new Set(roomsOccupancy.periods.map((p) => p.date))];
 
-  if (!dates.length) return "";
+    if (!dates.length) return "";
 
-  return dates.length === 1
-    ? formatDate(dates[0])
-    : `${formatDate(dates[0])} - ${formatDate(dates[dates.length - 1])}`;
-}, [roomsOccupancy]);
+    return dates.length === 1
+      ? formatDate(dates[0])
+      : `${formatDate(dates[0])} - ${formatDate(dates[dates.length - 1])}`;
+  }, [roomsOccupancy]);
 
   const printRoomsTable = () => {
     document.body.classList.add("printing-rooms");
@@ -3667,13 +3668,29 @@ if (name) setPlanName(name);
         {planStatus === "accepted" && (
           <section className="panel rooms-occupancy-panel">
             <div className="rooms-print-header">
-  <h1>{planName || `خطة #${planId}`}</h1>
-  <p>
-    {roomsDateLabel && <span>التاريخ: {roomsDateLabel}</span>}
-    {planCategory && <span>الفئة: {planCategory}</span>}
-  </p>
-  <h2>إشغال القاعات</h2>
-</div>
+              <h1>{planName || `خطة #${planId}`}</h1>
+              <p>
+                {roomsDateLabel && <span>التاريخ: {roomsDateLabel}</span>}
+                {planCategory && <span>الفئة: {planCategory}</span>}
+              </p>
+              <h2>إشغال القاعات</h2>
+              <p>
+                {planCategory
+                  ? `قاعات فئة "${planCategory}" حسب الفترات`
+                  : "كل القاعات حسب الفترات"}
+              </p>
+
+              <div>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={printRoomsTable}
+                >
+                  <span>🖨️</span>
+                  <span>طباعة الجدول</span>
+                </button>
+              </div>
+            </div>
             <div className="panel-heading">
               <div>
                 <p>
