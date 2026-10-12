@@ -3695,24 +3695,7 @@ export default function PlanResult() {
                 <span>طباعة الجدول</span>
               </button>
             </div>
-            <div className="panel-heading">
-              <div>
-                <p>
-                  {planCategory
-                    ? `قاعات فئة "${planCategory}" حسب الفترات`
-                    : "كل القاعات حسب الفترات"}
-                </p>
-              </div>
-
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={printRoomsTable}
-              >
-                <span>🖨️</span>
-                <span>طباعة الجدول</span>
-              </button>
-            </div>
+          
 
             <div className="rooms-legend">
               <span className="legend-item">

@@ -1421,20 +1421,115 @@ input:focus-visible {
   white-space: nowrap;
 }
 
-/* ---------- جدول الفئات ---------- */
-
+/* =====================================================
+   جدول الفئات
+===================================================== */
 .sup-category-block {
-  margin-top: 26px;
+  margin: 26px 26px 8px;
+  max-width: 760px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow: hidden;
+  background: var(--surface);
 }
 
-.sup-category-block h3 {
-  margin: 0 0 10px;
-  font-size: 16px;
+.sup-category-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  background: linear-gradient(180deg, #fff 0%, #fbfbfd 100%);
+  border-bottom: 1px solid var(--line);
 }
+
+.sup-category-head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--ink-900);
+}
+
+.sup-category-head span {
+  font-size: 12.5px;
+  color: var(--ink-500);
+}
+
+.sup-category-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.sup-category-table thead th {
+  text-align: right;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink-500);
+  padding: 11px 18px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+
+.sup-category-table tbody td {
+  padding: 11px 18px;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink-700);
+  font-variant-numeric: tabular-nums;
+  vertical-align: middle;
+}
+
+.sup-category-table tbody tr:hover td { background: #fafbfc; }
 
 .sup-category-table tfoot td {
+  padding: 11px 18px;
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--ink-900);
+  background: var(--accent-soft);
+  border-top: 2px solid var(--accent-soft-line);
+}
+
+.sup-cat-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 12.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.sup-cat-badge.no-category { background: #f3f4f6; color: #9ca3af; }
+
+.sup-cat-progress {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 140px;
+}
+
+.sup-cat-progress-fill {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), #d4a441);
+  min-width: 2px;
+  transition: width 0.4s ease;
+}
+
+.sup-cat-progress span {
+  font-size: 12px;
   font-weight: 700;
-  background: #f8fafc;
+  color: var(--ink-700);
+}
+
+@media (max-width: 720px) {
+  .sup-category-block { margin: 18px 12px 8px; }
+  .sup-category-head { flex-direction: column; gap: 2px; }
 }
 
 /* ---------- عنوان الطباعة ---------- */
@@ -1604,10 +1699,12 @@ input:focus-visible {
 }
 
 
+
+/* =====================================================
+   طباعة جدول إحصائيات المشرفين (النسخة النهائية)
+===================================================== */
 @media print {
-  html,
-  body,
-  #root {
+  html, body, #root {
     width: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
@@ -1626,7 +1723,8 @@ input:focus-visible {
     padding: 0 !important;
   }
 
-  .sup-stats-table {
+  /* الجدول الرئيسي: عرض ثابت يتسع للصفحة */
+  .sup-stats-table:not(.sup-category-table) {
     display: table !important;
     width: 100% !important;
     min-width: 0 !important;
@@ -1635,81 +1733,79 @@ input:focus-visible {
     font-size: 9pt !important;
   }
 
-  .sup-stats-table th,
-  .sup-stats-table td {
+  .sup-stats-table:not(.sup-category-table) th,
+  .sup-stats-table:not(.sup-category-table) td {
     display: table-cell !important;
-    padding: 4px 3px !important;
+    padding: 4px 4px !important;
+    min-width: 0 !important;
+    width: auto;
     white-space: normal !important;
+    overflow: visible !important;
     overflow-wrap: anywhere !important;
-    word-break: normal !important;
+    text-align: center !important;
+    vertical-align: middle !important;
     color: #000 !important;
-    visibility: visible !important;
     border: 1px solid #999 !important;
   }
 
-  .sup-stats-table thead {
-    display: table-header-group !important;
-  }
+  /* توزيع عرض الأعمدة: # | المشرف | الفئة | الفترات | خطة 0 | التعيينات | الخطط */
+  .sup-stats-table:not(.sup-category-table) th:nth-child(1) { width: 5%  !important; }
+  .sup-stats-table:not(.sup-category-table) th:nth-child(2) { width: 22% !important; text-align: right !important; }
+  .sup-stats-table:not(.sup-category-table) th:nth-child(3) { width: 29% !important; }
+  .sup-stats-table:not(.sup-category-table) th:nth-child(4) { width: 10% !important; }
+  .sup-stats-table:not(.sup-category-table) th:nth-child(5) { width: 10% !important; }
+  .sup-stats-table:not(.sup-category-table) th:nth-child(6) { width: 14% !important; }
+  .sup-stats-table:not(.sup-category-table) th:nth-child(7) { width: 10% !important; }
 
-  .sup-stats-table tr {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
+  .sup-stats-table:not(.sup-category-table) td:nth-child(2) { text-align: right !important; }
 
-  .sup-stats-table .no-print {
-    display: none !important;
-  }
+  /* إخفاء شريط التقدم، وإلغاء min-width الذي كان يوسّع الجدول */
+  .sup-progress { display: none !important; }
+  .sup-progress-cell { min-width: 0 !important; display: block !important; }
 
-  .sup-stats-table .print-only {
-    display: inline-block !important;
-    visibility: visible !important;
-  }
-}
-
-@media print {
-  .sup-stats-table {
-    width: 100% !important;
-    table-layout: auto !important;
-    font-size: 8pt !important;
-  }
-
-  .sup-stats-table th,
-  .sup-stats-table td {
-    padding: 5px 3px !important;
+  /* الفئة: تلتف على أكثر من سطر بدل التمدد */
+  .sup-category {
     white-space: normal !important;
-    overflow: visible !important;
-    line-height: 1.5 !important;
-    vertical-align: middle !important;
-    overflow-wrap: break-word !important;
+    display: inline !important;
+    padding: 0 !important;
+    background: none !important;
+    color: #000 !important;
+    font-size: 8.5pt !important;
   }
 
-  /* عمود الفئة */
-  .sup-stats-table th:nth-child(3),
-  .sup-stats-table td:nth-child(3) {
-    min-width: 100px !important;
-  }
-
-  /* عمود الفترات */
-  .sup-stats-table th:nth-child(4),
-  .sup-stats-table td:nth-child(4) {
-    min-width: 90px !important;
-  }
-
-  /* عمود خطة 0 */
-  .sup-stats-table th:nth-child(5),
-  .sup-stats-table td:nth-child(5) {
-    min-width: 65px !important;
-    text-align: center !important;
-  }
-
-  /* منع تداخل الأشرطة مع الأرقام */
-  .sup-stats-table td .progress-bar,
-  .sup-stats-table td .bar-track,
-  .sup-stats-table td .bar-fill {
-    display: none !important;
-  }
-
-  .sup-stats-table td {
+  .sup-stats-table .stats-period-count,
+  .sup-stats-table .sup-plans-count {
+    background: none !important;
+    padding: 0 !important;
+    min-width: 0 !important;
     color: #000 !important;
   }
+
+  .sup-stats-table thead { display: table-header-group !important; }
+  .sup-stats-table tr { break-inside: avoid; page-break-inside: avoid; }
+  .sup-stats-table .no-print { display: none !important; }
+  .sup-stats-table .print-only { display: inline-block !important; visibility: visible !important; }
+
+  /* جدول الفئات في الطباعة */
+  .sup-category-block { break-inside: avoid; margin-top: 14px !important; }
+  .sup-category-bar { display: none !important; }
+
+  .sup-category-table {
+    width: 60% !important;
+    border-collapse: collapse !important;
+    font-size: 9pt !important;
+  }
+
+  .sup-category-table th,
+  .sup-category-table td {
+    border: 1px solid #999 !important;
+    padding: 4px 6px !important;
+    color: #000 !important;
+    text-align: center !important;
+    background: none !important;
+  }
+
+  .sup-category-table th:first-child,
+  .sup-category-table td:first-child { text-align: right !important; }
+  .sup-cat-badge { background: none !important; padding: 0 !important; color: #000 !important; }
 }

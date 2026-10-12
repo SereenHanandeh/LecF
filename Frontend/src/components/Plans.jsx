@@ -664,6 +664,7 @@ export default function Plans() {
     return [...map.values()]
       .map((c) => ({
         category: c.category,
+        supervisorIds: c.supervisorIds,
         supervisors: c.supervisorIds.size,
         periods: c.periods,
         assignments: c.assignments,
@@ -673,17 +674,17 @@ export default function Plans() {
           return b.assignments - a.assignments;
         return String(a.category).localeCompare(String(b.category), "ar");
       });
-  }, [mergedSupervisorStats]);
+  }, [initialStats, mergedSupervisorStats]);
 
   const categoryTotals = useMemo(
     () => ({
-      supervisors: mergedSupervisorStats.filter(
-        (s) => Array.isArray(s.plans) && s.plans.length > 0,
-      ).length,
+      supervisors: new Set(
+        categoryStats.flatMap((c) => [...c.supervisorIds]),
+      ).size,
       periods: categoryStats.reduce((sum, c) => sum + c.periods, 0),
       assignments: categoryStats.reduce((sum, c) => sum + c.assignments, 0),
     }),
-    [categoryStats, mergedSupervisorStats],
+    [categoryStats],
   );
 
   const printedAt = useMemo(() => formatDate(new Date()), []);
@@ -1102,44 +1103,70 @@ export default function Plans() {
               التعيينات حسب الفئة
           ================================================= */}
 
-          {categoryStats.length > 0 && (
-            <div className="sup-category-block">
-              <h3>التعيينات حسب الفئة</h3>
+        {categoryStats.length > 0 && (
+  <div className="sup-category-block">
+    <div className="sup-category-head">
+      <h3>التعيينات حسب الفئة</h3>
+      <span>توزيع الفترات على فئات الخطط</span>
+    </div>
 
-              <table className="sup-stats-table sup-category-table">
-                <thead>
-                  <tr>
-                    <th>الفئة</th>
-                    <th>عدد المشرفين</th>
-                    <th>الفترات</th>
-                    <th>التعيينات</th>
-                  </tr>
-                </thead>
+    <table className="sup-category-table">
+      <thead>
+        <tr>
+          <th>الفئة</th>
+          <th>عدد المشرفين</th>
+          <th>الفترات</th>
+          <th>التعيينات</th>
+          <th className="sup-category-bar">النسبة</th>
+        </tr>
+      </thead>
 
-                <tbody>
-                  {categoryStats.map((item) => (
-                    <tr key={item.category}>
-                      <td>
-                        <strong>{item.category}</strong>
-                      </td>
-                      <td>{item.supervisors}</td>
-                      <td>{item.periods}</td>
-                      <td>{item.assignments}</td>
-                    </tr>
-                  ))}
-                </tbody>
+      <tbody>
+        {categoryStats.map((item) => {
+          const percent = categoryTotals.periods
+            ? Math.round((item.periods / categoryTotals.periods) * 100)
+            : 0;
 
-                <tfoot>
-                  <tr>
-                    <td>الإجمالي</td>
-                    <td>{categoryTotals.supervisors}</td>
-                    <td>{categoryTotals.periods}</td>
-                    <td>{categoryTotals.assignments}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
+          return (
+            <tr key={item.category}>
+              <td>
+                <span
+                  className={`sup-cat-badge ${
+                    item.category === NO_CATEGORY ? "no-category" : ""
+                  }`}
+                >
+                  {item.category}
+                </span>
+              </td>
+              <td>{item.supervisors}</td>
+              <td>{item.periods}</td>
+              <td>{item.assignments}</td>
+              <td className="sup-category-bar">
+                <div className="sup-cat-progress">
+                  <div
+                    className="sup-cat-progress-fill"
+                    style={{ width: `${percent}%` }}
+                  />
+                  <span>{percent}%</span>
+                </div>
+              </td>
+            </tr>
+          );
+        })}
+      </tbody>
+
+      <tfoot>
+        <tr>
+          <td>الإجمالي</td>
+          <td>{categoryTotals.supervisors}</td>
+          <td>{categoryTotals.periods}</td>
+          <td>{categoryTotals.assignments}</td>
+          <td className="sup-category-bar" />
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+)}
 
           <p className="sup-initial-note">
             خطة 0 = رصيد ابتدائي (من جدول المتطلبات السابق) يُضاف إلى الفترات
