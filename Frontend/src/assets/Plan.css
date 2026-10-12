@@ -1355,3 +1355,204 @@ input:focus-visible {
   opacity: 0.6;
   pointer-events: none;
 }
+
+/* =====================================================
+   PlanPrint.css — زر الطباعة + الفئة + الطباعة
+   ضعيه في: src/assets/PlanPrint.css
+===================================================== */
+
+.print-only {
+  display: none;
+}
+
+/* ---------- زر الطباعة ---------- */
+
+.sup-print-bar {
+  display: flex;
+  margin: 10px 0 14px;
+}
+
+.sup-print-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.sup-print-btn:hover {
+  background: #f1f5f9;
+  border-color: #94a3b8;
+}
+
+.sup-print-icon {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+}
+
+.sup-print-icon svg {
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* ---------- الفئة ---------- */
+
+.sup-category {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 999px;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* ---------- جدول الفئات ---------- */
+
+.sup-category-block {
+  margin-top: 26px;
+}
+
+.sup-category-block h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.sup-category-table tfoot td {
+  font-weight: 700;
+  background: #f8fafc;
+}
+
+/* ---------- عنوان الطباعة ---------- */
+
+.sup-print-title {
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.sup-print-title h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+}
+
+.sup-print-title span {
+  font-size: 13px;
+  color: #475569;
+}
+
+/* ---------- الطباعة ---------- */
+
+@media print {
+  @page {
+    size: A4;
+    margin: 12mm;
+  }
+
+  body {
+    background: #fff !important;
+  }
+
+  /* إخفاء الشريط الجانبي */
+  .plans-layout > *:not(.plans-main) {
+    display: none !important;
+  }
+
+  .plans-layout {
+    display: block !important;
+    min-height: 0 !important;
+  }
+
+  .plans-main {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* إخفاء كل ما في الصفحة عدا بطاقة الإحصائيات */
+  .plans-main > *:not(.sup-stats-card) {
+    display: none !important;
+  }
+
+  .sup-stats-card {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .sup-stats-table-wrap {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+
+  .sup-stats-table,
+  .sup-category-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .sup-stats-table th,
+  .sup-stats-table td {
+    border: 1px solid #cbd5e1;
+    padding: 6px 8px;
+  }
+
+  .sup-stats-table thead {
+    display: table-header-group;
+  }
+
+  .sup-stats-table tr {
+    break-inside: avoid;
+  }
+
+  .sup-category-block {
+    break-inside: avoid;
+  }
+
+  .sup-name-btn {
+    pointer-events: none;
+    border: none !important;
+    background: none !important;
+  }
+
+  .sup-chevron {
+    display: none !important;
+  }
+
+  .sup-initial-badge {
+    border: none !important;
+    background: none !important;
+    box-shadow: none !important;
+  }
+
+  /* ضمان طباعة الألوان */
+  .sup-category,
+  .sup-progress-fill,
+  .sup-rank,
+  .sup-avatar {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

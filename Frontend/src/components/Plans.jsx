@@ -5,6 +5,7 @@ import Sidebar from "../components/Sidebar.jsx";
 import {
   getPlans,
   deletePlan,
+  getSupervisors,
   getAcceptedSupervisorStats,
   getInitialSupervisorStats,
   setInitialSupervisorStat,
@@ -12,6 +13,7 @@ import {
 
 import "../assets/Plan.css";
 import "../assets/PlanInitialStats.css";
+import "../assets/PlanPrint.css";
 
 const API_BASE_URL = "http://localhost:5000";
 
@@ -92,11 +94,43 @@ const Icons = {
       <path d="M9 18l6-6-6-6" />
     </svg>
   ),
+
+  print: (
+    <svg viewBox="0 0 24 24">
+      <path d="M6 9V3h12v6" />
+      <rect x="4" y="9" width="16" height="9" rx="2" />
+      <path d="M7 14h10v7H7z" />
+    </svg>
+  ),
 };
 
 // =====================================================
 // Helpers
 // =====================================================
+
+const NO_CATEGORY = "بدون فئة";
+
+function toArray(res) {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.plans)) return res.plans;
+  return [];
+}
+
+// اسم الفئة من أي كائن مشرف (حسب اسم الحقل في الـ backend)
+function pickCategory(item) {
+  const value =
+    item?.category ??
+    item?.category_name ??
+    item?.categoryName ??
+    item?.supervisor_category ??
+    item?.group_name ??
+    null;
+
+  const text = String(value ?? "").trim();
+
+  return text || null;
+}
 
 function formatDate(dateValue) {
   if (!dateValue) return "-";
@@ -207,6 +241,9 @@ export default function Plans() {
 
   const [supervisorStats, setSupervisorStats] = useState([]);
 
+  // ✅ قائمة المشرفين (لجلب الفئة)
+  const [supervisorsList, setSupervisorsList] = useState([]);
+
   // ✅ خطة 0: الرصيد الابتدائي لكل مشرف
   const [initialStats, setInitialStats] = useState([]);
 
@@ -264,39 +301,33 @@ export default function Plans() {
         };
       }
 
-      let receivedPlans = [];
+      // ✅ تحميل المشرفين لجلب الفئة (لا نُفشل الصفحة لو فشلت)
+      let supervisorsResponse = null;
 
-      if (Array.isArray(response)) {
-        receivedPlans = response;
-      } else if (Array.isArray(response?.data)) {
-        receivedPlans = response.data;
-      } else if (Array.isArray(response?.plans)) {
-        receivedPlans = response.plans;
+      try {
+        supervisorsResponse = await getSupervisors();
+      } catch (supError) {
+        console.error("⚠️ Failed to load supervisors (categories):", supError);
+
+        supervisorsResponse = {
+          data: [],
+        };
       }
 
-      let receivedStats = [];
-
-      if (Array.isArray(statsResponse)) {
-        receivedStats = statsResponse;
-      } else if (Array.isArray(statsResponse?.data)) {
-        receivedStats = statsResponse.data;
-      }
-
-      let receivedInitial = [];
-
-      if (Array.isArray(initialResponse)) {
-        receivedInitial = initialResponse;
-      } else if (Array.isArray(initialResponse?.data)) {
-        receivedInitial = initialResponse.data;
-      }
+      const receivedPlans = toArray(response);
+      const receivedStats = toArray(statsResponse);
+      const receivedInitial = toArray(initialResponse);
+      const receivedSupervisors = toArray(supervisorsResponse);
 
       console.log("📋 Received plans:", receivedPlans);
       console.log("📊 Received stats:", receivedStats);
       console.log("0️⃣ Received initial stats:", receivedInitial);
+      console.log("🏷️ Received supervisors:", receivedSupervisors);
 
       setPlans(receivedPlans);
       setSupervisorStats(receivedStats);
       setInitialStats(receivedInitial);
+      setSupervisorsList(receivedSupervisors);
     } catch (err) {
       console.error("🔴 ERROR LOADING PLANS:", err);
       console.error("🔴 error message:", err?.message);
@@ -319,6 +350,7 @@ export default function Plans() {
       setPlans([]);
       setSupervisorStats([]);
       setInitialStats([]);
+      setSupervisorsList([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -394,6 +426,24 @@ export default function Plans() {
   }, [acceptedPlans, search, planNumbers]);
 
   // ===================================================
+  // Categories (supervisor_id -> category)
+  // ===================================================
+
+  const categoryBySupervisor = useMemo(() => {
+    const map = new Map();
+
+    supervisorsList.forEach((item) => {
+      const category = pickCategory(item);
+
+      if (category) {
+        map.set(String(item.id ?? item.supervisor_id), category);
+      }
+    });
+
+    return map;
+  }, [supervisorsList]);
+
+  // ===================================================
   // Merged Supervisor Stats
   // = الخطط المقبولة + خطة 0 (الرصيد الابتدائي)
   //
@@ -421,12 +471,18 @@ export default function Plans() {
       if (existing) {
         existing.initial_count = initial;
 
+        // الفئة قد تأتي من جدول الرصيد الابتدائي
+        if (!pickCategory(existing) && pickCategory(item)) {
+          existing.category = pickCategory(item);
+        }
+
         return;
       }
 
       map.set(key, {
         supervisor_id: item.supervisor_id,
         supervisor_name: item.supervisor_name,
+        category: pickCategory(item),
         total_periods: 0,
         total_assignments: 0,
         accepted_plans: 0,
@@ -439,10 +495,16 @@ export default function Plans() {
       .map((supervisor) => {
         const initial = Number(supervisor.initial_count || 0);
 
+        const category =
+          pickCategory(supervisor) ??
+          categoryBySupervisor.get(String(supervisor.supervisor_id)) ??
+          NO_CATEGORY;
+
         return {
           ...supervisor,
+          category,
           initial_count: initial,
-          // خطة 0 تُضاف إلى الفترات (لا تدخل في التعيينات)
+          // خطة 0 تُضاف إلى الفترات والتعيينات معًا
           grand_periods: Number(supervisor.total_periods || 0) + initial,
           grand_assignments:
             Number(supervisor.total_assignments || 0) + initial,
@@ -458,7 +520,7 @@ export default function Plans() {
           "ar",
         );
       });
-  }, [supervisorStats, initialStats]);
+  }, [supervisorStats, initialStats, categoryBySupervisor]);
 
   // ===================================================
   // Stats
@@ -480,6 +542,52 @@ export default function Plans() {
       difference: max - min,
     };
   }, [mergedSupervisorStats]);
+
+  // ===================================================
+  // Category Stats (كل فئة وكم تم التعيين لها)
+  // ===================================================
+
+  const categoryStats = useMemo(() => {
+    const map = new Map();
+
+    mergedSupervisorStats.forEach((supervisor) => {
+      const key = supervisor.category || NO_CATEGORY;
+
+      const current = map.get(key) ?? {
+        category: key,
+        supervisors: 0,
+        periods: 0,
+        assignments: 0,
+      };
+
+      map.set(key, {
+        ...current,
+        supervisors: current.supervisors + 1,
+        periods: current.periods + Number(supervisor.grand_periods || 0),
+        assignments:
+          current.assignments + Number(supervisor.grand_assignments || 0),
+      });
+    });
+
+    return [...map.values()].sort((a, b) => {
+      if (b.assignments !== a.assignments) {
+        return b.assignments - a.assignments;
+      }
+
+      return String(a.category).localeCompare(String(b.category), "ar");
+    });
+  }, [mergedSupervisorStats]);
+
+  const categoryTotals = useMemo(
+    () => ({
+      supervisors: categoryStats.reduce((sum, c) => sum + c.supervisors, 0),
+      periods: categoryStats.reduce((sum, c) => sum + c.periods, 0),
+      assignments: categoryStats.reduce((sum, c) => sum + c.assignments, 0),
+    }),
+    [categoryStats],
+  );
+
+  const printedAt = useMemo(() => formatDate(new Date()), []);
 
   // عدد المشرفين/التعيينات لكل خطة (خطة 0 لا تدخل هنا)
   const planSupervisorCounts = useMemo(() => {
@@ -596,6 +704,14 @@ export default function Plans() {
   }
 
   // ===================================================
+  // Print
+  // ===================================================
+
+  function handlePrintStats() {
+    window.print();
+  }
+
+  // ===================================================
   // Delete Plan
   // ===================================================
 
@@ -671,6 +787,12 @@ export default function Plans() {
         </header>
 
         <section className="sup-stats-card">
+          {/* عنوان يظهر في الطباعة فقط */}
+          <div className="print-only sup-print-title">
+            <h2>تقرير إحصائيات المشرفين — LectureFlow</h2>
+            <span>تاريخ الطباعة: {printedAt}</span>
+          </div>
+
           <div className="sup-stats-head">
             <div>
               <h2>إحصائيات المشرفين</h2>
@@ -698,6 +820,21 @@ export default function Plans() {
             )}
           </div>
 
+          {/* زر الطباعة فوق الجدول */}
+          {mergedSupervisorStats.length > 0 && (
+            <div className="sup-print-bar no-print">
+              <button
+                type="button"
+                className="sup-print-btn"
+                onClick={handlePrintStats}
+                title="طباعة كل الإحصائيات"
+              >
+                <span className="sup-print-icon">{Icons.print}</span>
+                طباعة الإحصائيات
+              </button>
+            </div>
+          )}
+
           {mergedSupervisorStats.length === 0 ? (
             <div className="supervisor-stats-empty">
               لا توجد بيانات إحصائية للخطط المقبولة.
@@ -709,6 +846,7 @@ export default function Plans() {
                   <tr>
                     <th>#</th>
                     <th>المشرف</th>
+                    <th>الفئة</th>
                     <th>الفترات</th>
                     <th>خطة 0</th>
                     <th>التعيينات</th>
@@ -758,6 +896,13 @@ export default function Plans() {
 
                             <span className="sup-chevron">{Icons.arrow}</span>
                           </button>
+                        </td>
+
+                        {/* الفئة */}
+                        <td>
+                          <span className="sup-category">
+                            {supervisor.category}
+                          </span>
                         </td>
 
                         <td>
@@ -829,6 +974,50 @@ export default function Plans() {
               </table>
             </div>
           )}
+
+          {/* =================================================
+              التعيينات حسب الفئة
+          ================================================= */}
+
+          {categoryStats.length > 0 && (
+            <div className="sup-category-block">
+              <h3>التعيينات حسب الفئة</h3>
+
+              <table className="sup-stats-table sup-category-table">
+                <thead>
+                  <tr>
+                    <th>الفئة</th>
+                    <th>عدد المشرفين</th>
+                    <th>الفترات</th>
+                    <th>التعيينات</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {categoryStats.map((item) => (
+                    <tr key={item.category}>
+                      <td>
+                        <strong>{item.category}</strong>
+                      </td>
+                      <td>{item.supervisors}</td>
+                      <td>{item.periods}</td>
+                      <td>{item.assignments}</td>
+                    </tr>
+                  ))}
+                </tbody>
+
+                <tfoot>
+                  <tr>
+                    <td>الإجمالي</td>
+                    <td>{categoryTotals.supervisors}</td>
+                    <td>{categoryTotals.periods}</td>
+                    <td>{categoryTotals.assignments}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
           <p className="sup-initial-note">
             خطة 0 = رصيد ابتدائي (من جدول المتطلبات السابق) يُضاف إلى الفترات
             والتعيينات معًا. اضغطي على الرقم لتعديله.
