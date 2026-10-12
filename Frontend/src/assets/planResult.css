@@ -1761,3 +1761,48 @@
     print-color-adjust: exact;
   }
 }
+
+.rooms-occupancy-panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.rooms-table-scroll {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto !important;
+}
+
+.rooms-print-header { display: none; }
+
+@media print {
+  body.printing-rooms .rooms-print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 10px;
+  }
+
+  body.printing-rooms .rooms-print-header h1 {
+    margin: 0 0 4px;
+    font-size: 18px;
+  }
+
+  body.printing-rooms .rooms-print-header p {
+    margin: 0 0 4px;
+    font-size: 12px;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  body.printing-rooms .rooms-print-header h2 {
+    margin: 0;
+    font-size: 14px;
+  }
+
+  /* نخفي العنوان المكرر الخاص بالشاشة */
+  body.printing-rooms .rooms-occupancy-panel .panel-heading,
+  body.printing-rooms .rooms-legend {
+    display: none !important;
+  }
+}

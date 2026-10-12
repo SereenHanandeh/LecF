@@ -396,7 +396,6 @@ const sortForExcel = (data) =>
     );
   });
 
-
 // عرض كل عمود حسب أطول قيمة فيه (الخط 15 عريض فنضرب في 1.6)
 const computeColumnWidths = (columns, rows) =>
   columns.map((col) => {
@@ -590,8 +589,10 @@ export default function PlanResult() {
   const [bulkSaving, setBulkSaving] = useState(false);
 
   const [planCategory, setPlanCategory] = useState(
-  location.state?.planCategory ?? "",
-);
+    location.state?.planCategory ?? "",
+  );
+
+  const [planName, setPlanName] = useState(location.state?.planName ?? "");
   // =====================================================
   // Plan Status (Accept / Reject)
   // =====================================================
@@ -743,15 +744,17 @@ export default function PlanResult() {
           setAffinities(planAffinities);
           setPlanStatus(data.status || "draft");
         }
+const name = data.name ?? data.plan_name ?? data.planName ?? data.plan?.name ?? "";
+if (name) setPlanName(name);
 
         const category =
-  data.category ??
-  data.plan_category ??
-  data.planCategory ??
-  data.plan?.category ??
-  "";
+          data.category ??
+          data.plan_category ??
+          data.planCategory ??
+          data.plan?.category ??
+          "";
 
-if (category) setPlanCategory(category);
+        if (category) setPlanCategory(category);
 
         // =================================================
         // Assignments
@@ -1429,79 +1432,89 @@ if (category) setPlanCategory(category);
   );
 
   // =====================================================
-// Rooms Occupancy Table
-// =====================================================
+  // Rooms Occupancy Table
+  // =====================================================
 
-const roomsOccupancy = useMemo(() => {
-  // الفترات (تاريخ + فترة) مرتبة
-  const periodMap = new Map();
+  const roomsOccupancy = useMemo(() => {
+    // الفترات (تاريخ + فترة) مرتبة
+    const periodMap = new Map();
 
-  planData.forEach((a) => {
-    const date = getDateValue(a.date);
-    const period = getPeriod(a);
-    if (!date || !period || period === "-") return;
+    planData.forEach((a) => {
+      const date = getDateValue(a.date);
+      const period = getPeriod(a);
+      if (!date || !period || period === "-") return;
 
-    const key = `${date}|${period}`;
-    if (!periodMap.has(key)) {
-      periodMap.set(key, {
-        key,
-        date,
-        period,
-        from: timeToMinutes(getTimeFrom(a), period),
-      });
-    }
-  });
+      const key = `${date}|${period}`;
+      if (!periodMap.has(key)) {
+        periodMap.set(key, {
+          key,
+          date,
+          period,
+          from: timeToMinutes(getTimeFrom(a), period),
+        });
+      }
+    });
 
-  const periods = [...periodMap.values()].sort(
-    (a, b) => a.date.localeCompare(b.date) || a.from - b.from,
+    const periods = [...periodMap.values()].sort(
+      (a, b) => a.date.localeCompare(b.date) || a.from - b.from,
+    );
+
+    // القاعات حسب نوع الخطة
+    const rooms = allRooms
+      .filter((r) => isRoomAllowedForCategory(r, planCategory))
+      .sort((a, b) =>
+        String(a.room_number).localeCompare(String(b.room_number), "en", {
+          numeric: true,
+        }),
+      )
+      .map((r) => ({
+        number: String(r.room_number).trim(),
+        tag: r.tag || "",
+      }));
+
+    // القاعة|التاريخ|الفترة -> أسماء الأساتذة
+    const occupied = new Map();
+
+    planData.forEach((a) => {
+      const room = String(getRoomNumber(a)).trim();
+      const date = getDateValue(a.date);
+      const period = getPeriod(a);
+      if (!room || room === "-" || !date) return;
+
+      const key = `${room}|${date}|${period}`;
+      if (!occupied.has(key)) occupied.set(key, new Set());
+      occupied.get(key).add(getProfessorName(a));
+    });
+
+    return { periods, rooms, occupied };
+  }, [planData, allRooms, planCategory]);
+
+  const hasMultipleDates = useMemo(
+    () => new Set(roomsOccupancy.periods.map((p) => p.date)).size > 1,
+    [roomsOccupancy],
   );
 
-  // القاعات حسب نوع الخطة
-  const rooms = allRooms
-    .filter((r) => isRoomAllowedForCategory(r, planCategory))
-    .sort((a, b) =>
-      String(a.room_number).localeCompare(String(b.room_number), "en", {
-        numeric: true,
-      }),
-    )
-    .map((r) => ({
-      number: String(r.room_number).trim(),
-      tag: r.tag || "",
-    }));
+  const roomsDateLabel = useMemo(() => {
+  const dates = [...new Set(roomsOccupancy.periods.map((p) => p.date))];
 
-  // القاعة|التاريخ|الفترة -> أسماء الأساتذة
-  const occupied = new Map();
+  if (!dates.length) return "";
 
-  planData.forEach((a) => {
-    const room = String(getRoomNumber(a)).trim();
-    const date = getDateValue(a.date);
-    const period = getPeriod(a);
-    if (!room || room === "-" || !date) return;
+  return dates.length === 1
+    ? formatDate(dates[0])
+    : `${formatDate(dates[0])} - ${formatDate(dates[dates.length - 1])}`;
+}, [roomsOccupancy]);
 
-    const key = `${room}|${date}|${period}`;
-    if (!occupied.has(key)) occupied.set(key, new Set());
-    occupied.get(key).add(getProfessorName(a));
-  });
+  const printRoomsTable = () => {
+    document.body.classList.add("printing-rooms");
 
-  return { periods, rooms, occupied };
-}, [planData, allRooms, planCategory]);
+    const cleanup = () => {
+      document.body.classList.remove("printing-rooms");
+      window.removeEventListener("afterprint", cleanup);
+    };
 
-const hasMultipleDates = useMemo(
-  () => new Set(roomsOccupancy.periods.map((p) => p.date)).size > 1,
-  [roomsOccupancy],
-);
-
-const printRoomsTable = () => {
-  document.body.classList.add("printing-rooms");
-
-  const cleanup = () => {
-    document.body.classList.remove("printing-rooms");
-    window.removeEventListener("afterprint", cleanup);
+    window.addEventListener("afterprint", cleanup);
+    window.print();
   };
-
-  window.addEventListener("afterprint", cleanup);
-  window.print();
-};
   // =====================================================
   // Column Toggle
   // =====================================================
@@ -2643,8 +2656,6 @@ const printRoomsTable = () => {
           </div>
         )}
 
-        
-
         {/* =================================================
           Summary Cards
       ================================================= */}
@@ -3119,8 +3130,8 @@ const printRoomsTable = () => {
           )}
 
           {planData.length > 0 ? (
-           <div className="rooms-table-scroll">
-  <table className="assignments-table rooms-occupancy-table">
+            <div className="rooms-table-scroll">
+              <table className="assignments-table rooms-occupancy-table">
                 <thead>
                   <tr>
                     <th className="select-column">
@@ -3653,90 +3664,101 @@ const printRoomsTable = () => {
         {/* =================================================
     Rooms Occupancy (يظهر بعد قبول الخطة فقط)
 ================================================= */}
-{planStatus === "accepted" && (
-  <section className="panel rooms-occupancy-panel">
-    <div className="panel-heading">
-      <div>
-        <h2>🏢 إشغال القاعات</h2>
-        <p>
-          {planCategory
-            ? `قاعات فئة "${planCategory}" حسب الفترات`
-            : "كل القاعات حسب الفترات"}
-        </p>
-      </div>
+        {planStatus === "accepted" && (
+          <section className="panel rooms-occupancy-panel">
+            <div className="rooms-print-header">
+  <h1>{planName || `خطة #${planId}`}</h1>
+  <p>
+    {roomsDateLabel && <span>التاريخ: {roomsDateLabel}</span>}
+    {planCategory && <span>الفئة: {planCategory}</span>}
+  </p>
+  <h2>إشغال القاعات</h2>
+</div>
+            <div className="panel-heading">
+              <div>
+                <p>
+                  {planCategory
+                    ? `قاعات فئة "${planCategory}" حسب الفترات`
+                    : "كل القاعات حسب الفترات"}
+                </p>
+              </div>
 
-      <button
-        type="button"
-        className="btn btn-secondary"
-        onClick={printRoomsTable}
-      >
-        <span>🖨️</span>
-        <span>طباعة الجدول</span>
-      </button>
-    </div>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={printRoomsTable}
+              >
+                <span>🖨️</span>
+                <span>طباعة الجدول</span>
+              </button>
+            </div>
 
-    <div className="rooms-legend">
-      <span className="legend-item">
-        <i className="legend-dot full" /> مشغولة
-      </span>
-      <span className="legend-item">
-        <i className="legend-dot empty" /> فارغة
-      </span>
-    </div>
+            <div className="rooms-legend">
+              <span className="legend-item">
+                <i className="legend-dot full" /> مشغولة
+              </span>
+              <span className="legend-item">
+                <i className="legend-dot empty" /> فارغة
+              </span>
+            </div>
 
-    {roomsOccupancy.rooms.length && roomsOccupancy.periods.length ? (
-      <div className="table-container">
-        <table className="assignments-table rooms-occupancy-table">
-          <thead>
-            <tr>
-              <th>القاعة</th>
+            {roomsOccupancy.rooms.length && roomsOccupancy.periods.length ? (
+              <div className="table-container">
+                <table className="assignments-table rooms-occupancy-table">
+                  <thead>
+                    <tr>
+                      <th>القاعة</th>
 
-              {roomsOccupancy.periods.map((p) => (
-                <th key={p.key}>
-                  {hasMultipleDates && (
-                    <div className="rooms-th-date">{formatDate(p.date)}</div>
-                  )}
-                  <div>{p.period}</div>
-                </th>
-              ))}
-            </tr>
-          </thead>
+                      {roomsOccupancy.periods.map((p) => (
+                        <th key={p.key}>
+                          {hasMultipleDates && (
+                            <div className="rooms-th-date">
+                              {formatDate(p.date)}
+                            </div>
+                          )}
+                          <div>{p.period}</div>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
 
-          <tbody>
-            {roomsOccupancy.rooms.map((room) => (
-              <tr key={room.number}>
-                <td>
-                  <strong>{room.number}</strong>
-                  {room.tag && <small className="room-tag">{room.tag}</small>}
-                </td>
+                  <tbody>
+                    {roomsOccupancy.rooms.map((room) => (
+                      <tr key={room.number}>
+                        <td>
+                          <strong>{room.number}</strong>
+                          {room.tag && (
+                            <small className="room-tag">{room.tag}</small>
+                          )}
+                        </td>
 
-                {roomsOccupancy.periods.map((p) => {
-                  const profs = roomsOccupancy.occupied.get(
-                    `${room.number}|${p.date}|${p.period}`,
-                  );
-                  const isFull = Boolean(profs && profs.size);
+                        {roomsOccupancy.periods.map((p) => {
+                          const profs = roomsOccupancy.occupied.get(
+                            `${room.number}|${p.date}|${p.period}`,
+                          );
+                          const isFull = Boolean(profs && profs.size);
 
-                  return (
-                    <td key={p.key}>
-                      <span
-                        className={`room-status ${isFull ? "full" : "empty"}`}
-                        title={isFull ? [...profs].join("، ") : "فارغة"}
-                      >
-                        {room.number}
-                      </span>
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    ) : (
-      <div className="no-plan-data">لا توجد بيانات قاعات لعرضها.</div>
-    )}
-  </section>
-)}
+                          return (
+                            <td key={p.key}>
+                              <span
+                                className={`room-status ${isFull ? "full" : "empty"}`}
+                                title={isFull ? [...profs].join("، ") : "فارغة"}
+                              >
+                                {room.number}
+                              </span>
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="no-plan-data">لا توجد بيانات قاعات لعرضها.</div>
+            )}
+          </section>
+        )}
 
         {/* =================================================
           Conflicts

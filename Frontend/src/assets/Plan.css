@@ -1665,3 +1665,51 @@ input:focus-visible {
     visibility: visible !important;
   }
 }
+
+@media print {
+  .sup-stats-table {
+    width: 100% !important;
+    table-layout: auto !important;
+    font-size: 8pt !important;
+  }
+
+  .sup-stats-table th,
+  .sup-stats-table td {
+    padding: 5px 3px !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    line-height: 1.5 !important;
+    vertical-align: middle !important;
+    overflow-wrap: break-word !important;
+  }
+
+  /* عمود الفئة */
+  .sup-stats-table th:nth-child(3),
+  .sup-stats-table td:nth-child(3) {
+    min-width: 100px !important;
+  }
+
+  /* عمود الفترات */
+  .sup-stats-table th:nth-child(4),
+  .sup-stats-table td:nth-child(4) {
+    min-width: 90px !important;
+  }
+
+  /* عمود خطة 0 */
+  .sup-stats-table th:nth-child(5),
+  .sup-stats-table td:nth-child(5) {
+    min-width: 65px !important;
+    text-align: center !important;
+  }
+
+  /* منع تداخل الأشرطة مع الأرقام */
+  .sup-stats-table td .progress-bar,
+  .sup-stats-table td .bar-track,
+  .sup-stats-table td .bar-fill {
+    display: none !important;
+  }
+
+  .sup-stats-table td {
+    color: #000 !important;
+  }
+}
