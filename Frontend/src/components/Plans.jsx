@@ -622,6 +622,21 @@ export default function Plans() {
 
   const categoryStats = useMemo(() => {
     const map = new Map();
+    initialStats.forEach((item) => {
+      const n = Number(item.initial_count || 0);
+      if (!n) return;
+      const key = "متطلبات";
+      const current = map.get(key) ?? {
+        category: key,
+        supervisorIds: new Set(),
+        periods: 0,
+        assignments: 0,
+      };
+      current.supervisorIds.add(String(item.supervisor_id));
+      current.periods += n;
+      current.assignments += n;
+      map.set(key, current);
+    });
 
     // الخطط المقبولة: كل خطة تُحسب على فئتها
     mergedSupervisorStats.forEach((supervisor) => {
