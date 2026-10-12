@@ -254,7 +254,10 @@ export default function Plans() {
       try {
         initialResponse = await getInitialSupervisorStats();
       } catch (initialError) {
-        console.error("⚠️ Failed to load initial stats (plan 0):", initialError);
+        console.error(
+          "⚠️ Failed to load initial stats (plan 0):",
+          initialError,
+        );
 
         initialResponse = {
           data: [],
@@ -432,28 +435,28 @@ export default function Plans() {
       });
     });
 
-   return [...map.values()]
-  .map((supervisor) => {
-    const initial = Number(supervisor.initial_count || 0);
+    return [...map.values()]
+      .map((supervisor) => {
+        const initial = Number(supervisor.initial_count || 0);
 
-    return {
-      ...supervisor,
-      initial_count: initial,
-      // خطة 0 تُضاف إلى الفترات (لا تدخل في التعيينات)
-      grand_periods: Number(supervisor.total_periods || 0) + initial,
-      grand_assignments: Number(supervisor.total_assignments || 0),
-    };
-  })
-  .sort((a, b) => {
-    if (b.grand_periods !== a.grand_periods) {
-      return b.grand_periods - a.grand_periods;
-    }
+        return {
+          ...supervisor,
+          initial_count: initial,
+          // خطة 0 تُضاف إلى الفترات (لا تدخل في التعيينات)
+          grand_periods: Number(supervisor.total_periods || 0) + initial,
+          grand_assignments:
+            Number(supervisor.total_assignments || 0) + initial,
+        };
+      })
+      .sort((a, b) => {
+        if (b.grand_periods !== a.grand_periods) {
+          return b.grand_periods - a.grand_periods;
+        }
 
-    return String(a.supervisor_name || "").localeCompare(
-      String(b.supervisor_name || ""),
-      "ar",
-    );
-
+        return String(a.supervisor_name || "").localeCompare(
+          String(b.supervisor_name || ""),
+          "ar",
+        );
       });
   }, [supervisorStats, initialStats]);
 
@@ -463,7 +466,9 @@ export default function Plans() {
   const totalPlans = acceptedPlans.length;
 
   const statsSummary = useMemo(() => {
-    const counts = mergedSupervisorStats.map((s) => Number(s.grand_periods || 0));
+    const counts = mergedSupervisorStats.map((s) =>
+      Number(s.grand_periods || 0),
+    );
 
     const max = counts.length ? Math.max(...counts) : 0;
     const min = counts.length ? Math.min(...counts) : 0;
@@ -669,10 +674,10 @@ export default function Plans() {
           <div className="sup-stats-head">
             <div>
               <h2>إحصائيات المشرفين</h2>
-             <p>
-  إجمالي الفترات لكل مشرف في الخطط المقبولة، شاملًا رصيده الابتدائي
-  (خطة 0). اضغط على الاسم لعرض خططه.
-</p>
+              <p>
+                إجمالي الفترات والتعيينات لكل مشرف في الخطط المقبولة، شاملةً
+                رصيده الابتدائي (خطة 0). اضغط على الاسم لعرض خططه.
+              </p>
             </div>
 
             {mergedSupervisorStats.length > 0 && (
@@ -715,13 +720,12 @@ export default function Plans() {
                   {mergedSupervisorStats.map((supervisor, index) => {
                     const id = supervisor.supervisor_id;
                     const periods = Number(supervisor.grand_periods || 0);
-const initial = Number(supervisor.initial_count || 0);
+                    const initial = Number(supervisor.initial_count || 0);
                     const percent = statsSummary.max
                       ? Math.round((periods / statsSummary.max) * 100)
                       : 0;
 
-                    const isEditingInitial =
-                      editingInitialId === String(id);
+                    const isEditingInitial = editingInitialId === String(id);
 
                     const isSavingInitial = savingInitialId === String(id);
 
@@ -758,7 +762,9 @@ const initial = Number(supervisor.initial_count || 0);
 
                         <td>
                           <div className="sup-progress-cell">
-                            <span className="stats-period-count">{periods}</span>
+                            <span className="stats-period-count">
+                              {periods}
+                            </span>
 
                             <div className="sup-progress">
                               <div
@@ -770,7 +776,11 @@ const initial = Number(supervisor.initial_count || 0);
                         </td>
 
                         {/* ✅ خطة 0 — الرصيد الابتدائي (قابل للتعديل) */}
-                        <td className={isSavingInitial ? "sup-initial-saving" : ""}>
+                        <td
+                          className={
+                            isSavingInitial ? "sup-initial-saving" : ""
+                          }
+                        >
                           {isEditingInitial ? (
                             <input
                               className="sup-initial-input"
@@ -819,11 +829,10 @@ const initial = Number(supervisor.initial_count || 0);
               </table>
             </div>
           )}
-
           <p className="sup-initial-note">
-  خطة 0 = رصيد ابتدائي (من جدول المتطلبات السابق) يُضاف إلى
-  الفترات فقط ولا يدخل في التعيينات. اضغطي على الرقم لتعديله.
-</p>
+            خطة 0 = رصيد ابتدائي (من جدول المتطلبات السابق) يُضاف إلى الفترات
+            والتعيينات معًا. اضغطي على الرقم لتعديله.
+          </p>
         </section>
         {/* =================================================
             Statistics

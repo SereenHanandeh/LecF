@@ -2,7 +2,11 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
 import Sidebar from "../components/Sidebar.jsx";
-import { getPlans, getAcceptedSupervisorStats } from "../api.js";
+import {
+  getPlans,
+  getAcceptedSupervisorStats,
+  getInitialSupervisorStats,
+} from "../api.js";
 
 import "../assets/SupervisorReport.css";
 
@@ -79,6 +83,8 @@ export default function SupervisorReport() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const [initialStats, setInitialStats] = useState([]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -87,9 +93,10 @@ export default function SupervisorReport() {
         setLoading(true);
         setError("");
 
-        const [statsRes, plansRes] = await Promise.allSettled([
+        const [statsRes, plansRes, initialRes] = await Promise.allSettled([
           getAcceptedSupervisorStats(),
           getPlans(),
+          getInitialSupervisorStats(),
         ]);
 
         if (cancelled) return;
@@ -100,9 +107,13 @@ export default function SupervisorReport() {
 
         setStats(toArray(statsRes.value));
 
-        // getPlans فقط لترقيم الخطط (خطة 1، خطة 2 ...)، وفشله لا يمنع التقرير
         setPlans(
           plansRes.status === "fulfilled" ? toArray(plansRes.value) : [],
+        );
+
+        // فشل تحميل خطة 0 لا يمنع التقرير
+        setInitialStats(
+          initialRes.status === "fulfilled" ? toArray(initialRes.value) : [],
         );
       } catch (err) {
         if (cancelled) return;
@@ -144,16 +155,39 @@ export default function SupervisorReport() {
     return map;
   }, [plans]);
 
-  const supervisor = useMemo(
+  const initialItem = useMemo(
     () =>
-      stats.find((item) => String(item.supervisor_id) === String(supervisorId)),
-    [stats, supervisorId],
+      initialStats.find(
+        (item) => String(item.supervisor_id) === String(supervisorId),
+      ),
+    [initialStats, supervisorId],
   );
+
+  const initialCount = Number(initialItem?.initial_count || 0);
+
+  const supervisor = useMemo(() => {
+    const found = stats.find(
+      (item) => String(item.supervisor_id) === String(supervisorId),
+    );
+
+    if (found) return found;
+
+    // مشرف لديه رصيد ابتدائي فقط ولم يظهر في أي خطة مقبولة
+    if (initialItem && initialCount > 0) {
+      return {
+        supervisor_id: initialItem.supervisor_id,
+        supervisor_name: initialItem.supervisor_name,
+        plans: [],
+      };
+    }
+
+    return undefined;
+  }, [stats, supervisorId, initialItem, initialCount]);
 
   const rows = useMemo(() => {
     const raw = Array.isArray(supervisor?.plans) ? supervisor.plans : [];
 
-    return raw
+    const planRows = raw
       .map((p) => ({
         planId: p.plan_id ?? p.id,
         dateFrom: p.date_from,
@@ -166,11 +200,27 @@ export default function SupervisorReport() {
           new Date(a.dateFrom ?? 0).getTime() -
           new Date(b.dateFrom ?? 0).getTime(),
       );
-  }, [supervisor]);
+
+    if (initialCount > 0) {
+      return [
+        {
+          planId: "initial",
+          isInitial: true,
+          dateFrom: null,
+          dateTo: null,
+          periods: initialCount, // تُضاف إلى الفترات فقط
+          assignments: initialCount,
+        },
+        ...planRows,
+      ];
+    }
+
+    return planRows;
+  }, [supervisor, initialCount]);
 
   const totals = useMemo(
     () => ({
-      plans: rows.length,
+      plans: rows.filter((r) => !r.isInitial).length,
       days: rows.reduce(
         (sum, r) => sum + (Number(countDays(r.dateFrom, r.dateTo)) || 0),
         0,
@@ -288,16 +338,29 @@ export default function SupervisorReport() {
 
                         <td>
                           <strong>
-                            خطة{" "}
-                            {planNumbers.get(String(row.planId)) ?? row.planId}
+                            {row.isInitial
+                              ? "خطة 0"
+                              : `خطة ${planNumbers.get(String(row.planId)) ?? row.planId}`}
                           </strong>
                         </td>
 
-                        <td>{formatDateRange(row.dateFrom, row.dateTo)}</td>
+                        <td>
+                          {row.isInitial
+                            ? "رصيد ابتدائي — قبل تاريخ خطة 1"
+                            : formatDateRange(row.dateFrom, row.dateTo)}
+                        </td>
 
-                        <td>{formatWeekdayRange(row.dateFrom, row.dateTo)}</td>
+                        <td>
+                          {row.isInitial
+                            ? "-"
+                            : formatWeekdayRange(row.dateFrom, row.dateTo)}
+                        </td>
 
-                        <td>{countDays(row.dateFrom, row.dateTo)}</td>
+                        <td>
+                          {row.isInitial
+                            ? "-"
+                            : countDays(row.dateFrom, row.dateTo)}
+                        </td>
 
                         <td>{row.periods}</td>
 
