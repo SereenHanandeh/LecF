@@ -1,10 +1,17 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Sidebar from "../components/Sidebar.jsx";
-import { getPlans, deletePlan, getAcceptedSupervisorStats } from "../api.js";
+import {
+  getPlans,
+  deletePlan,
+  getAcceptedSupervisorStats,
+  getInitialSupervisorStats,
+  setInitialSupervisorStat,
+} from "../api.js";
 
 import "../assets/Plan.css";
+import "../assets/PlanInitialStats.css";
 
 const API_BASE_URL = "http://localhost:5000";
 
@@ -87,8 +94,6 @@ const Icons = {
   ),
 };
 
-
-
 // =====================================================
 // Helpers
 // =====================================================
@@ -108,7 +113,6 @@ function formatDate(dateValue) {
     day: "numeric",
   }).format(date);
 }
-
 
 function formatDateRange(from, to) {
   if (!from || !to) {
@@ -203,6 +207,15 @@ export default function Plans() {
 
   const [supervisorStats, setSupervisorStats] = useState([]);
 
+  // ✅ خطة 0: الرصيد الابتدائي لكل مشرف
+  const [initialStats, setInitialStats] = useState([]);
+
+  const [editingInitialId, setEditingInitialId] = useState(null);
+  const [editingInitialValue, setEditingInitialValue] = useState("");
+  const [savingInitialId, setSavingInitialId] = useState(null);
+
+  // لتفادي الحفظ عند الضغط على Escape (يسبب blur)
+  const skipInitialSaveRef = useRef(false);
 
   // ===================================================
   // Load Plans
@@ -235,6 +248,19 @@ export default function Plans() {
         };
       }
 
+      // ✅ تحميل خطة 0 (لا نُفشل الصفحة لو فشلت)
+      let initialResponse = null;
+
+      try {
+        initialResponse = await getInitialSupervisorStats();
+      } catch (initialError) {
+        console.error("⚠️ Failed to load initial stats (plan 0):", initialError);
+
+        initialResponse = {
+          data: [],
+        };
+      }
+
       let receivedPlans = [];
 
       if (Array.isArray(response)) {
@@ -253,11 +279,21 @@ export default function Plans() {
         receivedStats = statsResponse.data;
       }
 
+      let receivedInitial = [];
+
+      if (Array.isArray(initialResponse)) {
+        receivedInitial = initialResponse;
+      } else if (Array.isArray(initialResponse?.data)) {
+        receivedInitial = initialResponse.data;
+      }
+
       console.log("📋 Received plans:", receivedPlans);
       console.log("📊 Received stats:", receivedStats);
+      console.log("0️⃣ Received initial stats:", receivedInitial);
 
       setPlans(receivedPlans);
       setSupervisorStats(receivedStats);
+      setInitialStats(receivedInitial);
     } catch (err) {
       console.error("🔴 ERROR LOADING PLANS:", err);
       console.error("🔴 error message:", err?.message);
@@ -279,6 +315,7 @@ export default function Plans() {
       setError(errorMessage);
       setPlans([]);
       setSupervisorStats([]);
+      setInitialStats([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -354,24 +391,94 @@ export default function Plans() {
   }, [acceptedPlans, search, planNumbers]);
 
   // ===================================================
+  // Merged Supervisor Stats
+  // = الخطط المقبولة + خطة 0 (الرصيد الابتدائي)
+  //
+  // يشمل أيضًا المشرفين الذين لديهم رصيد ابتدائي فقط
+  // ولم يظهروا بعد في أي خطة مقبولة.
+  // ===================================================
+
+  const mergedSupervisorStats = useMemo(() => {
+    const map = new Map();
+
+    supervisorStats.forEach((supervisor) => {
+      map.set(String(supervisor.supervisor_id), {
+        ...supervisor,
+        initial_count: 0,
+      });
+    });
+
+    initialStats.forEach((item) => {
+      const key = String(item.supervisor_id);
+
+      const initial = Number(item.initial_count || 0);
+
+      const existing = map.get(key);
+
+      if (existing) {
+        existing.initial_count = initial;
+
+        return;
+      }
+
+      map.set(key, {
+        supervisor_id: item.supervisor_id,
+        supervisor_name: item.supervisor_name,
+        total_periods: 0,
+        total_assignments: 0,
+        accepted_plans: 0,
+        plans: [],
+        initial_count: initial,
+      });
+    });
+
+    return [...map.values()]
+      .map((supervisor) => {
+        const initial = Number(supervisor.initial_count || 0);
+
+        return {
+          ...supervisor,
+          initial_count: initial,
+          // خطة 0 تُضاف إلى التعيينات فقط (لا تدخل في الفترات)
+          grand_assignments:
+            Number(supervisor.total_assignments || 0) + initial,
+        };
+      })
+      .sort((a, b) => {
+        const periodsA = Number(a.total_periods || 0);
+        const periodsB = Number(b.total_periods || 0);
+
+        if (periodsB !== periodsA) {
+          return periodsB - periodsA;
+        }
+
+        return String(a.supervisor_name || "").localeCompare(
+          String(b.supervisor_name || ""),
+          "ar",
+        );
+      });
+  }, [supervisorStats, initialStats]);
+
+  // ===================================================
   // Stats
   // ===================================================
   const totalPlans = acceptedPlans.length;
 
   const statsSummary = useMemo(() => {
-    const counts = supervisorStats.map((s) => Number(s.total_periods || 0));
+    const counts = mergedSupervisorStats.map((s) => Number(s.total_periods || 0));
 
     const max = counts.length ? Math.max(...counts) : 0;
     const min = counts.length ? Math.min(...counts) : 0;
 
     return {
-      supervisors: supervisorStats.length,
+      supervisors: mergedSupervisorStats.length,
       totalPeriods: counts.reduce((sum, n) => sum + n, 0),
       max,
       difference: max - min,
     };
-  }, [supervisorStats]);
+  }, [mergedSupervisorStats]);
 
+  // عدد المشرفين/التعيينات لكل خطة (خطة 0 لا تدخل هنا)
   const planSupervisorCounts = useMemo(() => {
     const map = new Map();
 
@@ -391,7 +498,85 @@ export default function Plans() {
     return map;
   }, [supervisorStats]);
 
- 
+  // ===================================================
+  // Initial Value (خطة 0) — Edit / Save
+  // ===================================================
+
+  function startInitialEdit(supervisor) {
+    skipInitialSaveRef.current = false;
+
+    setEditingInitialId(String(supervisor.supervisor_id));
+    setEditingInitialValue(String(supervisor.initial_count ?? 0));
+  }
+
+  function cancelInitialEdit() {
+    skipInitialSaveRef.current = true;
+
+    setEditingInitialId(null);
+    setEditingInitialValue("");
+  }
+
+  async function saveInitialEdit(supervisor) {
+    if (skipInitialSaveRef.current) {
+      skipInitialSaveRef.current = false;
+      return;
+    }
+
+    const value = Number(editingInitialValue);
+
+    setEditingInitialId(null);
+
+    if (!Number.isInteger(value) || value < 0) {
+      alert("أدخلي رقمًا صحيحًا أكبر من أو يساوي 0.");
+      return;
+    }
+
+    // لم يتغير شيء
+    if (value === Number(supervisor.initial_count || 0)) {
+      return;
+    }
+
+    try {
+      setSavingInitialId(String(supervisor.supervisor_id));
+
+      await setInitialSupervisorStat(supervisor.supervisor_id, value);
+
+      setInitialStats((current) => {
+        const exists = current.some(
+          (item) =>
+            String(item.supervisor_id) === String(supervisor.supervisor_id),
+        );
+
+        if (exists) {
+          return current.map((item) =>
+            String(item.supervisor_id) === String(supervisor.supervisor_id)
+              ? { ...item, initial_count: value }
+              : item,
+          );
+        }
+
+        return [
+          ...current,
+          {
+            supervisor_id: supervisor.supervisor_id,
+            supervisor_name: supervisor.supervisor_name,
+            initial_count: value,
+          },
+        ];
+      });
+    } catch (err) {
+      console.error("🔴 SAVE INITIAL STAT ERROR:", err);
+
+      alert(
+        err?.response?.data?.error ??
+          err?.response?.data?.message ??
+          err?.message ??
+          "تعذر حفظ القيمة الابتدائية.",
+      );
+    } finally {
+      setSavingInitialId(null);
+    }
+  }
 
   // ===================================================
   // Open Plan
@@ -403,10 +588,9 @@ export default function Plans() {
     navigate(`/plan-result/${planId}`);
   }
 
-
   function openSupervisorReport(supervisorId) {
-  navigate(`/supervisor-report/${supervisorId}`);
-}
+    navigate(`/supervisor-report/${supervisorId}`);
+  }
 
   // ===================================================
   // Delete Plan
@@ -488,12 +672,12 @@ export default function Plans() {
             <div>
               <h2>إحصائيات المشرفين</h2>
               <p>
-                إجمالي الفترات لكل مشرف في الخطط المقبولة. اضغط على الاسم لعرض
-                خططه.
+                إجمالي الفترات لكل مشرف في الخطط المقبولة، والتعيينات تشمل
+                رصيده الابتدائي (خطة 0). اضغط على الاسم لعرض خططه.
               </p>
             </div>
 
-            {supervisorStats.length > 0 && (
+            {mergedSupervisorStats.length > 0 && (
               <div className="sup-stats-chips">
                 <div className="sup-chip">
                   <span>المشرفون</span>
@@ -511,7 +695,7 @@ export default function Plans() {
             )}
           </div>
 
-          {supervisorStats.length === 0 ? (
+          {mergedSupervisorStats.length === 0 ? (
             <div className="supervisor-stats-empty">
               لا توجد بيانات إحصائية للخطط المقبولة.
             </div>
@@ -523,71 +707,125 @@ export default function Plans() {
                     <th>#</th>
                     <th>المشرف</th>
                     <th>الفترات</th>
+                    <th>خطة 0</th>
                     <th>التعيينات</th>
                     <th>الخطط</th>
                   </tr>
                 </thead>
 
                 <tbody>
-                 {supervisorStats.map((supervisor, index) => {
-  const id = supervisor.supervisor_id;
-  const periods = Number(supervisor.total_periods || 0);
-  const percent = statsSummary.max
-    ? Math.round((periods / statsSummary.max) * 100)
-    : 0;
+                  {mergedSupervisorStats.map((supervisor, index) => {
+                    const id = supervisor.supervisor_id;
+                    const periods = Number(supervisor.total_periods || 0);
+                    const initial = Number(supervisor.initial_count || 0);
+                    const percent = statsSummary.max
+                      ? Math.round((periods / statsSummary.max) * 100)
+                      : 0;
 
-  return (
-    <tr className="sup-row" key={id}>
-      <td>
-        <span className={`sup-rank rank-${index < 3 ? index + 1 : "n"}`}>
-          {index + 1}
-        </span>
-      </td>
+                    const isEditingInitial =
+                      editingInitialId === String(id);
 
-      <td>
-        <button
-          type="button"
-          className="sup-name-btn"
-          onClick={() => openSupervisorReport(id)}
-          title="عرض تقرير المشرف"
-        >
-          <span className="sup-avatar">
-            {String(supervisor.supervisor_name || "?").charAt(0)}
-          </span>
+                    const isSavingInitial = savingInitialId === String(id);
 
-          <span className="sup-name">{supervisor.supervisor_name}</span>
+                    return (
+                      <tr className="sup-row" key={id}>
+                        <td>
+                          <span
+                            className={`sup-rank rank-${index < 3 ? index + 1 : "n"}`}
+                          >
+                            {index + 1}
+                          </span>
+                        </td>
 
-          <span className="sup-chevron">{Icons.arrow}</span>
-        </button>
-      </td>
+                        <td>
+                          <button
+                            type="button"
+                            className="sup-name-btn"
+                            onClick={() => openSupervisorReport(id)}
+                            title="عرض تقرير المشرف"
+                          >
+                            <span className="sup-avatar">
+                              {String(supervisor.supervisor_name || "?").charAt(
+                                0,
+                              )}
+                            </span>
 
-      <td>
-        <div className="sup-progress-cell">
-          <span className="stats-period-count">{periods}</span>
+                            <span className="sup-name">
+                              {supervisor.supervisor_name}
+                            </span>
 
-          <div className="sup-progress">
-            <div
-              className="sup-progress-fill"
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-        </div>
-      </td>
+                            <span className="sup-chevron">{Icons.arrow}</span>
+                          </button>
+                        </td>
 
-      <td>{Number(supervisor.total_assignments || 0)}</td>
+                        <td>
+                          <div className="sup-progress-cell">
+                            <span className="stats-period-count">{periods}</span>
 
-      <td>
-        <span className="sup-plans-count">
-          {Number(supervisor.accepted_plans || 0)}
-        </span>
-      </td>
-    </tr>
-  );
-})}
+                            <div className="sup-progress">
+                              <div
+                                className="sup-progress-fill"
+                                style={{ width: `${percent}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* ✅ خطة 0 — الرصيد الابتدائي (قابل للتعديل) */}
+                        <td className={isSavingInitial ? "sup-initial-saving" : ""}>
+                          {isEditingInitial ? (
+                            <input
+                              className="sup-initial-input"
+                              type="number"
+                              min="0"
+                              step="1"
+                              autoFocus
+                              value={editingInitialValue}
+                              onChange={(e) =>
+                                setEditingInitialValue(e.target.value)
+                              }
+                              onBlur={() => saveInitialEdit(supervisor)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.currentTarget.blur();
+                                }
+
+                                if (e.key === "Escape") {
+                                  cancelInitialEdit();
+                                }
+                              }}
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className="sup-initial-badge"
+                              onClick={() => startInitialEdit(supervisor)}
+                              title="تعديل الرصيد الابتدائي (خطة 0)"
+                            >
+                              {initial}
+                            </button>
+                          )}
+                        </td>
+
+                        <td>{Number(supervisor.grand_assignments || 0)}</td>
+
+                        <td>
+                          <span className="sup-plans-count">
+                            {Number(supervisor.accepted_plans || 0)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           )}
+
+          <p className="sup-initial-note">
+            خطة 0 = رصيد ابتدائي (من جدول المتطلبات السابق) يُضاف إلى
+            التعيينات فقط ولا يدخل في الفترات. اضغطي على الرقم لتعديله.
+          </p>
         </section>
         {/* =================================================
             Statistics

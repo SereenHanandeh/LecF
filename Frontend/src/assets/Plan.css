@@ -1303,3 +1303,55 @@ input:focus-visible {
     min-width: 130px;
   }
 }
+
+/* =====================================================
+   خطة 0 — الرصيد الابتدائي للمشرف
+   (ملف إضافي، لا يغيّر Plan.css)
+===================================================== */
+
+.sup-initial-badge {
+  min-width: 44px;
+  padding: 4px 12px;
+  border: 1px dashed #b8872b;
+  border-radius: 6px;
+  background: #f6ead0;
+  color: #92691d;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.sup-initial-badge:hover {
+  background: #efd9a3;
+  border-style: solid;
+}
+
+.sup-initial-badge:focus-visible,
+.sup-initial-input:focus-visible {
+  outline: 2px solid #b8872b;
+  outline-offset: 2px;
+}
+
+.sup-initial-input {
+  width: 72px;
+  padding: 4px 8px;
+  border: 1.5px solid #b8872b;
+  border-radius: 6px;
+  background: #fff;
+  font: inherit;
+  font-weight: 700;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.sup-initial-note {
+  margin: 8px 0 0;
+  font-size: 0.8rem;
+  color: #7c8aa0;
+}
+
+.sup-initial-saving {
+  opacity: 0.6;
+  pointer-events: none;
+}

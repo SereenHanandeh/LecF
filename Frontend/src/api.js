@@ -232,4 +232,13 @@ export const moveAssignmentsToPlan = (planId, targetPlanId, sessionGroupIds) =>
     })
     .then((res) => res.data);
 
+   
+export const getInitialSupervisorStats = () =>
+  api.get("/supervisor-initial-stats").then((res) => res.data);
+ 
+export const setInitialSupervisorStat = (supervisorId, initialCount) =>
+  api
+    .put(`/supervisor-initial-stats/${supervisorId}`, { initialCount })
+    .then((res) => res.data);
+    
 export default api;
