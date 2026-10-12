@@ -432,30 +432,28 @@ export default function Plans() {
       });
     });
 
-    return [...map.values()]
-      .map((supervisor) => {
-        const initial = Number(supervisor.initial_count || 0);
+   return [...map.values()]
+  .map((supervisor) => {
+    const initial = Number(supervisor.initial_count || 0);
 
-        return {
-          ...supervisor,
-          initial_count: initial,
-          // خطة 0 تُضاف إلى التعيينات فقط (لا تدخل في الفترات)
-          grand_assignments:
-            Number(supervisor.total_assignments || 0) + initial,
-        };
-      })
-      .sort((a, b) => {
-        const periodsA = Number(a.total_periods || 0);
-        const periodsB = Number(b.total_periods || 0);
+    return {
+      ...supervisor,
+      initial_count: initial,
+      // خطة 0 تُضاف إلى الفترات (لا تدخل في التعيينات)
+      grand_periods: Number(supervisor.total_periods || 0) + initial,
+      grand_assignments: Number(supervisor.total_assignments || 0),
+    };
+  })
+  .sort((a, b) => {
+    if (b.grand_periods !== a.grand_periods) {
+      return b.grand_periods - a.grand_periods;
+    }
 
-        if (periodsB !== periodsA) {
-          return periodsB - periodsA;
-        }
+    return String(a.supervisor_name || "").localeCompare(
+      String(b.supervisor_name || ""),
+      "ar",
+    );
 
-        return String(a.supervisor_name || "").localeCompare(
-          String(b.supervisor_name || ""),
-          "ar",
-        );
       });
   }, [supervisorStats, initialStats]);
 
@@ -465,7 +463,7 @@ export default function Plans() {
   const totalPlans = acceptedPlans.length;
 
   const statsSummary = useMemo(() => {
-    const counts = mergedSupervisorStats.map((s) => Number(s.total_periods || 0));
+    const counts = mergedSupervisorStats.map((s) => Number(s.grand_periods || 0));
 
     const max = counts.length ? Math.max(...counts) : 0;
     const min = counts.length ? Math.min(...counts) : 0;
@@ -671,10 +669,10 @@ export default function Plans() {
           <div className="sup-stats-head">
             <div>
               <h2>إحصائيات المشرفين</h2>
-              <p>
-                إجمالي الفترات لكل مشرف في الخطط المقبولة، والتعيينات تشمل
-                رصيده الابتدائي (خطة 0). اضغط على الاسم لعرض خططه.
-              </p>
+             <p>
+  إجمالي الفترات لكل مشرف في الخطط المقبولة، شاملًا رصيده الابتدائي
+  (خطة 0). اضغط على الاسم لعرض خططه.
+</p>
             </div>
 
             {mergedSupervisorStats.length > 0 && (
@@ -716,8 +714,8 @@ export default function Plans() {
                 <tbody>
                   {mergedSupervisorStats.map((supervisor, index) => {
                     const id = supervisor.supervisor_id;
-                    const periods = Number(supervisor.total_periods || 0);
-                    const initial = Number(supervisor.initial_count || 0);
+                    const periods = Number(supervisor.grand_periods || 0);
+const initial = Number(supervisor.initial_count || 0);
                     const percent = statsSummary.max
                       ? Math.round((periods / statsSummary.max) * 100)
                       : 0;
@@ -823,9 +821,9 @@ export default function Plans() {
           )}
 
           <p className="sup-initial-note">
-            خطة 0 = رصيد ابتدائي (من جدول المتطلبات السابق) يُضاف إلى
-            التعيينات فقط ولا يدخل في الفترات. اضغطي على الرقم لتعديله.
-          </p>
+  خطة 0 = رصيد ابتدائي (من جدول المتطلبات السابق) يُضاف إلى
+  الفترات فقط ولا يدخل في التعيينات. اضغطي على الرقم لتعديله.
+</p>
         </section>
         {/* =================================================
             Statistics
