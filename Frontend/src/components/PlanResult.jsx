@@ -3131,8 +3131,8 @@ export default function PlanResult() {
           )}
 
           {planData.length > 0 ? (
-            <div className="rooms-table-scroll">
-              <table className="assignments-table rooms-occupancy-table">
+            <div className="table-container">
+              <table className="assignments-table screen-plan-table">
                 <thead>
                   <tr>
                     <th className="select-column">
@@ -3674,22 +3674,26 @@ export default function PlanResult() {
                 {planCategory && <span>الفئة: {planCategory}</span>}
               </p>
               <h2>إشغال القاعات</h2>
-              <p>
-                {planCategory
-                  ? `قاعات فئة "${planCategory}" حسب الفترات`
-                  : "كل القاعات حسب الفترات"}
-              </p>
+            </div>
 
+            <div className="panel-heading">
               <div>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={printRoomsTable}
-                >
-                  <span>🖨️</span>
-                  <span>طباعة الجدول</span>
-                </button>
+                <h2>🏢 إشغال القاعات</h2>
+                <p>
+                  {planCategory
+                    ? `قاعات فئة "${planCategory}" حسب الفترات`
+                    : "كل القاعات حسب الفترات"}
+                </p>
               </div>
+
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={printRoomsTable}
+              >
+                <span>🖨️</span>
+                <span>طباعة الجدول</span>
+              </button>
             </div>
             <div className="panel-heading">
               <div>
@@ -3720,7 +3724,7 @@ export default function PlanResult() {
             </div>
 
             {roomsOccupancy.rooms.length && roomsOccupancy.periods.length ? (
-              <div className="table-container">
+              <div className="rooms-table-scroll">
                 <table className="assignments-table rooms-occupancy-table">
                   <thead>
                     <tr>
