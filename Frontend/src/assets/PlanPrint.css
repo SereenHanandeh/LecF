@@ -177,6 +177,30 @@
     pointer-events: none;
     border: none !important;
     background: none !important;
+    box-shadow: none !important;
+    color: #0f172a !important;
+    -webkit-text-fill-color: #0f172a !important;
+    opacity: 1 !important;
+    width: auto !important;
+    max-width: none !important;
+    overflow: visible !important;
+  }
+
+  .sup-name {
+    display: inline !important;
+    visibility: visible !important;
+    color: #0f172a !important;
+    -webkit-text-fill-color: #0f172a !important;
+    opacity: 1 !important;
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    font-weight: 600;
+  }
+
+  .sup-avatar {
+    display: none !important;
   }
 
   .sup-chevron {

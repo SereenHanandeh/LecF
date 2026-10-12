@@ -880,7 +880,7 @@ export default function Plans() {
                         <td>
                           <button
                             type="button"
-                            className="sup-name-btn"
+                            className="sup-name-btn no-print"
                             onClick={() => openSupervisorReport(id)}
                             title="عرض تقرير المشرف"
                           >
@@ -896,6 +896,11 @@ export default function Plans() {
 
                             <span className="sup-chevron">{Icons.arrow}</span>
                           </button>
+
+                          {/* نص عادي للطباعة بدل الزر */}
+                          <span className="print-only sup-print-name">
+                            {supervisor.supervisor_name}
+                          </span>
                         </td>
 
                         {/* الفئة */}
@@ -926,9 +931,14 @@ export default function Plans() {
                             isSavingInitial ? "sup-initial-saving" : ""
                           }
                         >
+                          {/* نص عادي للطباعة بدل الزر */}
+                          <span className="print-only sup-print-name">
+                            {initial}
+                          </span>
+
                           {isEditingInitial ? (
                             <input
-                              className="sup-initial-input"
+                              className="sup-initial-input no-print"
                               type="number"
                               min="0"
                               step="1"
@@ -951,7 +961,7 @@ export default function Plans() {
                           ) : (
                             <button
                               type="button"
-                              className="sup-initial-badge"
+                              className="sup-initial-badge no-print"
                               onClick={() => startInitialEdit(supervisor)}
                               title="تعديل الرصيد الابتدائي (خطة 0)"
                             >
