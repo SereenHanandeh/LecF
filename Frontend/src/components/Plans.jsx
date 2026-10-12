@@ -560,19 +560,24 @@ export default function Plans() {
       .map((supervisor) => {
         const initial = Number(supervisor.initial_count || 0);
 
+        const planCategories = categoriesFromPlans(supervisor);
+        const categoryList = [...planCategories.keys()];
+
         const category =
-          pickCategory(supervisor) ??
-          categoryBySupervisor.byId.get(String(supervisor.supervisor_id)) ??
-          categoryBySupervisor.byName.get(
-            normalizeName(supervisor.supervisor_name),
-          ) ??
-          NO_CATEGORY;
+          categoryList.length > 0
+            ? categoryList.join("، ")
+            : (pickCategory(supervisor) ??
+              categoryBySupervisor.byId.get(String(supervisor.supervisor_id)) ??
+              categoryBySupervisor.byName.get(
+                normalizeName(supervisor.supervisor_name),
+              ) ??
+              NO_CATEGORY);
 
         return {
           ...supervisor,
           category,
+          planCategories, // Map(فئة -> فترات)
           initial_count: initial,
-          // خطة 0 تُضاف إلى الفترات والتعيينات معًا
           grand_periods: Number(supervisor.total_periods || 0) + initial,
           grand_assignments:
             Number(supervisor.total_assignments || 0) + initial,
@@ -618,41 +623,49 @@ export default function Plans() {
   const categoryStats = useMemo(() => {
     const map = new Map();
 
+    // الخطط المقبولة: كل خطة تُحسب على فئتها
     mergedSupervisorStats.forEach((supervisor) => {
-      const key = supervisor.category || NO_CATEGORY;
+      (Array.isArray(supervisor.plans) ? supervisor.plans : []).forEach((p) => {
+        const key = categoryText(p.category) || NO_CATEGORY;
 
-      const current = map.get(key) ?? {
-        category: key,
-        supervisors: 0,
-        periods: 0,
-        assignments: 0,
-      };
+        const current = map.get(key) ?? {
+          category: key,
+          supervisorIds: new Set(),
+          periods: 0,
+          assignments: 0,
+        };
 
-      map.set(key, {
-        ...current,
-        supervisors: current.supervisors + 1,
-        periods: current.periods + Number(supervisor.grand_periods || 0),
-        assignments:
-          current.assignments + Number(supervisor.grand_assignments || 0),
+        current.supervisorIds.add(String(supervisor.supervisor_id));
+        current.periods += Number(p.periods || 0);
+        current.assignments += Number(p.assignments || 0);
+
+        map.set(key, current);
       });
     });
 
-    return [...map.values()].sort((a, b) => {
-      if (b.assignments !== a.assignments) {
-        return b.assignments - a.assignments;
-      }
-
-      return String(a.category).localeCompare(String(b.category), "ar");
-    });
+    return [...map.values()]
+      .map((c) => ({
+        category: c.category,
+        supervisors: c.supervisorIds.size,
+        periods: c.periods,
+        assignments: c.assignments,
+      }))
+      .sort((a, b) => {
+        if (b.assignments !== a.assignments)
+          return b.assignments - a.assignments;
+        return String(a.category).localeCompare(String(b.category), "ar");
+      });
   }, [mergedSupervisorStats]);
 
   const categoryTotals = useMemo(
     () => ({
-      supervisors: categoryStats.reduce((sum, c) => sum + c.supervisors, 0),
+      supervisors: mergedSupervisorStats.filter(
+        (s) => Array.isArray(s.plans) && s.plans.length > 0,
+      ).length,
       periods: categoryStats.reduce((sum, c) => sum + c.periods, 0),
       assignments: categoryStats.reduce((sum, c) => sum + c.assignments, 0),
     }),
-    [categoryStats],
+    [categoryStats, mergedSupervisorStats],
   );
 
   const printedAt = useMemo(() => formatDate(new Date()), []);
@@ -779,6 +792,19 @@ export default function Plans() {
     window.print();
   }
 
+  // الفئات التي عمل بها المشرف (من الخطط المقبولة)، مع عدد الفترات لكل فئة
+  function categoriesFromPlans(supervisor) {
+    const plans = Array.isArray(supervisor?.plans) ? supervisor.plans : [];
+    const byCat = new Map();
+
+    plans.forEach((p) => {
+      const cat = categoryText(p.category);
+      if (!cat) return;
+      byCat.set(cat, (byCat.get(cat) || 0) + Number(p.periods || 0));
+    });
+
+    return byCat; // Map(فئة -> فترات)
+  }
   // ===================================================
   // Delete Plan
   // ===================================================
@@ -945,33 +971,39 @@ export default function Plans() {
                           </span>
                         </td>
 
-                       <td>
-  <button
-    type="button"
-    className="sup-name-btn no-print"
-    onClick={() => openSupervisorReport(id)}
-    title="عرض تقرير المشرف"
-  >
-    <span className="sup-avatar">
-      {String(supervisor.supervisor_name || "?").charAt(0)}
-    </span>
+                        <td>
+                          <button
+                            type="button"
+                            className="sup-name-btn no-print"
+                            onClick={() => openSupervisorReport(id)}
+                            title="عرض تقرير المشرف"
+                          >
+                            <span className="sup-avatar">
+                              {String(supervisor.supervisor_name || "?").charAt(
+                                0,
+                              )}
+                            </span>
 
-    <span className="sup-name">
-      {supervisor.supervisor_name || "غير معروف"}
-    </span>
+                            <span className="sup-name">
+                              {supervisor.supervisor_name || "غير معروف"}
+                            </span>
 
-    <span className="sup-chevron">{Icons.arrow}</span>
-  </button>
+                            <span className="sup-chevron">{Icons.arrow}</span>
+                          </button>
 
-  <span className="print-only sup-print-name">
-    {supervisor.supervisor_name || "غير معروف"}
-  </span>
-</td>
+                          <span className="print-only sup-print-name">
+                            {supervisor.supervisor_name || "غير معروف"}
+                          </span>
+                        </td>
 
                         {/* الفئة */}
                         <td>
                           <span className="sup-category">
-                            {supervisor.category}
+                            {supervisor.planCategories?.size
+                              ? [...supervisor.planCategories.entries()]
+                                  .map(([cat, n]) => `${cat} (${n})`)
+                                  .join("، ")
+                              : supervisor.category}
                           </span>
                         </td>
 
@@ -992,47 +1024,47 @@ export default function Plans() {
 
                         {/* ✅ خطة 0 — الرصيد الابتدائي (قابل للتعديل) */}
                         <td
-  className={
-    isSavingInitial ? "sup-initial-saving" : ""
-  }
->
-  <span className="print-only sup-print-initial">
-    {initial}
-  </span>
+                          className={
+                            isSavingInitial ? "sup-initial-saving" : ""
+                          }
+                        >
+                          <span className="print-only sup-print-initial">
+                            {initial}
+                          </span>
 
-  {isEditingInitial ? (
-    <input
-      className="sup-initial-input no-print"
-      type="number"
-      min="0"
-      step="1"
-      autoFocus
-      value={editingInitialValue}
-      onChange={(e) =>
-        setEditingInitialValue(e.target.value)
-      }
-      onBlur={() => saveInitialEdit(supervisor)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") {
-          e.currentTarget.blur();
-        }
+                          {isEditingInitial ? (
+                            <input
+                              className="sup-initial-input no-print"
+                              type="number"
+                              min="0"
+                              step="1"
+                              autoFocus
+                              value={editingInitialValue}
+                              onChange={(e) =>
+                                setEditingInitialValue(e.target.value)
+                              }
+                              onBlur={() => saveInitialEdit(supervisor)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.currentTarget.blur();
+                                }
 
-        if (e.key === "Escape") {
-          cancelInitialEdit();
-        }
-      }}
-    />
-  ) : (
-    <button
-      type="button"
-      className="sup-initial-badge no-print"
-      onClick={() => startInitialEdit(supervisor)}
-      title="تعديل الرصيد الابتدائي (خطة 0)"
-    >
-      {initial}
-    </button>
-  )}
-</td>
+                                if (e.key === "Escape") {
+                                  cancelInitialEdit();
+                                }
+                              }}
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className="sup-initial-badge no-print"
+                              onClick={() => startInitialEdit(supervisor)}
+                              title="تعديل الرصيد الابتدائي (خطة 0)"
+                            >
+                              {initial}
+                            </button>
+                          )}
+                        </td>
                         <td>{Number(supervisor.grand_assignments || 0)}</td>
 
                         <td>
