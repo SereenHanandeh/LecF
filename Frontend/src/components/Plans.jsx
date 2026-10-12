@@ -945,31 +945,28 @@ export default function Plans() {
                           </span>
                         </td>
 
-                        <td>
-                          <button
-                            type="button"
-                            className="sup-name-btn no-print"
-                            onClick={() => openSupervisorReport(id)}
-                            title="عرض تقرير المشرف"
-                          >
-                            <span className="sup-avatar">
-                              {String(supervisor.supervisor_name || "?").charAt(
-                                0,
-                              )}
-                            </span>
+                       <td>
+  <button
+    type="button"
+    className="sup-name-btn no-print"
+    onClick={() => openSupervisorReport(id)}
+    title="عرض تقرير المشرف"
+  >
+    <span className="sup-avatar">
+      {String(supervisor.supervisor_name || "?").charAt(0)}
+    </span>
 
-                            <span className="sup-name">
-                              {supervisor.supervisor_name}
-                            </span>
+    <span className="sup-name">
+      {supervisor.supervisor_name || "غير معروف"}
+    </span>
 
-                            <span className="sup-chevron">{Icons.arrow}</span>
-                          </button>
+    <span className="sup-chevron">{Icons.arrow}</span>
+  </button>
 
-                          {/* نص عادي للطباعة بدل الزر */}
-                          <span className="print-only sup-print-name">
-                            {supervisor.supervisor_name}
-                          </span>
-                        </td>
+  <span className="print-only sup-print-name">
+    {supervisor.supervisor_name || "غير معروف"}
+  </span>
+</td>
 
                         {/* الفئة */}
                         <td>
@@ -995,49 +992,47 @@ export default function Plans() {
 
                         {/* ✅ خطة 0 — الرصيد الابتدائي (قابل للتعديل) */}
                         <td
-                          className={
-                            isSavingInitial ? "sup-initial-saving" : ""
-                          }
-                        >
-                          {/* نص عادي للطباعة بدل الزر */}
-                          <span className="print-only sup-print-name">
-                            {initial}
-                          </span>
+  className={
+    isSavingInitial ? "sup-initial-saving" : ""
+  }
+>
+  <span className="print-only sup-print-initial">
+    {initial}
+  </span>
 
-                          {isEditingInitial ? (
-                            <input
-                              className="sup-initial-input no-print"
-                              type="number"
-                              min="0"
-                              step="1"
-                              autoFocus
-                              value={editingInitialValue}
-                              onChange={(e) =>
-                                setEditingInitialValue(e.target.value)
-                              }
-                              onBlur={() => saveInitialEdit(supervisor)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.currentTarget.blur();
-                                }
+  {isEditingInitial ? (
+    <input
+      className="sup-initial-input no-print"
+      type="number"
+      min="0"
+      step="1"
+      autoFocus
+      value={editingInitialValue}
+      onChange={(e) =>
+        setEditingInitialValue(e.target.value)
+      }
+      onBlur={() => saveInitialEdit(supervisor)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.currentTarget.blur();
+        }
 
-                                if (e.key === "Escape") {
-                                  cancelInitialEdit();
-                                }
-                              }}
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              className="sup-initial-badge no-print"
-                              onClick={() => startInitialEdit(supervisor)}
-                              title="تعديل الرصيد الابتدائي (خطة 0)"
-                            >
-                              {initial}
-                            </button>
-                          )}
-                        </td>
-
+        if (e.key === "Escape") {
+          cancelInitialEdit();
+        }
+      }}
+    />
+  ) : (
+    <button
+      type="button"
+      className="sup-initial-badge no-print"
+      onClick={() => startInitialEdit(supervisor)}
+      title="تعديل الرصيد الابتدائي (خطة 0)"
+    >
+      {initial}
+    </button>
+  )}
+</td>
                         <td>{Number(supervisor.grand_assignments || 0)}</td>
 
                         <td>

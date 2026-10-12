@@ -1556,3 +1556,34 @@ input:focus-visible {
     print-color-adjust: exact;
   }
 }
+@media print {
+  /* إظهار اسم المشرف كنص واضح */
+  .sup-stats-table .sup-name-btn {
+    display: none !important;
+  }
+
+  .sup-stats-table .sup-print-name,
+  .sup-stats-table .sup-print-initial {
+    display: inline-block !important;
+    visibility: visible !important;
+    color: #000 !important;
+    font-size: 11pt !important;
+    font-weight: 600 !important;
+    opacity: 1 !important;
+    height: auto !important;
+    width: auto !important;
+    overflow: visible !important;
+  }
+
+  /* إظهار قيمة خطة 0 بدل زر التعديل */
+  .sup-stats-table .sup-initial-badge,
+  .sup-stats-table .sup-initial-input {
+    display: none !important;
+  }
+
+  /* منع إخفاء النصوص داخل خلايا الجدول */
+  .sup-stats-table td {
+    color: #000 !important;
+    visibility: visible !important;
+  }
+}
