@@ -180,6 +180,22 @@ function normalizeName(value) {
     .toLowerCase();
 }
 
+// الفئات التي عمل بها المشرف (من الخطط المقبولة)، مع عدد الفترات لكل فئة
+function categoriesFromPlans(supervisor) {
+  const plans = Array.isArray(supervisor?.plans) ? supervisor.plans : [];
+  const byCat = new Map();
+
+  plans.forEach((p) => {
+    const cat = categoryText(p.category);
+
+    if (!cat) return;
+
+    byCat.set(cat, (byCat.get(cat) || 0) + Number(p.periods || 0));
+  });
+
+  return byCat; // Map(فئة -> فترات)
+}
+
 function formatDate(dateValue) {
   if (!dateValue) return "-";
 
@@ -581,6 +597,7 @@ export default function Plans() {
           category,
           planCategories, // Map(فئة -> فترات)
           initial_count: initial,
+          // خطة 0 تُضاف إلى الفترات والتعيينات معًا
           grand_periods: Number(supervisor.total_periods || 0) + initial,
           grand_assignments:
             Number(supervisor.total_assignments || 0) + initial,
@@ -625,19 +642,26 @@ export default function Plans() {
 
   const categoryStats = useMemo(() => {
     const map = new Map();
+
+    // خطة 0 تُحسب تحت فئة "متطلبات"
     initialStats.forEach((item) => {
       const n = Number(item.initial_count || 0);
+
       if (!n) return;
+
       const key = "متطلبات";
+
       const current = map.get(key) ?? {
         category: key,
         supervisorIds: new Set(),
         periods: 0,
         assignments: 0,
       };
+
       current.supervisorIds.add(String(item.supervisor_id));
       current.periods += n;
       current.assignments += n;
+
       map.set(key, current);
     });
 
@@ -670,17 +694,18 @@ export default function Plans() {
         assignments: c.assignments,
       }))
       .sort((a, b) => {
-        if (b.assignments !== a.assignments)
+        if (b.assignments !== a.assignments) {
           return b.assignments - a.assignments;
+        }
+
         return String(a.category).localeCompare(String(b.category), "ar");
       });
   }, [initialStats, mergedSupervisorStats]);
 
   const categoryTotals = useMemo(
     () => ({
-      supervisors: new Set(
-        categoryStats.flatMap((c) => [...c.supervisorIds]),
-      ).size,
+      supervisors: new Set(categoryStats.flatMap((c) => [...c.supervisorIds]))
+        .size,
       periods: categoryStats.reduce((sum, c) => sum + c.periods, 0),
       assignments: categoryStats.reduce((sum, c) => sum + c.assignments, 0),
     }),
@@ -811,19 +836,6 @@ export default function Plans() {
     window.print();
   }
 
-  // الفئات التي عمل بها المشرف (من الخطط المقبولة)، مع عدد الفترات لكل فئة
-  function categoriesFromPlans(supervisor) {
-    const plans = Array.isArray(supervisor?.plans) ? supervisor.plans : [];
-    const byCat = new Map();
-
-    plans.forEach((p) => {
-      const cat = categoryText(p.category);
-      if (!cat) return;
-      byCat.set(cat, (byCat.get(cat) || 0) + Number(p.periods || 0));
-    });
-
-    return byCat; // Map(فئة -> فترات)
-  }
   // ===================================================
   // Delete Plan
   // ===================================================
@@ -1010,6 +1022,7 @@ export default function Plans() {
                             <span className="sup-chevron">{Icons.arrow}</span>
                           </button>
 
+                          {/* نص عادي للطباعة بدل الزر */}
                           <span className="print-only sup-print-name">
                             {supervisor.supervisor_name || "غير معروف"}
                           </span>
@@ -1047,6 +1060,7 @@ export default function Plans() {
                             isSavingInitial ? "sup-initial-saving" : ""
                           }
                         >
+                          {/* نص عادي للطباعة بدل الزر */}
                           <span className="print-only sup-print-initial">
                             {initial}
                           </span>
@@ -1084,6 +1098,7 @@ export default function Plans() {
                             </button>
                           )}
                         </td>
+
                         <td>{Number(supervisor.grand_assignments || 0)}</td>
 
                         <td>
@@ -1103,70 +1118,72 @@ export default function Plans() {
               التعيينات حسب الفئة
           ================================================= */}
 
-        {categoryStats.length > 0 && (
-  <div className="sup-category-block">
-    <div className="sup-category-head">
-      <h3>التعيينات حسب الفئة</h3>
-      <span>توزيع الفترات على فئات الخطط</span>
-    </div>
+          {categoryStats.length > 0 && (
+            <div className="sup-category-block">
+              <div className="sup-category-head">
+                <h3>التعيينات حسب الفئة</h3>
+                <span>توزيع الفترات على فئات الخطط</span>
+              </div>
 
-    <table className="sup-category-table">
-      <thead>
-        <tr>
-          <th>الفئة</th>
-          <th>عدد المشرفين</th>
-          <th>الفترات</th>
-          <th>التعيينات</th>
-          <th className="sup-category-bar">النسبة</th>
-        </tr>
-      </thead>
+              <table className="sup-category-table">
+                <thead>
+                  <tr>
+                    <th>الفئة</th>
+                    <th>عدد المشرفين</th>
+                    <th>الفترات</th>
+                    <th>التعيينات</th>
+                    <th className="sup-category-bar">النسبة</th>
+                  </tr>
+                </thead>
 
-      <tbody>
-        {categoryStats.map((item) => {
-          const percent = categoryTotals.periods
-            ? Math.round((item.periods / categoryTotals.periods) * 100)
-            : 0;
+                <tbody>
+                  {categoryStats.map((item) => {
+                    const percent = categoryTotals.periods
+                      ? Math.round(
+                          (item.periods / categoryTotals.periods) * 100,
+                        )
+                      : 0;
 
-          return (
-            <tr key={item.category}>
-              <td>
-                <span
-                  className={`sup-cat-badge ${
-                    item.category === NO_CATEGORY ? "no-category" : ""
-                  }`}
-                >
-                  {item.category}
-                </span>
-              </td>
-              <td>{item.supervisors}</td>
-              <td>{item.periods}</td>
-              <td>{item.assignments}</td>
-              <td className="sup-category-bar">
-                <div className="sup-cat-progress">
-                  <div
-                    className="sup-cat-progress-fill"
-                    style={{ width: `${percent}%` }}
-                  />
-                  <span>{percent}%</span>
-                </div>
-              </td>
-            </tr>
-          );
-        })}
-      </tbody>
+                    return (
+                      <tr key={item.category}>
+                        <td>
+                          <span
+                            className={`sup-cat-badge ${
+                              item.category === NO_CATEGORY ? "no-category" : ""
+                            }`}
+                          >
+                            {item.category}
+                          </span>
+                        </td>
+                        <td>{item.supervisors}</td>
+                        <td>{item.periods}</td>
+                        <td>{item.assignments}</td>
+                        <td className="sup-category-bar">
+                          <div className="sup-cat-progress">
+                            <div
+                              className="sup-cat-progress-fill"
+                              style={{ width: `${percent}%` }}
+                            />
+                            <span>{percent}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
 
-      <tfoot>
-        <tr>
-          <td>الإجمالي</td>
-          <td>{categoryTotals.supervisors}</td>
-          <td>{categoryTotals.periods}</td>
-          <td>{categoryTotals.assignments}</td>
-          <td className="sup-category-bar" />
-        </tr>
-      </tfoot>
-    </table>
-  </div>
-)}
+                <tfoot>
+                  <tr>
+                    <td>الإجمالي</td>
+                    <td>{categoryTotals.supervisors}</td>
+                    <td>{categoryTotals.periods}</td>
+                    <td>{categoryTotals.assignments}</td>
+                    <td className="sup-category-bar" />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
 
           <p className="sup-initial-note">
             خطة 0 = رصيد ابتدائي (من جدول المتطلبات السابق) يُضاف إلى الفترات
@@ -1310,7 +1327,9 @@ export default function Plans() {
                 <thead>
                   <tr>
                     <th>الخطة</th>
+
                     <th>الفئة</th>
+
                     <th>المشرفون</th>
 
                     <th>التعيينات</th>
@@ -1340,6 +1359,7 @@ export default function Plans() {
                           plan.assignmentCount ??
                           0,
                       );
+
                     const planCategoryLabel =
                       categoryText(plan.category) || NO_CATEGORY;
 
