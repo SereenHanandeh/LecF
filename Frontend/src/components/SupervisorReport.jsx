@@ -14,6 +14,13 @@ import "../assets/SupervisorReport.css";
 // Helpers
 // =====================================================
 
+// خطة 0: 5 تعيينات أو أقل = يوم واحد، أكثر من 5 = يومان
+const INITIAL_DAYS_THRESHOLD = 5;
+
+function getInitialDays(assignments) {
+  return Number(assignments) > INITIAL_DAYS_THRESHOLD ? 2 : 1;
+}
+
 const toArray = (res) => {
   if (Array.isArray(res)) return res;
   if (Array.isArray(res?.data)) return res.data;
@@ -192,6 +199,7 @@ export default function SupervisorReport() {
         planId: p.plan_id ?? p.id,
         dateFrom: p.date_from,
         dateTo: p.date_to,
+        days: Number(countDays(p.date_from, p.date_to)) || 0,
         periods: Number(p.periods ?? 0),
         assignments: Number(p.assignments ?? 0),
       }))
@@ -208,8 +216,10 @@ export default function SupervisorReport() {
           isInitial: true,
           dateFrom: null,
           dateTo: null,
-          periods: initialCount, // تُضاف إلى الفترات فقط
-          assignments: initialCount,
+          // 5 تعيينات أو أقل = يوم، أكثر من 5 = يومان
+          days: getInitialDays(initialCount),
+          periods: initialCount, // تُضاف إلى الفترات
+          assignments: initialCount, // وتُضاف إلى التعيينات
         },
         ...planRows,
       ];
@@ -221,10 +231,7 @@ export default function SupervisorReport() {
   const totals = useMemo(
     () => ({
       plans: rows.filter((r) => !r.isInitial).length,
-      days: rows.reduce(
-        (sum, r) => sum + (Number(countDays(r.dateFrom, r.dateTo)) || 0),
-        0,
-      ),
+      days: rows.reduce((sum, r) => sum + (Number(r.days) || 0), 0),
       periods: rows.reduce((sum, r) => sum + r.periods, 0),
       assignments: rows.reduce((sum, r) => sum + r.assignments, 0),
     }),
@@ -356,11 +363,8 @@ export default function SupervisorReport() {
                             : formatWeekdayRange(row.dateFrom, row.dateTo)}
                         </td>
 
-                        <td>
-                          {row.isInitial
-                            ? "-"
-                            : countDays(row.dateFrom, row.dateTo)}
-                        </td>
+                        {/* خطة 0: يوم واحد (≤ 5 تعيينات) أو يومان (> 5) */}
+                        <td>{row.days}</td>
 
                         <td>{row.periods}</td>
 
