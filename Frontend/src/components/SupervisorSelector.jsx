@@ -12,6 +12,9 @@ export default function SupervisorSelector({
   const [supervisors, setSupervisors] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const isActiveSupervisor = (s) =>
+  s.active === true || s.active === 1 || s.active === "true";
+
   useEffect(() => {
     let mounted = true;
 
@@ -28,13 +31,12 @@ export default function SupervisorSelector({
 
         if (!mounted) return;
 
-        const list = Array.isArray(
-          res?.supervisors
-        )
-          ? res.supervisors
-          : [];
+     const list = (Array.isArray(res?.supervisors) ? res.supervisors : []).filter(
+  isActiveSupervisor,
+);
 
-        setSupervisors(list);
+setSupervisors(list);
+      
       } catch (error) {
         console.error(
           "❌ Failed to load supervisors:",
@@ -78,6 +80,17 @@ export default function SupervisorSelector({
         Number.isInteger(id)
       );
   }, [selected]);
+
+  useEffect(() => {
+  if (loading || affinityMode) return;
+
+  const activeIds = new Set(supervisors.map((s) => Number(s.id)));
+  const cleaned = selectedIds.filter((id) => activeIds.has(id));
+
+  if (cleaned.length !== selectedIds.length) {
+    setSelected(cleaned);
+  }
+}, [loading, affinityMode, supervisors, selectedIds, setSelected]);
 
   // ==========================================================
   // Affinity mode

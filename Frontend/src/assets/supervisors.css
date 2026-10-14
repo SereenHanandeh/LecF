@@ -994,3 +994,34 @@ input:focus-visible {
     animation: none;
   }
 }
+
+.delete-supervisor-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #dc2626;
+  font-weight: 600;
+  cursor: pointer;
+}
+.delete-supervisor-button svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.delete-supervisor-button:hover {
+  background: #fee2e2;
+}
+.modal-save.delete-confirm {
+  background: #dc2626;
+}
+.modal-save.delete-confirm:hover {
+  background: #b91c1c;
+}

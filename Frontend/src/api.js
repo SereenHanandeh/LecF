@@ -148,8 +148,10 @@ export const uploadExcelFromUrl = (body) =>
 // Supervisors
 // ==============================
 
-export const listSupervisors = () =>
-  api.get("/supervisors").then((res) => res.data);
+export const listSupervisors = (activeOnly = true) =>
+  api
+    .get("/supervisors", { params: activeOnly ? { active: "true" } : {} })
+    .then((res) => res.data);
 
 export const getSupervisors = () =>
   api.get("/supervisors").then((res) => res.data);
@@ -159,6 +161,9 @@ export const createSupervisor = (payload) =>
 
 export const updateSupervisor = (id, payload) =>
   api.patch(`/supervisors/${id}`, payload).then((res) => res.data);
+
+export const deleteSupervisor = (id) =>
+  api.delete(`/supervisors/${id}`).then((res) => res.data);
 
 // ==============================
 // Assignments

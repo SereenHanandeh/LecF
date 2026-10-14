@@ -6,6 +6,7 @@ import {
   getSupervisors,
   createSupervisor,
   updateSupervisor,
+  deleteSupervisor,
 } from "../api.js";
 
 import "../assets/supervisors.css";
@@ -24,6 +25,9 @@ export default function Supervisors() {
   const [showForm, setShowForm] = useState(false);
 
   const [editingId, setEditingId] = useState(null);
+
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
 
   const [form, setForm] = useState({
     name: "",
@@ -244,6 +248,36 @@ export default function Supervisors() {
     }
   };
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return;
+
+    try {
+      setDeleting(true);
+      setError("");
+      setSuccess("");
+
+      await deleteSupervisor(deleteTarget.id);
+
+      setSupervisors((current) =>
+        current.filter((item) => item.id !== deleteTarget.id),
+      );
+
+      setSuccess(`تم حذف المشرف ${deleteTarget.name}`);
+      setDeleteTarget(null);
+    } catch (err) {
+      console.error("Delete supervisor error:", err);
+
+      setError(
+        err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          "تعذر حذف المشرف. إذا كان مرتبطًا بخطط سابقة فيمكنك إيقافه بدلًا من حذفه.",
+      );
+      setDeleteTarget(null);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="supervisors-page" dir="rtl">
       <Sidebar />
@@ -384,9 +418,7 @@ export default function Supervisors() {
             <div>
               <h2>قائمة المشرفين</h2>
 
-              <p>
-                يمكنك تعديل بيانات المشرف أو تغيير حالته مباشرة.
-              </p>
+              <p>يمكنك تعديل بيانات المشرف أو تغيير حالته مباشرة.</p>
             </div>
 
             <div className="supervisor-search">
@@ -436,10 +468,7 @@ export default function Supervisors() {
                 </p>
 
                 {!search && (
-                  <button
-                    type="button"
-                    onClick={openAddForm}
-                  >
+                  <button type="button" onClick={openAddForm}>
                     + إضافة أول مشرف
                   </button>
                 )}
@@ -466,9 +495,7 @@ export default function Supervisors() {
                     return (
                       <tr key={supervisor.id}>
                         <td>
-                          <span className="row-number">
-                            {index + 1}
-                          </span>
+                          <span className="row-number">{index + 1}</span>
                         </td>
 
                         <td>
@@ -483,9 +510,7 @@ export default function Supervisors() {
                             <div>
                               <strong>{supervisor.name}</strong>
 
-                              <span>
-                                مشرف في النظام
-                              </span>
+                              <span>مشرف في النظام</span>
                             </div>
                           </div>
                         </td>
@@ -498,9 +523,7 @@ export default function Supervisors() {
                                 ? "status-toggle active"
                                 : "status-toggle inactive"
                             }
-                            onClick={() =>
-                              toggleSupervisor(supervisor)
-                            }
+                            onClick={() => toggleSupervisor(supervisor)}
                             title={
                               isActive
                                 ? "اضغط لإيقاف المشرف"
@@ -509,9 +532,7 @@ export default function Supervisors() {
                           >
                             <span className="status-dot" />
 
-                            {isActive
-                              ? "نشط"
-                              : "غير نشط"}
+                            {isActive ? "نشط" : "غير نشط"}
                           </button>
                         </td>
 
@@ -522,20 +543,32 @@ export default function Supervisors() {
                         </td>
 
                         <td>
-                          <button
-                            type="button"
-                            className="edit-supervisor-button"
-                            onClick={() =>
-                              openEditForm(supervisor)
-                            }
-                          >
-                            <svg viewBox="0 0 24 24">
-                              <path d="M12 20h9" />
-                              <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
-                            </svg>
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button
+                              type="button"
+                              className="edit-supervisor-button"
+                              onClick={() => openEditForm(supervisor)}
+                            >
+                              <svg viewBox="0 0 24 24">
+                                <path d="M12 20h9" />
+                                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+                              </svg>
+                              تعديل
+                            </button>
 
-                            تعديل
-                          </button>
+                            <button
+                              type="button"
+                              className="delete-supervisor-button"
+                              onClick={() => setDeleteTarget(supervisor)}
+                            >
+                              <svg viewBox="0 0 24 24">
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4h8v2" />
+                                <path d="M19 6l-1 14H6L5 6" />
+                              </svg>
+                              حذف
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -576,11 +609,7 @@ export default function Supervisors() {
                   {editingId ? "EDIT SUPERVISOR" : "NEW SUPERVISOR"}
                 </span>
 
-                <h2>
-                  {editingId
-                    ? "تعديل المشرف"
-                    : "إضافة مشرف جديد"}
-                </h2>
+                <h2>{editingId ? "تعديل المشرف" : "إضافة مشرف جديد"}</h2>
 
                 <p>
                   {editingId
@@ -601,9 +630,7 @@ export default function Supervisors() {
 
             <form onSubmit={handleSubmit}>
               <div className="form-field">
-                <label htmlFor="supervisor-name">
-                  اسم المشرف
-                </label>
+                <label htmlFor="supervisor-name">اسم المشرف</label>
 
                 <input
                   id="supervisor-name"
@@ -634,15 +661,11 @@ export default function Supervisors() {
                   disabled={saving}
                 />
 
-                <span className="custom-checkbox">
-                  {form.active && "✓"}
-                </span>
+                <span className="custom-checkbox">{form.active && "✓"}</span>
 
                 <span>
                   <strong>المشرف نشط</strong>
-                  <small>
-                    يمكن اختياره ضمن المشرفين المناوبين.
-                  </small>
+                  <small>يمكن اختياره ضمن المشرفين المناوبين.</small>
                 </span>
               </label>
 
@@ -656,22 +679,59 @@ export default function Supervisors() {
                   إلغاء
                 </button>
 
-                <button
-                  type="submit"
-                  className="modal-save"
-                  disabled={saving}
-                >
+                <button type="submit" className="modal-save" disabled={saving}>
                   {saving ? (
                     <>
                       <span className="button-spinner" />
                       جاري الحفظ...
                     </>
                   ) : (
-                    <>
-                      {editingId
-                        ? "حفظ التعديلات"
-                        : "إضافة المشرف"}
-                    </>
+                    <>{editingId ? "حفظ التعديلات" : "إضافة المشرف"}</>
+                  )}
+                  {deleteTarget && (
+                    <div
+                      className="supervisor-modal-overlay"
+                      onMouseDown={(e) => {
+                        if (e.target === e.currentTarget && !deleting)
+                          setDeleteTarget(null);
+                      }}
+                    >
+                      <div className="supervisor-modal">
+                        <div className="modal-header">
+                          <div>
+                            <span className="modal-kicker">
+                              DELETE SUPERVISOR
+                            </span>
+                            <h2>حذف المشرف</h2>
+                            <p>
+                              هل أنت متأكد من حذف{" "}
+                              <strong>{deleteTarget.name}</strong>؟ لا يمكن
+                              التراجع عن هذا الإجراء.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="modal-actions">
+                          <button
+                            type="button"
+                            className="modal-cancel"
+                            onClick={() => setDeleteTarget(null)}
+                            disabled={deleting}
+                          >
+                            إلغاء
+                          </button>
+
+                          <button
+                            type="button"
+                            className="modal-save delete-confirm"
+                            onClick={handleDelete}
+                            disabled={deleting}
+                          >
+                            {deleting ? "جاري الحذف..." : "نعم، احذف"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   )}
                 </button>
               </div>
