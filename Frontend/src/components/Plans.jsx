@@ -15,6 +15,12 @@ import "../assets/Plan.css";
 
 const API_BASE_URL = "http://localhost:5000";
 
+// عدد الخطط التي تظهر افتراضيًا (الأحدث أولًا)
+const PLANS_PREVIEW_LIMIT = 10;
+
+// خطة 0: 5 تعيينات أو أقل = يوم واحد، أكثر من 5 = يومان
+const INITIAL_DAYS_THRESHOLD = 5;
+
 // =====================================================
 // Icons
 // =====================================================
@@ -107,6 +113,52 @@ const Icons = {
 // =====================================================
 
 const NO_CATEGORY = "بدون فئة";
+
+// تنسيق بسيط لحقول التاريخ وزر "عرض المزيد" (يعمل دون الحاجة لتعديل CSS)
+const dateFilterStyles = {
+  wrap: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  label: {
+    display: "flex",
+    alignItems: "center",
+    gap: 6,
+    fontSize: 13,
+    color: "#475569",
+  },
+  input: {
+    padding: "7px 10px",
+    border: "1px solid #cbd5e1",
+    borderRadius: 10,
+    background: "#fff",
+    font: "inherit",
+    fontSize: 13,
+  },
+  btn: {
+    padding: "7px 14px",
+    border: "1px solid #cbd5e1",
+    borderRadius: 10,
+    background: "#fff",
+    font: "inherit",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  hint: {
+    margin: "8px 4px 0",
+    fontSize: 13,
+    color: "#64748b",
+  },
+  moreBar: {
+    display: "flex",
+    justifyContent: "center",
+    gap: 10,
+    margin: "14px 0 4px",
+  },
+};
 
 function toArray(res) {
   if (Array.isArray(res)) return res;
@@ -221,6 +273,31 @@ function formatDateRange(from, to) {
 }
 
 // =====================================================
+// Days Helpers
+// =====================================================
+
+// عدد الأيام بين تاريخين (شاملًا اليوم الأول والأخير)، أو 0 إن كان غير صالح
+function countDays(from, to) {
+  if (!from || !to) return 0;
+
+  const a = new Date(from);
+  const b = new Date(to);
+
+  if (Number.isNaN(a.getTime()) || Number.isNaN(b.getTime())) return 0;
+
+  return Math.max(0, Math.round((b - a) / 86400000) + 1);
+}
+
+// أيام خطة 0: 5 تعيينات أو أقل = يوم، أكثر من 5 = يومان، ولا شيء = 0
+function getInitialDays(count) {
+  const n = Number(count) || 0;
+
+  if (n <= 0) return 0;
+
+  return n > INITIAL_DAYS_THRESHOLD ? 2 : 1;
+}
+
+// =====================================================
 // Weekday Helpers
 // =====================================================
 
@@ -284,6 +361,13 @@ function getStatus(plan) {
   };
 }
 
+// وقت إنشاء الخطة (للترتيب)
+function planTime(plan) {
+  const t = new Date(plan.created_at ?? 0).getTime();
+
+  return Number.isNaN(t) ? 0 : t;
+}
+
 // =====================================================
 // Plans Page
 // =====================================================
@@ -300,6 +384,11 @@ export default function Plans() {
   const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
+
+  // فلتر التاريخ (تاريخ إنشاء الخطة) + عرض كل الخطط
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [showAllPlans, setShowAllPlans] = useState(false);
 
   const [deletingPlanId, setDeletingPlanId] = useState(null);
 
@@ -387,10 +476,6 @@ export default function Plans() {
       console.log("📊 Received stats:", receivedStats);
       console.log("0️⃣ Received initial stats:", receivedInitial);
       console.log("🏷️ Received supervisors:", receivedSupervisors);
-      console.log(
-        "🏷️ Supervisor fields (first record):",
-        receivedSupervisors[0] ? Object.keys(receivedSupervisors[0]) : [],
-      );
 
       setPlans(receivedPlans);
       setSupervisorStats(receivedStats);
@@ -471,30 +556,71 @@ export default function Plans() {
   }, [acceptedPlans]);
 
   // ===================================================
-  // Filter
+  // Filter (بحث + تاريخ) — الأحدث أولًا
   // ===================================================
+
+  const hasFilters = Boolean(search.trim() || dateFrom || dateTo);
 
   const filteredPlans = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return acceptedPlans.filter((plan) => {
-      const name = String(plan.name || "").toLowerCase();
+    const from = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
+    const to = dateTo ? new Date(`${dateTo}T23:59:59.999`) : null;
 
-      const id = String(plan.id || "").toLowerCase();
+    return acceptedPlans
+      .filter((plan) => {
+        const name = String(plan.name || "").toLowerCase();
 
-      const number = String(planNumbers.get(String(plan.id)) ?? "");
+        const id = String(plan.id || "").toLowerCase();
 
-      const category = String(categoryText(plan.category) || "").toLowerCase();
+        const number = String(planNumbers.get(String(plan.id)) ?? "");
 
-      return (
-        !query ||
-        name.includes(query) ||
-        id.includes(query) ||
-        number.includes(query) ||
-        category.includes(query)
-      );
-    });
-  }, [acceptedPlans, search, planNumbers]);
+        const category = String(
+          categoryText(plan.category) || "",
+        ).toLowerCase();
+
+        const matchesQuery =
+          !query ||
+          name.includes(query) ||
+          id.includes(query) ||
+          number.includes(query) ||
+          category.includes(query);
+
+        if (!matchesQuery) return false;
+
+        if (from || to) {
+          const created = new Date(plan.created_at ?? 0);
+
+          if (Number.isNaN(created.getTime())) return false;
+
+          if (from && created < from) return false;
+          if (to && created > to) return false;
+        }
+
+        return true;
+      })
+      .sort((a, b) => {
+        const diff = planTime(b) - planTime(a);
+
+        if (diff !== 0) return diff;
+
+        return Number(b.id) - Number(a.id);
+      });
+  }, [acceptedPlans, search, dateFrom, dateTo, planNumbers]);
+
+  // آخر 10 خطط فقط، إلا عند البحث/فلتر التاريخ أو الضغط على "عرض الكل"
+  const visiblePlans = useMemo(() => {
+    if (hasFilters || showAllPlans) return filteredPlans;
+
+    return filteredPlans.slice(0, PLANS_PREVIEW_LIMIT);
+  }, [filteredPlans, hasFilters, showAllPlans]);
+
+  const hiddenPlansCount = filteredPlans.length - visiblePlans.length;
+
+  function clearDateFilter() {
+    setDateFrom("");
+    setDateTo("");
+  }
 
   // ===================================================
   // Categories (supervisor_id -> category)
@@ -592,6 +718,11 @@ export default function Plans() {
               ) ??
               NO_CATEGORY);
 
+        // أيام الخطط المقبولة + أيام خطة 0
+        const planDays = (
+          Array.isArray(supervisor.plans) ? supervisor.plans : []
+        ).reduce((sum, p) => sum + countDays(p.date_from, p.date_to), 0);
+
         return {
           ...supervisor,
           category,
@@ -601,6 +732,8 @@ export default function Plans() {
           grand_periods: Number(supervisor.total_periods || 0) + initial,
           grand_assignments:
             Number(supervisor.total_assignments || 0) + initial,
+          // الأيام: خطة 0 (≤ 5 تعيينات = يوم، > 5 = يومان) + أيام الخطط
+          grand_days: planDays + getInitialDays(initial),
         };
       })
       .sort((a, b) => {
@@ -911,287 +1044,8 @@ export default function Plans() {
           </button>
         </header>
 
-        <section className="sup-stats-card">
-          {/* عنوان يظهر في الطباعة فقط */}
-          <div className="print-only sup-print-title">
-            <h2>تقرير إحصائيات المشرفين — LectureFlow</h2>
-            <span>تاريخ الطباعة: {printedAt}</span>
-          </div>
-
-          <div className="sup-stats-head">
-            <div>
-              <h2>إحصائيات المشرفين</h2>
-              <p>
-                إجمالي الفترات والتعيينات لكل مشرف في الخطط المقبولة، شاملةً
-                رصيده الابتدائي (خطة 0). اضغط على الاسم لعرض خططه.
-              </p>
-            </div>
-
-            {mergedSupervisorStats.length > 0 && (
-              <div className="sup-stats-chips">
-                <div className="sup-chip">
-                  <span>المشرفون</span>
-                  <strong>{statsSummary.supervisors}</strong>
-                </div>
-                <div className="sup-chip">
-                  <span>إجمالي الفترات</span>
-                  <strong>{statsSummary.totalPeriods}</strong>
-                </div>
-                <div className="sup-chip">
-                  <span>فرق التوزيع</span>
-                  <strong>{statsSummary.difference}</strong>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* زر الطباعة فوق الجدول */}
-          {mergedSupervisorStats.length > 0 && (
-            <div className="sup-print-bar no-print">
-              <button
-                type="button"
-                className="sup-print-btn"
-                onClick={handlePrintStats}
-                title="طباعة كل الإحصائيات"
-              >
-                <span className="sup-print-icon">{Icons.print}</span>
-                طباعة الإحصائيات
-              </button>
-            </div>
-          )}
-
-          {mergedSupervisorStats.length === 0 ? (
-            <div className="supervisor-stats-empty">
-              لا توجد بيانات إحصائية للخطط المقبولة.
-            </div>
-          ) : (
-            <div className="sup-stats-table-wrap">
-              <table className="sup-stats-table">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>المشرف</th>
-                    <th>الفئة</th>
-                    <th>الفترات</th>
-                    <th>خطة 0</th>
-                    <th>التعيينات</th>
-                    <th>الخطط</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {mergedSupervisorStats.map((supervisor, index) => {
-                    const id = supervisor.supervisor_id;
-                    const periods = Number(supervisor.grand_periods || 0);
-                    const initial = Number(supervisor.initial_count || 0);
-                    const percent = statsSummary.max
-                      ? Math.round((periods / statsSummary.max) * 100)
-                      : 0;
-
-                    const isEditingInitial = editingInitialId === String(id);
-
-                    const isSavingInitial = savingInitialId === String(id);
-
-                    return (
-                      <tr className="sup-row" key={id}>
-                        <td>
-                          <span
-                            className={`sup-rank rank-${index < 3 ? index + 1 : "n"}`}
-                          >
-                            {index + 1}
-                          </span>
-                        </td>
-
-                        <td>
-                          <button
-                            type="button"
-                            className="sup-name-btn no-print"
-                            onClick={() => openSupervisorReport(id)}
-                            title="عرض تقرير المشرف"
-                          >
-                            <span className="sup-avatar">
-                              {String(supervisor.supervisor_name || "?").charAt(
-                                0,
-                              )}
-                            </span>
-
-                            <span className="sup-name">
-                              {supervisor.supervisor_name || "غير معروف"}
-                            </span>
-
-                            <span className="sup-chevron">{Icons.arrow}</span>
-                          </button>
-
-                          {/* نص عادي للطباعة بدل الزر */}
-                          <span className="print-only sup-print-name">
-                            {supervisor.supervisor_name || "غير معروف"}
-                          </span>
-                        </td>
-
-                        {/* الفئة */}
-                        <td>
-                          <span className="sup-category">
-                            {supervisor.planCategories?.size
-                              ? [...supervisor.planCategories.entries()]
-                                  .map(([cat, n]) => `${cat} (${n})`)
-                                  .join("، ")
-                              : supervisor.category}
-                          </span>
-                        </td>
-
-                        <td>
-                          <div className="sup-progress-cell">
-                            <span className="stats-period-count">
-                              {periods}
-                            </span>
-
-                            <div className="sup-progress">
-                              <div
-                                className="sup-progress-fill"
-                                style={{ width: `${percent}%` }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* ✅ خطة 0 — الرصيد الابتدائي (قابل للتعديل) */}
-                        <td
-                          className={
-                            isSavingInitial ? "sup-initial-saving" : ""
-                          }
-                        >
-                          {/* نص عادي للطباعة بدل الزر */}
-                          <span className="print-only sup-print-initial">
-                            {initial}
-                          </span>
-
-                          {isEditingInitial ? (
-                            <input
-                              className="sup-initial-input no-print"
-                              type="number"
-                              min="0"
-                              step="1"
-                              autoFocus
-                              value={editingInitialValue}
-                              onChange={(e) =>
-                                setEditingInitialValue(e.target.value)
-                              }
-                              onBlur={() => saveInitialEdit(supervisor)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter") {
-                                  e.currentTarget.blur();
-                                }
-
-                                if (e.key === "Escape") {
-                                  cancelInitialEdit();
-                                }
-                              }}
-                            />
-                          ) : (
-                            <button
-                              type="button"
-                              className="sup-initial-badge no-print"
-                              onClick={() => startInitialEdit(supervisor)}
-                              title="تعديل الرصيد الابتدائي (خطة 0)"
-                            >
-                              {initial}
-                            </button>
-                          )}
-                        </td>
-
-                        <td>{Number(supervisor.grand_assignments || 0)}</td>
-
-                        <td>
-                          <span className="sup-plans-count">
-                            {Number(supervisor.accepted_plans || 0)}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* =================================================
-              التعيينات حسب الفئة
-          ================================================= */}
-
-          {categoryStats.length > 0 && (
-            <div className="sup-category-block">
-              <div className="sup-category-head">
-                <h3>التعيينات حسب الفئة</h3>
-                <span>توزيع الفترات على فئات الخطط</span>
-              </div>
-
-              <table className="sup-category-table">
-                <thead>
-                  <tr>
-                    <th>الفئة</th>
-                    <th>عدد المشرفين</th>
-                    <th>الفترات</th>
-                    <th>التعيينات</th>
-                    <th className="sup-category-bar">النسبة</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {categoryStats.map((item) => {
-                    const percent = categoryTotals.periods
-                      ? Math.round(
-                          (item.periods / categoryTotals.periods) * 100,
-                        )
-                      : 0;
-
-                    return (
-                      <tr key={item.category}>
-                        <td>
-                          <span
-                            className={`sup-cat-badge ${
-                              item.category === NO_CATEGORY ? "no-category" : ""
-                            }`}
-                          >
-                            {item.category}
-                          </span>
-                        </td>
-                        <td>{item.supervisors}</td>
-                        <td>{item.periods}</td>
-                        <td>{item.assignments}</td>
-                        <td className="sup-category-bar">
-                          <div className="sup-cat-progress">
-                            <div
-                              className="sup-cat-progress-fill"
-                              style={{ width: `${percent}%` }}
-                            />
-                            <span>{percent}%</span>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-
-                <tfoot>
-                  <tr>
-                    <td>الإجمالي</td>
-                    <td>{categoryTotals.supervisors}</td>
-                    <td>{categoryTotals.periods}</td>
-                    <td>{categoryTotals.assignments}</td>
-                    <td className="sup-category-bar" />
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-
-          <p className="sup-initial-note">
-            خطة 0 = رصيد ابتدائي (من جدول المتطلبات السابق) يُضاف إلى الفترات
-            والتعيينات معًا. اضغطي على الرقم لتعديله.
-          </p>
-        </section>
         {/* =================================================
-            Statistics
+            Statistics (الخطط)
         ================================================= */}
 
         <section className="plans-stat-grid">
@@ -1209,9 +1063,9 @@ export default function Plans() {
             <div className="plan-stat-icon green">{Icons.calendar}</div>
 
             <div>
-              <span>الخطط المقبولة</span>
+              <span>الخطط المطابقة</span>
 
-              <strong>{acceptedPlans.length}</strong>
+              <strong>{filteredPlans.length}</strong>
             </div>
           </div>
 
@@ -1221,7 +1075,7 @@ export default function Plans() {
             <div>
               <span>الخطط المعروضة</span>
 
-              <strong>{filteredPlans.length}</strong>
+              <strong>{visiblePlans.length}</strong>
             </div>
           </div>
         </section>
@@ -1242,7 +1096,39 @@ export default function Plans() {
             />
           </div>
 
-          <div className="plans-filters">
+          <div className="plans-filters" style={dateFilterStyles.wrap}>
+            <label style={dateFilterStyles.label}>
+              من
+              <input
+                type="date"
+                style={dateFilterStyles.input}
+                value={dateFrom}
+                max={dateTo || undefined}
+                onChange={(e) => setDateFrom(e.target.value)}
+              />
+            </label>
+
+            <label style={dateFilterStyles.label}>
+              إلى
+              <input
+                type="date"
+                style={dateFilterStyles.input}
+                value={dateTo}
+                min={dateFrom || undefined}
+                onChange={(e) => setDateTo(e.target.value)}
+              />
+            </label>
+
+            {(dateFrom || dateTo) && (
+              <button
+                type="button"
+                style={dateFilterStyles.btn}
+                onClick={clearDateFilter}
+              >
+                مسح التاريخ
+              </button>
+            )}
+
             <button
               className="refresh-button"
               onClick={() => loadPlans(true)}
@@ -1255,6 +1141,16 @@ export default function Plans() {
             </button>
           </div>
         </section>
+
+        {!loading && !error && acceptedPlans.length > PLANS_PREVIEW_LIMIT && (
+          <p style={dateFilterStyles.hint}>
+            {hasFilters
+              ? "تظهر كل الخطط المطابقة للبحث أو التاريخ، الأحدث أولًا."
+              : showAllPlans
+                ? "تظهر كل الخطط، الأحدث أولًا."
+                : `تظهر آخر ${PLANS_PREVIEW_LIMIT} خطط. لعرض الأقدم اختاري تاريخًا أو اضغطي «عرض كل الخطط».`}
+          </p>
+        )}
 
         {/* =================================================
             Content
@@ -1308,7 +1204,7 @@ export default function Plans() {
               <p>
                 {acceptedPlans.length === 0
                   ? "عند قبول أي خطة ستظهر هنا."
-                  : "جربي تغيير كلمة البحث."}
+                  : "جربي تغيير كلمة البحث أو نطاق التاريخ."}
               </p>
 
               {acceptedPlans.length === 0 && (
@@ -1321,7 +1217,7 @@ export default function Plans() {
               Table
           ================================================= */}
 
-          {!loading && !error && filteredPlans.length > 0 && (
+          {!loading && !error && visiblePlans.length > 0 && (
             <div className="plans-table-wrapper">
               <table className="plans-table">
                 <thead>
@@ -1343,7 +1239,7 @@ export default function Plans() {
                 </thead>
 
                 <tbody>
-                  {filteredPlans.map((plan) => {
+                  {visiblePlans.map((plan) => {
                     const status = getStatus(plan);
 
                     const counts = planSupervisorCounts.get(String(plan.id));
@@ -1483,21 +1379,339 @@ export default function Plans() {
               </table>
             </div>
           )}
+
+          {/* عرض باقي الخطط / الرجوع لآخر 10 */}
+          {!loading && !error && !hasFilters && filteredPlans.length > 0 && (
+            <>
+              {hiddenPlansCount > 0 && (
+                <div style={dateFilterStyles.moreBar}>
+                  <button
+                    type="button"
+                    style={dateFilterStyles.btn}
+                    onClick={() => setShowAllPlans(true)}
+                  >
+                    عرض كل الخطط ({hiddenPlansCount} أخرى)
+                  </button>
+                </div>
+              )}
+
+              {showAllPlans && filteredPlans.length > PLANS_PREVIEW_LIMIT && (
+                <div style={dateFilterStyles.moreBar}>
+                  <button
+                    type="button"
+                    style={dateFilterStyles.btn}
+                    onClick={() => setShowAllPlans(false)}
+                  >
+                    عرض آخر {PLANS_PREVIEW_LIMIT} خطط فقط
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </section>
 
         {/* =================================================
             Footer
         ================================================= */}
 
-        {!loading && !error && filteredPlans.length > 0 && (
+        {!loading && !error && visiblePlans.length > 0 && (
           <div className="plans-footer">
             <span>
-              عرض {filteredPlans.length} من {acceptedPlans.length} خطة مقبولة
+              عرض {visiblePlans.length} من {acceptedPlans.length} خطة مقبولة
             </span>
 
             <span>LectureFlow</span>
           </div>
         )}
+
+        {/* =================================================
+            إحصائيات المشرفين (تحت الخطط)
+        ================================================= */}
+
+        <section className="sup-stats-card">
+          {/* عنوان يظهر في الطباعة فقط */}
+          <div className="print-only sup-print-title">
+            <h2>تقرير إحصائيات المشرفين — LectureFlow</h2>
+            <span>تاريخ الطباعة: {printedAt}</span>
+          </div>
+
+          <div className="sup-stats-head">
+            <div>
+              <h2>إحصائيات المشرفين</h2>
+              <p>
+                إجمالي الفترات والأيام والتعيينات لكل مشرف في الخطط المقبولة،
+                شاملةً رصيده الابتدائي (خطة 0). اضغط على الاسم لعرض خططه.
+              </p>
+            </div>
+
+            {mergedSupervisorStats.length > 0 && (
+              <div className="sup-stats-chips">
+                <div className="sup-chip">
+                  <span>المشرفون</span>
+                  <strong>{statsSummary.supervisors}</strong>
+                </div>
+                <div className="sup-chip">
+                  <span>إجمالي الفترات</span>
+                  <strong>{statsSummary.totalPeriods}</strong>
+                </div>
+                <div className="sup-chip">
+                  <span>فرق التوزيع</span>
+                  <strong>{statsSummary.difference}</strong>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* زر الطباعة فوق الجدول */}
+          {mergedSupervisorStats.length > 0 && (
+            <div className="sup-print-bar no-print">
+              <button
+                type="button"
+                className="sup-print-btn"
+                onClick={handlePrintStats}
+                title="طباعة كل الإحصائيات"
+              >
+                <span className="sup-print-icon">{Icons.print}</span>
+                طباعة الإحصائيات
+              </button>
+            </div>
+          )}
+
+          {mergedSupervisorStats.length === 0 ? (
+            <div className="supervisor-stats-empty">
+              لا توجد بيانات إحصائية للخطط المقبولة.
+            </div>
+          ) : (
+            <div className="sup-stats-table-wrap">
+              <table className="sup-stats-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>المشرف</th>
+                    <th>الفئة</th>
+                    <th>الفترات</th>
+                    <th>الأيام</th>
+                    <th>خطة 0</th>
+                    <th>التعيينات</th>
+                    <th>الخطط</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {mergedSupervisorStats.map((supervisor, index) => {
+                    const id = supervisor.supervisor_id;
+                    const periods = Number(supervisor.grand_periods || 0);
+                    const initial = Number(supervisor.initial_count || 0);
+                    const percent = statsSummary.max
+                      ? Math.round((periods / statsSummary.max) * 100)
+                      : 0;
+
+                    const isEditingInitial = editingInitialId === String(id);
+
+                    const isSavingInitial = savingInitialId === String(id);
+
+                    return (
+                      <tr className="sup-row" key={id}>
+                        <td>
+                          <span
+                            className={`sup-rank rank-${index < 3 ? index + 1 : "n"}`}
+                          >
+                            {index + 1}
+                          </span>
+                        </td>
+
+                        <td>
+                          <button
+                            type="button"
+                            className="sup-name-btn no-print"
+                            onClick={() => openSupervisorReport(id)}
+                            title="عرض تقرير المشرف"
+                          >
+                            <span className="sup-avatar">
+                              {String(supervisor.supervisor_name || "?").charAt(
+                                0,
+                              )}
+                            </span>
+
+                            <span className="sup-name">
+                              {supervisor.supervisor_name || "غير معروف"}
+                            </span>
+
+                            <span className="sup-chevron">{Icons.arrow}</span>
+                          </button>
+
+                          {/* نص عادي للطباعة بدل الزر */}
+                          <span className="print-only sup-print-name">
+                            {supervisor.supervisor_name || "غير معروف"}
+                          </span>
+                        </td>
+
+                        {/* الفئة */}
+                        <td>
+                          <span className="sup-category">
+                            {supervisor.planCategories?.size
+                              ? [...supervisor.planCategories.entries()]
+                                  .map(([cat, n]) => `${cat} (${n})`)
+                                  .join("، ")
+                              : supervisor.category}
+                          </span>
+                        </td>
+
+                        <td>
+                          <div className="sup-progress-cell">
+                            <span className="stats-period-count">
+                              {periods}
+                            </span>
+
+                            <div className="sup-progress">
+                              <div
+                                className="sup-progress-fill"
+                                style={{ width: `${percent}%` }}
+                              />
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* الأيام (خطة 0: ≤ 5 تعيينات = يوم، > 5 = يومان) */}
+                        <td>{Number(supervisor.grand_days || 0)}</td>
+
+                        {/* ✅ خطة 0 — الرصيد الابتدائي (قابل للتعديل) */}
+                        <td
+                          className={
+                            isSavingInitial ? "sup-initial-saving" : ""
+                          }
+                        >
+                          {/* نص عادي للطباعة بدل الزر */}
+                          <span className="print-only sup-print-initial">
+                            {initial}
+                          </span>
+
+                          {isEditingInitial ? (
+                            <input
+                              className="sup-initial-input no-print"
+                              type="number"
+                              min="0"
+                              step="1"
+                              autoFocus
+                              value={editingInitialValue}
+                              onChange={(e) =>
+                                setEditingInitialValue(e.target.value)
+                              }
+                              onBlur={() => saveInitialEdit(supervisor)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.currentTarget.blur();
+                                }
+
+                                if (e.key === "Escape") {
+                                  cancelInitialEdit();
+                                }
+                              }}
+                            />
+                          ) : (
+                            <button
+                              type="button"
+                              className="sup-initial-badge no-print"
+                              onClick={() => startInitialEdit(supervisor)}
+                              title="تعديل الرصيد الابتدائي (خطة 0)"
+                            >
+                              {initial}
+                            </button>
+                          )}
+                        </td>
+
+                        <td>{Number(supervisor.grand_assignments || 0)}</td>
+
+                        <td>
+                          <span className="sup-plans-count">
+                            {Number(supervisor.accepted_plans || 0)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* =================================================
+              التعيينات حسب الفئة
+          ================================================= */}
+
+          {categoryStats.length > 0 && (
+            <div className="sup-category-block">
+              <div className="sup-category-head">
+                <h3>التعيينات حسب الفئة</h3>
+                <span>توزيع الفترات على فئات الخطط</span>
+              </div>
+
+              <table className="sup-category-table">
+                <thead>
+                  <tr>
+                    <th>الفئة</th>
+                    <th>عدد المشرفين</th>
+                    <th>الفترات</th>
+                    <th>التعيينات</th>
+                    <th className="sup-category-bar">النسبة</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {categoryStats.map((item) => {
+                    const percent = categoryTotals.periods
+                      ? Math.round(
+                          (item.periods / categoryTotals.periods) * 100,
+                        )
+                      : 0;
+
+                    return (
+                      <tr key={item.category}>
+                        <td>
+                          <span
+                            className={`sup-cat-badge ${
+                              item.category === NO_CATEGORY ? "no-category" : ""
+                            }`}
+                          >
+                            {item.category}
+                          </span>
+                        </td>
+                        <td>{item.supervisors}</td>
+                        <td>{item.periods}</td>
+                        <td>{item.assignments}</td>
+                        <td className="sup-category-bar">
+                          <div className="sup-cat-progress">
+                            <div
+                              className="sup-cat-progress-fill"
+                              style={{ width: `${percent}%` }}
+                            />
+                            <span>{percent}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+
+                <tfoot>
+                  <tr>
+                    <td>الإجمالي</td>
+                    <td>{categoryTotals.supervisors}</td>
+                    <td>{categoryTotals.periods}</td>
+                    <td>{categoryTotals.assignments}</td>
+                    <td className="sup-category-bar" />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
+
+          <p className="sup-initial-note">
+            خطة 0 = رصيد ابتدائي (من جدول المتطلبات السابق) يُضاف إلى الفترات
+            والتعيينات معًا، ويُحسب في الأيام: يوم واحد لـ 5 تعيينات أو أقل،
+            ويومان لأكثر من 5. اضغطي على الرقم لتعديله.
+          </p>
+        </section>
       </main>
     </div>
   );
