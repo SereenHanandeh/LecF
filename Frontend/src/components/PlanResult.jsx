@@ -433,6 +433,9 @@ const computeRowHeight = (row, widths) => {
   return Math.max(EXCEL_ROW_HEIGHT, maxLines * 22);
 };
 
+// قاعات تُخفى من جدول الإشغال إذا كانت فارغة في كل الفترات
+const HIDE_IF_EMPTY_ROOMS = ["6", "100", "101", "102"];
+
 // =====================================================
 // Rooms Occupancy Helpers
 // =====================================================
@@ -1461,7 +1464,7 @@ export default function PlanResult() {
     );
 
     // القاعات حسب نوع الخطة
-    const rooms = allRooms
+    const allCategoryRooms = allRooms
       .filter((r) => isRoomAllowedForCategory(r, planCategory))
       .sort((a, b) =>
         String(a.room_number).localeCompare(String(b.room_number), "en", {
@@ -1475,6 +1478,7 @@ export default function PlanResult() {
 
     // القاعة|التاريخ|الفترة -> أسماء الأساتذة
     const occupied = new Map();
+    const usedRooms = new Set(); // القاعات المستخدمة في أي فترة
 
     planData.forEach((a) => {
       const room = String(getRoomNumber(a)).trim();
@@ -1482,10 +1486,17 @@ export default function PlanResult() {
       const period = getPeriod(a);
       if (!room || room === "-" || !date) return;
 
+      usedRooms.add(room);
+
       const key = `${room}|${date}|${period}`;
       if (!occupied.has(key)) occupied.set(key, new Set());
       occupied.get(key).add(getProfessorName(a));
     });
+
+    // إخفاء 6 و100 و101 و102 إذا كانت فارغة تمامًا
+    const rooms = allCategoryRooms.filter(
+      (r) => !HIDE_IF_EMPTY_ROOMS.includes(r.number) || usedRooms.has(r.number),
+    );
 
     return { periods, rooms, occupied };
   }, [planData, allRooms, planCategory]);
