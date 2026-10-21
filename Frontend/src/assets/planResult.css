@@ -1800,9 +1800,15 @@
     font-size: 14px;
   }
 
-  /* نخفي العنوان المكرر الخاص بالشاشة */
   body.printing-rooms .rooms-occupancy-panel .panel-heading,
   body.printing-rooms .rooms-legend {
+    display: none !important;
+  }
+}
+
+@media print {
+  body.printing-plan .rooms-occupancy-panel,
+  body.printing-plan .rooms-print-header {
     display: none !important;
   }
 }

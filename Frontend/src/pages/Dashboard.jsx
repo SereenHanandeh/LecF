@@ -205,8 +205,13 @@ const Icons = {
     </svg>
   ),
 };
+// قاعات محذوفة نهائيًا: لا تظهر في أي مكان
+const EXCLUDED_ROOMS = ["6", "42"];
 
-const LOW_ROOM_NUMBERS = ["1", "2", "3", "4", "5","G 07 خدمات طلابية"];
+// قاعات آخر أولوية + تنبيه أصفر عند استخدامها
+const LAST_PRIORITY_ROOMS = ["100", "101", "102"];
+
+const LOW_ROOM_NUMBERS = ["1", "2", "3", "4", "5", "G 07 خدمات طلابية"];
 
 // قاعة الخدمات الطلابية: نتعرف عليها من الوسم
 const isStudentServices = (room) => String(room.tag || "").includes("خدمات");
@@ -247,7 +252,6 @@ const isRoomAllowedForCategory = (room, category) => {
       return false;
   }
 };
-
 
 /* =========================================================
    Dashboard
@@ -305,10 +309,17 @@ export default function Dashboard() {
     setTwoProfessorsPerSupervisorEnabled(false);
   }, [planCategory]);
 
-  // تحميل القاعات من الـ API
   useEffect(() => {
     listRooms(true)
-      .then((list) => setAllRooms(Array.isArray(list) ? list : []))
+      .then((list) =>
+        setAllRooms(
+          Array.isArray(list)
+            ? list.filter(
+                (r) => !EXCLUDED_ROOMS.includes(String(r.room_number).trim()),
+              )
+            : [],
+        ),
+      )
       .catch((err) => {
         console.error("❌ Failed to load rooms:", err);
         setAllRooms([]);
@@ -318,16 +329,16 @@ export default function Dashboard() {
   /* =========================================================
      Rooms (derived from API)
   ========================================================= */
-const allowedRooms = useMemo(() => {
-  if (!planCategory) return [];
+  const allowedRooms = useMemo(() => {
+    if (!planCategory) return [];
 
-  return allRooms
-    .filter((r) => isRoomAllowedForCategory(r, planCategory))
-    .map((r) => String(r.room_number));
-}, [allRooms, planCategory]);
+    return allRooms
+      .filter((r) => isRoomAllowedForCategory(r, planCategory))
+      .map((r) => String(r.room_number));
+  }, [allRooms, planCategory]);
 
-// ما عاد في قاعات خاصة تنضاف لكل الفئات
-const selectableRooms = allowedRooms;
+  // ما عاد في قاعات خاصة تنضاف لكل الفئات
+  const selectableRooms = allowedRooms;
 
   const roomTagMap = useMemo(
     () =>
@@ -338,21 +349,30 @@ const selectableRooms = allowedRooms;
   const roomLabel = (room) =>
     roomTagMap[room] ? `قاعة ${room} (${roomTagMap[room]})` : `قاعة ${room}`;
 
-  // قاعات تُستخدم فقط إذا ما في بديل (كل قاعة لها tag)
+  // قاعات ذات وسم + قاعات آخر أولوية: لا تُستخدم إلا إذا ما في بديل
   const LOW_PRIORITY_ROOMS = useMemo(
-    () => allRooms.filter((r) => r.tag).map((r) => String(r.room_number)),
+    () => [
+      ...new Set([
+        ...allRooms.filter((r) => r.tag).map((r) => String(r.room_number)),
+        ...LAST_PRIORITY_ROOMS,
+      ]),
+    ],
     [allRooms],
   );
 
-  // القاعات العادية أولًا (تصاعديًا) ثم القاعات ذات الوسم بالآخر
+  // 0 = عادية، 1 = ذات وسم، 2 = 100/101/102 (الأخيرة دائمًا)
+  const roomPriority = (room) => {
+    if (LAST_PRIORITY_ROOMS.includes(room)) return 2;
+    if (LOW_PRIORITY_ROOMS.includes(room)) return 1;
+    return 0;
+  };
+
   const sortRoomsByPriority = (rooms) =>
     [...rooms].sort((a, b) => {
-      const la = LOW_PRIORITY_ROOMS.includes(a) ? 1 : 0;
-      const lb = LOW_PRIORITY_ROOMS.includes(b) ? 1 : 0;
+      const diff = roomPriority(a) - roomPriority(b);
+      if (diff !== 0) return diff;
 
-      if (la !== lb) return la - lb;
-
-      return Number(a) - Number(b);
+      return String(a).localeCompare(String(b), "en", { numeric: true });
     });
 
   const autoRoomPool = sortRoomsByPriority(
@@ -540,6 +560,16 @@ const selectableRooms = allowedRooms;
     totalProfessorPeriods - roomAssignments.length,
   );
 
+  const selectedLastPriorityRooms = useMemo(() => {
+    const picked = new Set([
+      ...selectedRoomsForAuto,
+      ...roomAssignments.map((a) => String(a.roomNumber)),
+      ...roomLinks.map((l) => l.roomNumber),
+    ]);
+
+    return LAST_PRIORITY_ROOMS.filter((room) => picked.has(room));
+  }, [selectedRoomsForAuto, roomAssignments, roomLinks]);
+
   const canGenerate =
     rows.length > 0 &&
     hasDateScope &&
@@ -644,7 +674,7 @@ const selectableRooms = allowedRooms;
       setRoomLinks([]);
       setLinkRoom("");
       setLinkProfessors([]);
-    
+
       setMinimumPeriodsEnabled(false);
       setPlanCategory("");
 
@@ -1585,9 +1615,6 @@ const selectableRooms = allowedRooms;
                     </span>
                   </label>
                 )}
-
-              
-        
               </div>
 
               <div className="plan-category-grid">
@@ -2197,6 +2224,35 @@ const selectableRooms = allowedRooms;
                   style={{ marginTop: "8px" }}
                 >
                   ينقص تخصيص قاعة لـ {missingRooms} فترة
+                </div>
+              )}
+
+              {selectedLastPriorityRooms.length > 0 && (
+                <div
+                  className="upload-warning-card"
+                  style={{
+                    marginTop: "8px",
+                    background: "#fef9c3",
+                    border: "1px solid #facc15",
+                    color: "#854d0e",
+                  }}
+                >
+                  <div
+                    className="upload-warning-icon"
+                    style={{ color: "#ca8a04" }}
+                  >
+                    {Icons.warning}
+                  </div>
+                  <div>
+                    <strong style={{ color: "#854d0e" }}>
+                      تنبيه: قاعات آخر أولوية
+                    </strong>
+                    <span style={{ color: "#854d0e" }}>
+                      تم اختيار/استخدام{" "}
+                      {selectedLastPriorityRooms.map(roomLabel).join("، ")}، وهي
+                      قاعات تُستخدم فقط عند عدم توفر بديل.
+                    </span>
+                  </div>
                 </div>
               )}
 

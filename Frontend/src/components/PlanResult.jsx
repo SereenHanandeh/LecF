@@ -432,10 +432,12 @@ const computeRowHeight = (row, widths) => {
 
   return Math.max(EXCEL_ROW_HEIGHT, maxLines * 22);
 };
+listRooms;
+const EXCLUDED_ROOMS = ["6", "42"];
 
-// قاعات تُخفى من جدول الإشغال إذا كانت فارغة في كل الفترات
-const HIDE_IF_EMPTY_ROOMS = ["6", "100", "101", "102"];
-
+// قاعات آخر أولوية: تُخفى من الإشغال إذا كانت فارغة، وتظهر آخر القائمة، مع تنبيه أصفر
+const LAST_PRIORITY_ROOMS = ["100", "101", "102"];
+const HIDE_IF_EMPTY_ROOMS = LAST_PRIORITY_ROOMS; // 6 صارت محذوفة أصلًا
 // =====================================================
 // Rooms Occupancy Helpers
 // =====================================================
@@ -671,8 +673,16 @@ export default function PlanResult() {
   }, [editingSupervisor]);
 
   useEffect(() => {
-    listRooms(true) // القاعات النشطة فقط
-      .then((list) => setAllRooms(Array.isArray(list) ? list : []))
+    listRooms(true)
+      .then((list) =>
+        setAllRooms(
+          Array.isArray(list)
+            ? list.filter(
+                (r) => !EXCLUDED_ROOMS.includes(String(r.room_number).trim()),
+              )
+            : [],
+        ),
+      )
       .catch((err) => {
         console.error("❌ Failed to load rooms:", err);
         setAllRooms([]);
@@ -1423,11 +1433,23 @@ export default function PlanResult() {
   const roomOptions = useMemo(
     () =>
       [...allRooms]
-        .sort((a, b) =>
-          String(a.room_number).localeCompare(String(b.room_number), "en", {
-            numeric: true,
-          }),
-        )
+        .sort((a, b) => {
+          const la = LAST_PRIORITY_ROOMS.includes(String(a.room_number).trim())
+            ? 1
+            : 0;
+          const lb = LAST_PRIORITY_ROOMS.includes(String(b.room_number).trim())
+            ? 1
+            : 0;
+          if (la !== lb) return la - lb;
+
+          return String(a.room_number).localeCompare(
+            String(b.room_number),
+            "en",
+            {
+              numeric: true,
+            },
+          );
+        })
         .map((r) => ({
           value: String(r.room_number),
           label: r.tag ? `${r.room_number} (${r.tag})` : String(r.room_number),
@@ -2231,6 +2253,14 @@ export default function PlanResult() {
   // =====================================================
 
   const printPlan = () => {
+    document.body.classList.add("printing-plan");
+
+    const cleanup = () => {
+      document.body.classList.remove("printing-plan");
+      window.removeEventListener("afterprint", cleanup);
+    };
+
+    window.addEventListener("afterprint", cleanup);
     window.print();
   };
 
@@ -3273,32 +3303,55 @@ export default function PlanResult() {
                           {visibleColumns.room && (
                             <td>
                               {isEditing ? (
-                                <select
-                                  className="edit-room-input"
-                                  value={editingRoom}
-                                  onChange={(e) =>
-                                    setEditingRoom(e.target.value)
-                                  }
-                                  disabled={isSaving}
-                                >
-                                  <option value="">اختر القاعة</option>
+                                <>
+                                  <select
+                                    className="edit-room-input"
+                                    value={editingRoom}
+                                    onChange={(e) =>
+                                      setEditingRoom(e.target.value)
+                                    }
+                                    disabled={isSaving}
+                                  >
+                                    <option value="">اختر القاعة</option>
 
-                                  {/* إذا القاعة الحالية مش ضمن القائمة (مثلاً غير نشطة) نعرضها برضو */}
-                                  {editingRoom &&
-                                    !roomOptions.some(
-                                      (r) => r.value === editingRoom,
-                                    ) && (
-                                      <option value={editingRoom}>
-                                        {editingRoom}
+                                    {editingRoom &&
+                                      !roomOptions.some(
+                                        (r) => r.value === editingRoom,
+                                      ) && (
+                                        <option value={editingRoom}>
+                                          {editingRoom}
+                                        </option>
+                                      )}
+
+                                    {roomOptions.map((room) => (
+                                      <option
+                                        key={room.value}
+                                        value={room.value}
+                                      >
+                                        {room.label}
                                       </option>
-                                    )}
+                                    ))}
+                                  </select>
 
-                                  {roomOptions.map((room) => (
-                                    <option key={room.value} value={room.value}>
-                                      {room.label}
-                                    </option>
-                                  ))}
-                                </select>
+                                  {LAST_PRIORITY_ROOMS.includes(
+                                    String(editingRoom),
+                                  ) && (
+                                    <small
+                                      style={{
+                                        display: "block",
+                                        marginTop: "4px",
+                                        padding: "4px 6px",
+                                        background: "#fef9c3",
+                                        border: "1px solid #facc15",
+                                        borderRadius: "6px",
+                                        color: "#854d0e",
+                                      }}
+                                    >
+                                      ⚠️ قاعة آخر أولوية، تُستخدم فقط عند عدم
+                                      توفر بديل
+                                    </small>
+                                  )}
+                                </>
                               ) : (
                                 <span className="period-badge">
                                   {getRoomNumber(assignment)}
@@ -3306,6 +3359,7 @@ export default function PlanResult() {
                               )}
                             </td>
                           )}
+
                           {/* Date */}
                           {visibleColumns.date && (
                             <td>
@@ -3706,7 +3760,6 @@ export default function PlanResult() {
                 <span>طباعة الجدول</span>
               </button>
             </div>
-          
 
             <div className="rooms-legend">
               <span className="legend-item">
