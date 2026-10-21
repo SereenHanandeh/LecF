@@ -1486,18 +1486,6 @@ export default function PlanResult() {
     );
 
     // القاعات حسب نوع الخطة
-    const allCategoryRooms = allRooms
-      .filter((r) => isRoomAllowedForCategory(r, planCategory))
-      .sort((a, b) =>
-        String(a.room_number).localeCompare(String(b.room_number), "en", {
-          numeric: true,
-        }),
-      )
-      .map((r) => ({
-        number: String(r.room_number).trim(),
-        tag: r.tag || "",
-      }));
-
     // القاعة|التاريخ|الفترة -> أسماء الأساتذة
     const occupied = new Map();
     const usedRooms = new Set(); // القاعات المستخدمة في أي فترة
@@ -1515,10 +1503,31 @@ export default function PlanResult() {
       occupied.get(key).add(getProfessorName(a));
     });
 
-    // إخفاء 6 و100 و101 و102 إذا كانت فارغة تمامًا
-    const rooms = allCategoryRooms.filter(
-      (r) => !HIDE_IF_EMPTY_ROOMS.includes(r.number) || usedRooms.has(r.number),
-    );
+    // القاعات حسب نوع الخطة + أي قاعة مستخدمة فعليًا (حتى لو خارج الفئة)
+    const roomsMap = new Map();
+
+    allRooms.forEach((r) => {
+      const number = String(r.room_number).trim();
+
+      if (isRoomAllowedForCategory(r, planCategory) || usedRooms.has(number)) {
+        roomsMap.set(number, { number, tag: r.tag || "" });
+      }
+    });
+
+    // قاعة مستخدمة وغير موجودة أصلًا في قائمة القاعات (مثلاً غير نشطة)
+    usedRooms.forEach((number) => {
+      if (!roomsMap.has(number)) roomsMap.set(number, { number, tag: "" });
+    });
+
+    // إخفاء 100 و101 و102 إذا كانت فارغة تمامًا
+    const rooms = [...roomsMap.values()]
+      .filter(
+        (r) =>
+          !HIDE_IF_EMPTY_ROOMS.includes(r.number) || usedRooms.has(r.number),
+      )
+      .sort((a, b) =>
+        a.number.localeCompare(b.number, "en", { numeric: true }),
+      );
 
     return { periods, rooms, occupied };
   }, [planData, allRooms, planCategory]);
