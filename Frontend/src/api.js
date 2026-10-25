@@ -165,6 +165,14 @@ export const updateSupervisor = (id, payload) =>
 export const deleteSupervisor = (id) =>
   api.delete(`/supervisors/${id}`).then((res) => res.data);
 
+export const updateSessionGroup = async (planId, sessionGroupId, fields) => {
+  const res = await api.patch(
+    `/plan/${planId}/session-group/${sessionGroupId}`,
+    fields,
+  );
+  return res.data;
+};
+
 // ==============================
 // Assignments
 // ==============================
