@@ -1,4 +1,5 @@
 import React, {
+  Fragment,
   useCallback,
   useEffect,
   useMemo,
@@ -570,6 +571,47 @@ const addPeriodConditionalFormatting = (worksheet, periodColorMap, lastRow) => {
       rules,
     });
   }
+};
+
+// حدود تظهر فقط على الصفوف التي فيها بيانات (تُبقي الصفوف الإضافية بلا حدود)
+const addDynamicBorders = (worksheet, lastRow) => {
+  const side = { style: "thin", color: { argb: "FF000000" } };
+
+  worksheet.addConditionalFormatting({
+    ref: `A2:J${lastRow}`,
+    rules: [
+      {
+        type: "expression",
+        priority: 100,
+        formulae: ["LEN($A2&$B2&$C2&$D2&$E2&$F2&$G2&$H2&$I2&$J2)>0"],
+        style: {
+          border: { top: side, bottom: side, left: side, right: side },
+        },
+      },
+    ],
+  });
+};
+
+// الطباعة: صفوف البيانات فقط، أفقي، عرض الصفحة كاملًا، وتكرار الهيدر
+const setupPrint = (worksheet, lastDataRow) => {
+  worksheet.pageSetup = {
+    paperSize: 9, // A4
+    orientation: "landscape",
+    fitToPage: true,
+    fitToWidth: 1,
+    fitToHeight: 0,
+    printArea: `A1:J${lastDataRow}`,
+    printTitlesRow: "1:1",
+    horizontalCentered: true,
+    margins: {
+      left: 0.4,
+      right: 0.4,
+      top: 0.5,
+      bottom: 0.5,
+      header: 0.3,
+      footer: 0.3,
+    },
+  };
 };
 
 // =====================================================
@@ -2382,6 +2424,9 @@ export default function PlanResult() {
       });
       addPeriodConditionalFormatting(mainSheet, periodColorMap, mainLast);
 
+      addDynamicBorders(mainSheet, mainLast);
+      setupPrint(mainSheet, dataToExport.length + 1);
+
       // تجميع البيانات حسب المشرف (بعد الترتيب)
 
       const bySupervisor = new Map();
@@ -2463,12 +2508,16 @@ export default function PlanResult() {
 
         styleHeaderRow(sheet);
         styleBodyRows(sheet, {
-          borderLastRow: LIVE ? total : items.length + 1,
+          borderLastRow: items.length + 1,
           styleLastRow: total,
           heights: LIVE
             ? []
             : itemRows.map((row) => computeRowHeight(row, widths)),
         });
+        addPeriodConditionalFormatting(sheet, periodColorMap, total);
+        if (LIVE) addDynamicBorders(sheet, total);
+        setupPrint(sheet, items.length + 1);
+
         addPeriodConditionalFormatting(sheet, periodColorMap, total);
 
         // عمود CRN: Bold + حجم 23 + عرض حسب المحتوى (شيتات المشرفين فقط)
@@ -2566,6 +2615,7 @@ export default function PlanResult() {
         heights: rowsData.map((row) => computeRowHeight(row, widths)),
       });
       addPeriodConditionalFormatting(sheet, periodColorMap, lastRow);
+      setupPrint(sheet, lastRow);
 
       const buffer = await workbook.xlsx.writeBuffer();
 
@@ -3178,13 +3228,6 @@ export default function PlanResult() {
 
           {planData.length > 0 ? (
             <div className="table-container">
-              {/* اقتراحات الفترات لحقل تعديل الفترة */}
-              <datalist id="period-options">
-                {periodOptions.map((p) => (
-                  <option key={p} value={p} />
-                ))}
-              </datalist>
-
               <table className="assignments-table screen-plan-table">
                 <thead>
                   <tr>
@@ -3235,14 +3278,12 @@ export default function PlanResult() {
 
                       const isEditing =
                         editingId !== null &&
-                        editingId !== undefined &&
                         rowId !== null &&
                         rowId !== undefined &&
                         String(editingId) === String(rowId);
 
                       const isSaving =
                         savingId !== null &&
-                        savingId !== undefined &&
                         rowId !== null &&
                         rowId !== undefined &&
                         String(savingId) === String(rowId);
@@ -3255,6 +3296,14 @@ export default function PlanResult() {
                         rowId !== undefined &&
                         selectedRowIds.has(String(rowId));
 
+                      const colCount =
+                        Object.values(visibleColumns).filter(Boolean).length +
+                        2;
+
+                      const editSupervisorList = editingShowAllSupervisors
+                        ? allSupervisorsList
+                        : supervisors;
+
                       const editInput = (key, props = {}) => (
                         <input
                           className="edit-field-input"
@@ -3266,332 +3315,361 @@ export default function PlanResult() {
                       );
 
                       return (
-                        <tr
-                          key={`${rowId}-${index}`}
-                          className={isRowSelected ? "row-selected" : ""}
-                        >
-                          <td className="select-column">
-                            <input
-                              type="checkbox"
-                              checked={isRowSelected}
-                              onChange={() => toggleRowSelection(rowId)}
-                              disabled={
-                                bulkSaving ||
-                                rowId === null ||
-                                rowId === undefined
-                              }
-                            />
-                          </td>
+                        <Fragment key={`${rowId}-${index}`}>
+                          <tr
+                            className={
+                              isEditing
+                                ? "row-editing"
+                                : isRowSelected
+                                  ? "row-selected"
+                                  : ""
+                            }
+                          >
+                            <td className="select-column">
+                              <input
+                                type="checkbox"
+                                checked={isRowSelected}
+                                onChange={() => toggleRowSelection(rowId)}
+                                disabled={
+                                  bulkSaving ||
+                                  rowId === null ||
+                                  rowId === undefined
+                                }
+                              />
+                            </td>
 
-                          {/* CRN */}
-                          {visibleColumns.crn && (
-                            <td>
-                              {isEditing ? (
-                                editInput("crn")
-                              ) : (
+                            {visibleColumns.crn && (
+                              <td>
                                 <span className="crn-text">
                                   {assignment.crn ?? "-"}
                                 </span>
-                              )}
-                            </td>
-                          )}
+                              </td>
+                            )}
 
-                          {/* Course Name */}
-                          {visibleColumns.courseName && (
-                            <td>
-                              {isEditing ? (
-                                editInput("courseName")
-                              ) : (
+                            {visibleColumns.courseName && (
+                              <td>
                                 <span className="course-name-text">
                                   {getCourseName(assignment)}
                                 </span>
-                              )}
-                            </td>
-                          )}
+                              </td>
+                            )}
 
-                          {/* Professor */}
-                          {visibleColumns.professor && (
-                            <td>
-                              {isEditing ? (
-                                editInput("professorName")
-                              ) : (
+                            {visibleColumns.professor && (
+                              <td>
                                 <div className="professor-cell">
                                   <span className="professor-dot" />
-
                                   <span>{getProfessorName(assignment)}</span>
                                 </div>
-                              )}
-                            </td>
-                          )}
+                              </td>
+                            )}
 
-                          {/* Phone */}
-                          {visibleColumns.phone && (
-                            <td>
-                              {isEditing ? (
-                                editInput("phone", { dir: "ltr" })
-                              ) : (
+                            {visibleColumns.phone && (
+                              <td>
                                 <span className="phone-text" dir="ltr">
                                   {getPhone(assignment)}
                                 </span>
-                              )}
-                            </td>
-                          )}
+                              </td>
+                            )}
 
-                          {/* Room */}
-                          {visibleColumns.room && (
-                            <td>
-                              {isEditing ? (
-                                <>
-                                  <select
-                                    className="edit-room-input"
-                                    value={editingRoom}
-                                    onChange={(e) =>
-                                      setEditingRoom(e.target.value)
-                                    }
-                                    disabled={isSaving}
-                                  >
-                                    <option value="">اختر القاعة</option>
-
-                                    {editingRoom &&
-                                      !roomOptions.some(
-                                        (r) => r.value === editingRoom,
-                                      ) && (
-                                        <option value={editingRoom}>
-                                          {editingRoom}
-                                        </option>
-                                      )}
-
-                                    {roomOptions.map((room) => (
-                                      <option
-                                        key={room.value}
-                                        value={room.value}
-                                      >
-                                        {room.label}
-                                      </option>
-                                    ))}
-                                  </select>
-
-                                  {LAST_PRIORITY_ROOMS.includes(
-                                    String(editingRoom),
-                                  ) && (
-                                    <small
-                                      style={{
-                                        display: "block",
-                                        marginTop: "4px",
-                                        padding: "4px 6px",
-                                        background: "#fef9c3",
-                                        border: "1px solid #facc15",
-                                        borderRadius: "6px",
-                                        color: "#854d0e",
-                                      }}
-                                    >
-                                      ⚠️ قاعة آخر أولوية، تُستخدم فقط عند عدم
-                                      توفر بديل
-                                    </small>
-                                  )}
-                                </>
-                              ) : (
+                            {visibleColumns.room && (
+                              <td>
                                 <span className="period-badge">
                                   {getRoomNumber(assignment)}
                                 </span>
-                              )}
-                            </td>
-                          )}
+                              </td>
+                            )}
 
-                          {/* Date */}
-                          {visibleColumns.date && (
-                            <td>
-                              {isEditing ? (
-                                editInput("date", { type: "date" })
-                              ) : (
+                            {visibleColumns.date && (
+                              <td>
                                 <span className="date-badge">
                                   {formatDate(assignment.date)}
                                 </span>
-                              )}
-                            </td>
-                          )}
+                              </td>
+                            )}
 
-                          {/* Period */}
-                          {visibleColumns.period && (
-                            <td>
-                              {isEditing ? (
-                                editInput("period", {
-                                  list: "period-options",
-                                })
-                              ) : (
+                            {visibleColumns.period && (
+                              <td>
                                 <span className="period-badge">
                                   {getPeriod(assignment)}
                                 </span>
-                              )}
-                            </td>
-                          )}
+                              </td>
+                            )}
 
-                          {/* From */}
-                          {visibleColumns.timeFrom && (
-                            <td>
-                              {isEditing ? (
-                                editInput("timeFrom", {
-                                  dir: "ltr",
-                                  placeholder: "08:30 AM",
-                                })
-                              ) : (
+                            {visibleColumns.timeFrom && (
+                              <td>
                                 <span className="time-badge">
                                   {formatTime(getTimeFrom(assignment))}
                                 </span>
-                              )}
-                            </td>
-                          )}
+                              </td>
+                            )}
 
-                          {/* To */}
-                          {visibleColumns.timeTo && (
-                            <td>
-                              {isEditing ? (
-                                editInput("timeTo", {
-                                  dir: "ltr",
-                                  placeholder: "10:00 AM",
-                                })
-                              ) : (
+                            {visibleColumns.timeTo && (
+                              <td>
                                 <span className="time-badge">
                                   {formatTime(getTimeTo(assignment))}
                                 </span>
-                              )}
-                            </td>
-                          )}
+                              </td>
+                            )}
 
-                          {/* Supervisor */}
-                          {visibleColumns.supervisor && (
-                            <td>
-                              {isEditing ? (
-                                <div>
-                                  <button
-                                    type="button"
-                                    className="toggle-supervisor-scope-btn"
-                                    style={{
-                                      fontSize: "11px",
-                                      marginBottom: "4px",
-                                      background: "none",
-                                      border: "1px solid #d1d5db",
-                                      borderRadius: "6px",
-                                      padding: "2px 6px",
-                                      cursor: "pointer",
-                                    }}
-                                    onClick={() =>
-                                      setEditingShowAllSupervisors(
-                                        (prev) => !prev,
-                                      )
-                                    }
-                                  >
-                                    {editingShowAllSupervisors
-                                      ? "↩️ المشرفون المختارون فقط"
-                                      : "👥 عرض جميع المشرفين"}
-                                  </button>
-
-                                  <select
-                                    className="edit-supervisor-select"
-                                    value={editingSupervisor ?? ""}
-                                    onChange={(e) =>
-                                      setEditingSupervisor(e.target.value)
-                                    }
-                                    disabled={isSaving}
-                                  >
-                                    <option value="">اختر المشرف</option>
-
-                                    {(editingShowAllSupervisors
-                                      ? allSupervisorsList
-                                      : supervisors
-                                    ).map((supervisor) => {
-                                      const supervisorId =
-                                        supervisor?.id ??
-                                        supervisor?.supervisor_id ??
-                                        supervisor?.supervisorId;
-
-                                      const supervisorName =
-                                        supervisor?.name ??
-                                        supervisor?.supervisor_name ??
-                                        supervisor?.supervisorName ??
-                                        supervisor?.full_name ??
-                                        "";
-
-                                      if (
-                                        supervisorId === null ||
-                                        supervisorId === undefined ||
-                                        supervisorId === ""
-                                      ) {
-                                        return null;
-                                      }
-
-                                      return (
-                                        <option
-                                          key={String(supervisorId)}
-                                          value={String(supervisorId)}
-                                        >
-                                          {supervisorName}
-
-                                          {String(supervisorId) ===
-                                          String(affinitySupervisorId)
-                                            ? " 🔗"
-                                            : ""}
-                                        </option>
-                                      );
-                                    })}
-                                  </select>
-
-                                  {affinitySupervisorId !== null && (
-                                    <small className="affinity-note">
-                                      ⚠️ هذا الأستاذ مرتبط بمشرف محدد، سيظهر
-                                      تنبيه عند الحفظ{" "}
-                                    </small>
-                                  )}
-                                </div>
-                              ) : (
+                            {visibleColumns.supervisor && (
+                              <td>
                                 <div className="supervisor-cell">
                                   <span className="supervisor-avatar">
                                     {String(
                                       getSupervisorName(assignment),
                                     ).charAt(0)}
                                   </span>
-
                                   <span>{getSupervisorName(assignment)}</span>
                                 </div>
+                              </td>
+                            )}
+
+                            <td className="action-column">
+                              {isEditing ? (
+                                <span className="editing-badge">
+                                  ✏️ قيد التعديل
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="edit-btn"
+                                  onClick={() => startEditing(assignment)}
+                                >
+                                  ✏️ Edit
+                                </button>
                               )}
                             </td>
+                          </tr>
+
+                          {/* ===== لوحة التعديل ===== */}
+                          {isEditing && (
+                            <tr className="edit-row">
+                              <td colSpan={colCount} className="edit-cell">
+                                <div className="edit-panel">
+                                  <div className="edit-panel-title">
+                                    <strong>✏️ تعديل الجلسة</strong>
+                                    <span>
+                                      {getProfessorName(assignment)} · CRN{" "}
+                                      {assignment.crn ?? "-"}
+                                    </span>
+                                  </div>
+
+                                  <div className="edit-grid">
+                                    <label className="edit-field">
+                                      <span>CRN</span>
+                                      {editInput("crn")}
+                                    </label>
+
+                                    <label className="edit-field edit-field-wide">
+                                      <span>اسم المقرر</span>
+                                      {editInput("courseName")}
+                                    </label>
+
+                                    <label className="edit-field">
+                                      <span>الهاتف</span>
+                                      {editInput("phone", { dir: "ltr" })}
+                                    </label>
+
+                                    <label className="edit-field edit-field-wide">
+                                      <span>الأستاذ</span>
+                                      {editInput("professorName")}
+                                    </label>
+
+                                    <label className="edit-field">
+                                      <span>القاعة</span>
+                                      <select
+                                        className="edit-field-input"
+                                        value={editingRoom}
+                                        onChange={(e) =>
+                                          setEditingRoom(e.target.value)
+                                        }
+                                        disabled={isSaving}
+                                      >
+                                        <option value="">اختر القاعة</option>
+
+                                        {editingRoom &&
+                                          !roomOptions.some(
+                                            (r) => r.value === editingRoom,
+                                          ) && (
+                                            <option value={editingRoom}>
+                                              {editingRoom}
+                                            </option>
+                                          )}
+
+                                        {roomOptions.map((room) => (
+                                          <option
+                                            key={room.value}
+                                            value={room.value}
+                                          >
+                                            {room.label}
+                                          </option>
+                                        ))}
+                                      </select>
+
+                                      {LAST_PRIORITY_ROOMS.includes(
+                                        String(editingRoom),
+                                      ) && (
+                                        <small className="edit-note warn">
+                                          ⚠️ قاعة آخر أولوية، تُستخدم فقط عند
+                                          عدم توفر بديل
+                                        </small>
+                                      )}
+                                    </label>
+
+                                    <label className="edit-field">
+                                      <span>التاريخ</span>
+                                      {editInput("date", { type: "date" })}
+                                    </label>
+
+                                    {/* الفترة: قائمة منسدلة */}
+                                    <label className="edit-field">
+                                      <span>الفترة</span>
+                                      <select
+                                        className="edit-field-input"
+                                        value={editingFields.period ?? ""}
+                                        onChange={(e) =>
+                                          setEditField("period", e.target.value)
+                                        }
+                                        disabled={isSaving}
+                                      >
+                                        <option value="">اختر الفترة</option>
+
+                                        {editingFields.period &&
+                                          !periodOptions.includes(
+                                            editingFields.period,
+                                          ) && (
+                                            <option
+                                              value={editingFields.period}
+                                            >
+                                              {editingFields.period}
+                                            </option>
+                                          )}
+
+                                        {periodOptions.map((p) => (
+                                          <option key={p} value={p}>
+                                            {p}
+                                          </option>
+                                        ))}
+                                      </select>
+                                    </label>
+
+                                    <label className="edit-field">
+                                      <span>من</span>
+                                      {editInput("timeFrom", {
+                                        dir: "ltr",
+                                        placeholder: "08:30 AM",
+                                      })}
+                                    </label>
+
+                                    <label className="edit-field">
+                                      <span>إلى</span>
+                                      {editInput("timeTo", {
+                                        dir: "ltr",
+                                        placeholder: "10:00 AM",
+                                      })}
+                                    </label>
+
+                                    <div className="edit-field edit-field-wide">
+                                      <span className="edit-field-label-row">
+                                        المشرف
+                                        <button
+                                          type="button"
+                                          className="edit-scope-btn"
+                                          onClick={() =>
+                                            setEditingShowAllSupervisors(
+                                              (prev) => !prev,
+                                            )
+                                          }
+                                        >
+                                          {editingShowAllSupervisors
+                                            ? "↩️ المختارون فقط"
+                                            : "👥 عرض الجميع"}
+                                        </button>
+                                      </span>
+
+                                      <select
+                                        className="edit-field-input"
+                                        value={editingSupervisor ?? ""}
+                                        onChange={(e) =>
+                                          setEditingSupervisor(e.target.value)
+                                        }
+                                        disabled={isSaving}
+                                      >
+                                        <option value="">اختر المشرف</option>
+
+                                        {editSupervisorList.map(
+                                          (supervisor) => {
+                                            const supervisorId =
+                                              supervisor?.id ??
+                                              supervisor?.supervisor_id ??
+                                              supervisor?.supervisorId;
+
+                                            const supervisorName =
+                                              supervisor?.name ??
+                                              supervisor?.supervisor_name ??
+                                              supervisor?.supervisorName ??
+                                              supervisor?.full_name ??
+                                              "";
+
+                                            if (
+                                              supervisorId === null ||
+                                              supervisorId === undefined ||
+                                              supervisorId === ""
+                                            ) {
+                                              return null;
+                                            }
+
+                                            return (
+                                              <option
+                                                key={String(supervisorId)}
+                                                value={String(supervisorId)}
+                                              >
+                                                {supervisorName}
+                                                {String(supervisorId) ===
+                                                String(affinitySupervisorId)
+                                                  ? " 🔗"
+                                                  : ""}
+                                              </option>
+                                            );
+                                          },
+                                        )}
+                                      </select>
+
+                                      {affinitySupervisorId !== null && (
+                                        <small className="edit-note warn">
+                                          ⚠️ هذا الأستاذ مرتبط بمشرف محدد، سيظهر
+                                          تنبيه عند الحفظ
+                                        </small>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  <div className="edit-panel-footer">
+                                    <button
+                                      type="button"
+                                      className="cancel-btn"
+                                      onClick={cancelEditing}
+                                      disabled={isSaving}
+                                    >
+                                      ✕ إلغاء
+                                    </button>
+
+                                    <button
+                                      type="button"
+                                      className="save-btn"
+                                      onClick={() => saveAssignment(assignment)}
+                                      disabled={isSaving}
+                                    >
+                                      {isSaving
+                                        ? "⏳ جاري الحفظ..."
+                                        : "✓ حفظ التعديلات"}
+                                    </button>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
                           )}
-
-                          {/* Action */}
-                          <td className="action-column">
-                            {isEditing ? (
-                              <div className="edit-actions">
-                                <button
-                                  type="button"
-                                  className="save-btn"
-                                  onClick={() => saveAssignment(assignment)}
-                                  disabled={isSaving}
-                                >
-                                  {isSaving ? "⏳" : "✓"}
-
-                                  <span>{isSaving ? "Saving" : "Save"}</span>
-                                </button>
-
-                                <button
-                                  type="button"
-                                  className="cancel-btn"
-                                  onClick={cancelEditing}
-                                  disabled={isSaving}
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            ) : (
-                              <button
-                                type="button"
-                                className="edit-btn"
-                                onClick={() => startEditing(assignment)}
-                              >
-                                ✏️ Edit
-                              </button>
-                            )}
-                          </td>
-                        </tr>
+                        </Fragment>
                       );
                     })
                   ) : (
