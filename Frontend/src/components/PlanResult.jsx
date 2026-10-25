@@ -18,6 +18,7 @@ import {
   moveAssignment,
   updatePlanStatus,
   updateProfessorRoom,
+  updateSessionGroup,
   listRooms,
   deleteAssignments,
   moveAssignmentsToPlan,
@@ -66,6 +67,7 @@ const formatDate = (value) => {
 
 const getRoomNumber = (assignment) =>
   assignment.room_number ?? assignment.roomNumber ?? "-";
+
 // =====================================================
 // Date Value Helper
 // =====================================================
@@ -166,6 +168,7 @@ const getPhone = (assignment) =>
   assignment.professorPhone ??
   assignment.phone ??
   "-";
+
 // =====================================================
 // Time Helpers
 // =====================================================
@@ -302,6 +305,23 @@ const getCourseName = (assignment) => {
 const getPeriod = (assignment) =>
   assignment.period_label ?? assignment.period ?? "-";
 
+// القيم القابلة للتعديل لصف واحد
+const getEditableValues = (a) => {
+  const clean = (v) =>
+    v === "-" || v === null || v === undefined ? "" : String(v);
+
+  return {
+    crn: clean(a.crn),
+    courseName: clean(getCourseName(a)),
+    professorName: clean(getProfessorName(a)),
+    phone: clean(getPhone(a)),
+    date: getDateValue(a.date),
+    period: clean(getPeriod(a)),
+    timeFrom: clean(getTimeFrom(a)),
+    timeTo: clean(getTimeTo(a)),
+  };
+};
+
 // =====================================================
 // Period Colors (Excel)
 // =====================================================
@@ -432,12 +452,13 @@ const computeRowHeight = (row, widths) => {
 
   return Math.max(EXCEL_ROW_HEIGHT, maxLines * 22);
 };
-listRooms;
+
 const EXCLUDED_ROOMS = ["6", "42"];
 
 // قاعات آخر أولوية: تُخفى من الإشغال إذا كانت فارغة، وتظهر آخر القائمة، مع تنبيه أصفر
 const LAST_PRIORITY_ROOMS = ["100", "101", "102"];
 const HIDE_IF_EMPTY_ROOMS = LAST_PRIORITY_ROOMS; // 6 صارت محذوفة أصلًا
+
 // =====================================================
 // Rooms Occupancy Helpers
 // =====================================================
@@ -550,6 +571,7 @@ const addPeriodConditionalFormatting = (worksheet, periodColorMap, lastRow) => {
     });
   }
 };
+
 // =====================================================
 // Component
 // =====================================================
@@ -598,6 +620,7 @@ export default function PlanResult() {
   );
 
   const [planName, setPlanName] = useState(location.state?.planName ?? "");
+
   // =====================================================
   // Plan Status (Accept / Reject)
   // =====================================================
@@ -622,6 +645,12 @@ export default function PlanResult() {
   const [selectedStatsSupervisor, setSelectedStatsSupervisor] = useState("");
 
   const [editingRoom, setEditingRoom] = useState("");
+
+  // قيم باقي الأعمدة أثناء التعديل
+  const [editingFields, setEditingFields] = useState({});
+
+  const setEditField = (key, value) =>
+    setEditingFields((prev) => ({ ...prev, [key]: value }));
 
   // =====================================================
   // Column Visibility
@@ -665,14 +694,6 @@ export default function PlanResult() {
   }, []);
 
   useEffect(() => {
-    console.log(
-      "🔴 editingSupervisor CHANGED:",
-      JSON.stringify(editingSupervisor),
-      typeof editingSupervisor,
-    );
-  }, [editingSupervisor]);
-
-  useEffect(() => {
     listRooms(true)
       .then((list) =>
         setAllRooms(
@@ -703,6 +724,7 @@ export default function PlanResult() {
         setAvailablePlans([]);
       });
   }, [planId]);
+
   // =====================================================
   // Load Plan
   // =====================================================
@@ -727,19 +749,7 @@ export default function PlanResult() {
           setError("");
         }
 
-        console.log("=================================");
-        console.log("📥 FETCHING PLAN");
-        console.log("📌 planId:", planId);
-        console.log("📌 API:", `/plan/${planId}`);
-        console.log("📌 silent:", silent);
-        console.log("=================================");
-
         const res = await getPlan(planId);
-
-        console.log("=================================");
-        console.log("📦 PLAN RESPONSE:");
-        console.log(res);
-        console.log("=================================");
 
         if (!res?.success) {
           throw new Error(res?.message || res?.error || "Failed to load plan");
@@ -751,12 +761,11 @@ export default function PlanResult() {
           ? data.affinities
           : [];
 
-        console.log("🔗 PLAN AFFINITIES:", planAffinities);
-
         if (isMountedRef.current) {
           setAffinities(planAffinities);
           setPlanStatus(data.status || "draft");
         }
+
         const name =
           data.name ?? data.plan_name ?? data.planName ?? data.plan?.name ?? "";
         if (name) setPlanName(name);
@@ -785,8 +794,6 @@ export default function PlanResult() {
         } else if (Array.isArray(data.data)) {
           assignments = data.data;
         }
-
-        console.log("📋 Assignments before enrichment:", assignments.length);
 
         // =================================================
         // Groups
@@ -937,29 +944,13 @@ export default function PlanResult() {
           setConflicts(planConflicts);
         }
 
-        console.log("✅ TOTAL ASSIGNMENTS:", assignments.length);
-
-        console.table(
-          assignments.map((x) => ({
-            assignmentId: x.id,
-            sessionGroupId: x.session_group_id,
-            crn: x.crn,
-            date: x.date,
-            period: x.period_label,
-            professor: x.professor_name,
-            supervisor: x.supervisor_name,
-          })),
-        );
-
         // =================================================
         // Supervisors
         // =================================================
 
         let planSupervisors = [];
 
-        // =================================================
         // Selected Supervisors / Duty Pool
-        // =================================================
 
         if (Array.isArray(data.dutyPool)) {
           planSupervisors = data.dutyPool;
@@ -973,16 +964,10 @@ export default function PlanResult() {
           planSupervisors = data.supervisors;
         }
 
-        console.log("🎯 SELECTED SUPERVISORS FROM PLAN:", planSupervisors);
-
-        // =================================================
         // Load ALL supervisors once
-        // =================================================
 
         try {
           const supervisorsRes = await listSupervisors();
-
-          console.log("👥 ALL SUPERVISORS:", supervisorsRes);
 
           let allSupervisors = [];
 
@@ -1000,9 +985,7 @@ export default function PlanResult() {
             setAllSupervisorsList(allSupervisors);
           }
 
-          // =================================================
           // Convert Duty Pool IDs -> Supervisor Objects
-          // =================================================
 
           if (
             planSupervisors.length &&
@@ -1022,9 +1005,7 @@ export default function PlanResult() {
               .filter(Boolean);
           }
 
-          // =================================================
           // Remove duplicates
-          // =================================================
 
           const uniqueSupervisors = [];
           const seenIds = new Set();
@@ -1049,10 +1030,7 @@ export default function PlanResult() {
             uniqueSupervisors.push(supervisor);
           });
 
-          // =================================================
-          // Fallback:
-          // supervisors actually used in assignments
-          // =================================================
+          // Fallback: supervisors actually used in assignments
 
           if (!uniqueSupervisors.length) {
             const usedIds = new Set();
@@ -1074,8 +1052,6 @@ export default function PlanResult() {
             planSupervisors = uniqueSupervisors;
           }
 
-          console.log("🎯 PLAN SUPERVISORS ONLY:", planSupervisors);
-
           if (isMountedRef.current) {
             setSupervisors(
               Array.isArray(planSupervisors) ? planSupervisors : [],
@@ -1084,9 +1060,7 @@ export default function PlanResult() {
         } catch (supervisorError) {
           console.warn("⚠️ Could not load supervisors list:", supervisorError);
 
-          // =================================================
           // Fallback from assignments
-          // =================================================
 
           const map = new Map();
 
@@ -1110,8 +1084,6 @@ export default function PlanResult() {
             setSupervisors(Array.from(map.values()));
           }
         }
-
-        console.log("✅ PLAN LOADED SUCCESSFULLY");
       } catch (err) {
         console.error("❌ Error fetching plan:", err?.response?.data || err);
 
@@ -1132,8 +1104,6 @@ export default function PlanResult() {
       } finally {
         if (isMountedRef.current && !silent) {
           setLoading(false);
-
-          console.log("🏁 PLAN LOADING FINISHED");
         }
       }
     },
@@ -1199,8 +1169,6 @@ export default function PlanResult() {
     const text = search.trim().toLowerCase();
 
     const filtered = planData.filter((assignment) => {
-      // Session Group remains searchable internally
-      // even though it is no longer displayed.
       const sessionGroup = String(getSessionGroupId(assignment) ?? "");
 
       const crn = String(assignment.crn ?? "");
@@ -1217,10 +1185,6 @@ export default function PlanResult() {
 
       const timeTo = String(getTimeTo(assignment));
 
-      // =================================================
-      // Search
-      // =================================================
-
       const matchesSearch =
         !text ||
         sessionGroup.toLowerCase().includes(text) ||
@@ -1236,22 +1200,18 @@ export default function PlanResult() {
         return false;
       }
 
-      // Supervisor filter
       if (filterSupervisor && supervisor !== filterSupervisor) {
         return false;
       }
 
-      // Professor filter
       if (filterProfessor && professor !== filterProfessor) {
         return false;
       }
 
-      // Date filter
       if (filterDate && getDateValue(assignment.date) !== filterDate) {
         return false;
       }
 
-      // Period filter
       if (filterPeriod && period !== filterPeriod) {
         return false;
       }
@@ -1259,9 +1219,7 @@ export default function PlanResult() {
       return true;
     });
 
-    // =================================================
     // Sort
-    // =================================================
 
     return [...filtered].sort((a, b) => {
       const dateA = getDateValue(a.date);
@@ -1485,7 +1443,6 @@ export default function PlanResult() {
       (a, b) => a.date.localeCompare(b.date) || a.from - b.from,
     );
 
-    // القاعات حسب نوع الخطة
     // القاعة|التاريخ|الفترة -> أسماء الأساتذة
     const occupied = new Map();
     const usedRooms = new Set(); // القاعات المستخدمة في أي فترة
@@ -1558,6 +1515,7 @@ export default function PlanResult() {
     window.addEventListener("afterprint", cleanup);
     window.print();
   };
+
   // =====================================================
   // Column Toggle
   // =====================================================
@@ -1646,16 +1604,6 @@ export default function PlanResult() {
 
     const currentSupervisorId = getSupervisorId(assignment);
 
-    console.log("=================================");
-
-    console.log("🟢 EDIT CLICK");
-
-    console.log("📦 assignment:", assignment);
-
-    console.log("🟢 sessionGroupId =", sessionGroupId);
-
-    console.log("🟢 currentSupervisorId =", currentSupervisorId);
-
     if (
       sessionGroupId === null ||
       sessionGroupId === undefined ||
@@ -1687,16 +1635,13 @@ export default function PlanResult() {
     const currentRoom = getRoomNumber(assignment);
     setEditingRoom(currentRoom === "-" ? "" : String(currentRoom));
 
-    console.log("🟢 SETTING editingId TO:", editId);
-
-    console.log("🟢 SETTING editingSupervisor TO:", editSupervisorId);
+    setEditingFields(getEditableValues(assignment));
 
     setEditingId(editId);
 
     setEditingSupervisor(editSupervisorId);
 
     setEditingShowAllSupervisors(false);
-    console.log("=================================");
   };
 
   // =====================================================
@@ -1704,12 +1649,11 @@ export default function PlanResult() {
   // =====================================================
 
   const cancelEditing = () => {
-    console.log("❌ EDIT CANCELLED");
-
     setEditingId(null);
     setEditingSupervisor("");
     setEditingShowAllSupervisors(false);
     setEditingRoom("");
+    setEditingFields({});
   };
 
   // =====================================================
@@ -1800,7 +1744,26 @@ export default function PlanResult() {
       return;
     }
 
-    if (!supervisorChanged && !roomChanged) {
+    // ===== باقي الأعمدة =====
+    const original = getEditableValues(assignment);
+    const changedFields = {};
+
+    Object.keys(original).forEach((key) => {
+      const value = String(editingFields[key] ?? "").trim();
+      if (value !== original[key]) changedFields[key] = value;
+    });
+
+    const fieldsChanged = Object.keys(changedFields).length > 0;
+
+    const requiredLabels = { crn: "CRN", date: "التاريخ", period: "الفترة" };
+    for (const [key, label] of Object.entries(requiredLabels)) {
+      if (key in changedFields && !changedFields[key]) {
+        alert(`⚠️ حقل ${label} لا يمكن أن يكون فارغًا.`);
+        return;
+      }
+    }
+
+    if (!supervisorChanged && !roomChanged && !fieldsChanged) {
       cancelEditing();
       return;
     }
@@ -1825,6 +1788,26 @@ export default function PlanResult() {
           newRoom,
           getProfessorName(assignment),
         );
+      }
+
+      if (fieldsChanged) {
+        const keyMap = {
+          crn: "crn",
+          courseName: "course_name",
+          professorName: "professor_name",
+          phone: "phone",
+          date: "date",
+          period: "period_label",
+          timeFrom: "time_from",
+          timeTo: "time_to",
+        };
+
+        const payload = {};
+        Object.entries(changedFields).forEach(([key, value]) => {
+          payload[keyMap[key]] = value;
+        });
+
+        await updateSessionGroup(planId, Number(sessionGroupId), payload);
       }
 
       const selectedSupervisor =
@@ -1872,6 +1855,51 @@ export default function PlanResult() {
             };
           }
 
+          // أعمدة تخص الجلسة نفسها
+          if (
+            fieldsChanged &&
+            String(getSessionGroupId(item)) === String(sessionGroupId)
+          ) {
+            updated = {
+              ...updated,
+              ...("crn" in changedFields && { crn: changedFields.crn }),
+              ...("courseName" in changedFields && {
+                course_name: changedFields.courseName,
+              }),
+              ...("date" in changedFields && { date: changedFields.date }),
+              ...("period" in changedFields && {
+                period_label: changedFields.period,
+                period: changedFields.period,
+              }),
+              ...("timeFrom" in changedFields && {
+                time_from: changedFields.timeFrom,
+              }),
+              ...("timeTo" in changedFields && {
+                time_to: changedFields.timeTo,
+              }),
+            };
+          }
+
+          // أعمدة تخص الأستاذ (تتغير عند كل صفوفه)
+          if (
+            fieldsChanged &&
+            professorId !== null &&
+            professorId !== undefined &&
+            String(itemProfessorId) === String(professorId)
+          ) {
+            updated = {
+              ...updated,
+              ...("professorName" in changedFields && {
+                professor_name: changedFields.professorName,
+                professor: changedFields.professorName,
+              }),
+              ...("phone" in changedFields && {
+                professor_phone: changedFields.phone,
+                phone: changedFields.phone,
+              }),
+            };
+          }
+
           return updated;
         }),
       );
@@ -1890,6 +1918,7 @@ export default function PlanResult() {
       setSavingId(null);
     }
   };
+
   // =====================================================
   // Bulk Selection / Bulk Edit
   // =====================================================
@@ -2213,6 +2242,7 @@ export default function PlanResult() {
       if (isMountedRef.current) setBulkMoving(false);
     }
   };
+
   // =====================================================
   // Accept / Reject Plan
   // =====================================================
@@ -2274,7 +2304,7 @@ export default function PlanResult() {
   };
 
   // =====================================================
-  // Download Excel - Current Filtered Data
+  // Download Excel - Full Plan
   // =====================================================
 
   const downloadExcel = async () => {
@@ -2292,18 +2322,6 @@ export default function PlanResult() {
 
       const dataToExport = sortForExcel(planData);
       const rowsData = dataToExport.map(toExcelRow);
-      console.log(
-        "TIMES:",
-        JSON.stringify(
-          dataToExport.slice(0, 10).map((a) => ({
-            from: getTimeFrom(a),
-            to: getTimeTo(a),
-            period: getPeriod(a),
-          })),
-          null,
-          2,
-        ),
-      );
       const periodColorMap = buildPeriodColorMap(planData);
 
       const keys = EXCEL_COLUMNS.map((c) => c.key);
@@ -2318,9 +2336,7 @@ export default function PlanResult() {
       workbook.created = new Date();
       workbook.calcProperties = { fullCalcOnLoad: true };
 
-      // =========================================
       // الشيت الرئيسي
-      // =========================================
 
       const mainSheet = workbook.addWorksheet(MAIN, {
         views: [{ rightToLeft: true }],
@@ -2366,9 +2382,7 @@ export default function PlanResult() {
       });
       addPeriodConditionalFormatting(mainSheet, periodColorMap, mainLast);
 
-      // =========================================
       // تجميع البيانات حسب المشرف (بعد الترتيب)
-      // =========================================
 
       const bySupervisor = new Map();
 
@@ -2405,9 +2419,7 @@ export default function PlanResult() {
         return finalName;
       };
 
-      // =========================================
       // شيت لكل مشرف
-      // =========================================
 
       for (const [supervisorName, items] of bySupervisor.entries()) {
         const sheet = workbook.addWorksheet(sanitizeSheetName(supervisorName), {
@@ -2459,7 +2471,7 @@ export default function PlanResult() {
         });
         addPeriodConditionalFormatting(sheet, periodColorMap, total);
 
-        // ===== عمود CRN: Bold + حجم 23 + عرض حسب المحتوى (شيتات المشرفين فقط) =====
+        // عمود CRN: Bold + حجم 23 + عرض حسب المحتوى (شيتات المشرفين فقط)
         sheet.getColumn(1).width = computeCrnWidth(itemRows);
 
         for (let r = 2; r <= total; r++) {
@@ -2469,9 +2481,7 @@ export default function PlanResult() {
         }
       }
 
-      // =========================================
       // شيت مخفي بأسماء المشرفين + قائمة منسدلة
-      // =========================================
 
       const listNames = [...bySupervisor.keys()];
 
@@ -2489,9 +2499,7 @@ export default function PlanResult() {
         };
       }
 
-      // =========================================
       // تنزيل الملف
-      // =========================================
 
       const buffer = await workbook.xlsx.writeBuffer();
 
@@ -2585,6 +2593,7 @@ export default function PlanResult() {
       alert("❌ حدث خطأ أثناء إنشاء ملف Excel المفلتر.");
     }
   };
+
   // =====================================================
   // No Plan
   // =====================================================
@@ -2652,9 +2661,7 @@ export default function PlanResult() {
             <p>Generated supervision schedule</p>
           </div>
 
-          {/* =================================================
-            Header Actions
-        ================================================= */}
+          {/* Header Actions */}
           <div className="plan-header-actions">
             {/* زر الرجوع للصفحة الرئيسية */}
             <button
@@ -2686,9 +2693,7 @@ export default function PlanResult() {
       </header>
 
       <main className="plan-content">
-        {/* =================================================
-          Selected Supervisor Banner
-      ================================================= */}
+        {/* Selected Supervisor Banner */}
         {selectedStatsSupervisor && (
           <div className="selected-supervisor-banner">
             <div className="selected-supervisor-info">
@@ -2707,9 +2712,7 @@ export default function PlanResult() {
           </div>
         )}
 
-        {/* =================================================
-          Summary Cards
-      ================================================= */}
+        {/* Summary Cards */}
         <section className="summary-grid">
           <div className="summary-card blue">
             <div className="summary-icon">📋</div>
@@ -2755,9 +2758,7 @@ export default function PlanResult() {
           </div>
         </section>
 
-        {/* =================================================
-          Filters
-      ================================================= */}
+        {/* Filters */}
         {planData.length > 0 && (
           <section className="panel filters-panel">
             <div className="panel-heading">
@@ -2873,9 +2874,7 @@ export default function PlanResult() {
           </section>
         )}
 
-        {/* =================================================
-          Supervisor Statistics
-      ================================================= */}
+        {/* Supervisor Statistics */}
         {supervisorStats.length > 0 && (
           <section className="panel statistics-panel">
             <div className="panel-heading">
@@ -2957,10 +2956,7 @@ export default function PlanResult() {
           </section>
         )}
 
-        {/* =================================================
-          Columns
-          Session Group removed
-      ================================================= */}
+        {/* Columns */}
         {planData.length > 0 && (
           <section className="panel columns-panel">
             <div className="panel-heading compact">
@@ -3182,6 +3178,13 @@ export default function PlanResult() {
 
           {planData.length > 0 ? (
             <div className="table-container">
+              {/* اقتراحات الفترات لحقل تعديل الفترة */}
+              <datalist id="period-options">
+                {periodOptions.map((p) => (
+                  <option key={p} value={p} />
+                ))}
+              </datalist>
+
               <table className="assignments-table screen-plan-table">
                 <thead>
                   <tr>
@@ -3228,9 +3231,6 @@ export default function PlanResult() {
                 <tbody>
                   {filteredPlanData.length > 0 ? (
                     filteredPlanData.map((assignment, index) => {
-                      {
-                        /* Session Group still used internally */
-                      }
                       const rowId = getSessionGroupId(assignment);
 
                       const isEditing =
@@ -3255,6 +3255,16 @@ export default function PlanResult() {
                         rowId !== undefined &&
                         selectedRowIds.has(String(rowId));
 
+                      const editInput = (key, props = {}) => (
+                        <input
+                          className="edit-field-input"
+                          value={editingFields[key] ?? ""}
+                          onChange={(e) => setEditField(key, e.target.value)}
+                          disabled={isSaving}
+                          {...props}
+                        />
+                      );
+
                       return (
                         <tr
                           key={`${rowId}-${index}`}
@@ -3272,43 +3282,62 @@ export default function PlanResult() {
                               }
                             />
                           </td>
+
                           {/* CRN */}
                           {visibleColumns.crn && (
                             <td>
-                              <span className="crn-text">
-                                {assignment.crn ?? "-"}
-                              </span>
+                              {isEditing ? (
+                                editInput("crn")
+                              ) : (
+                                <span className="crn-text">
+                                  {assignment.crn ?? "-"}
+                                </span>
+                              )}
                             </td>
                           )}
 
                           {/* Course Name */}
                           {visibleColumns.courseName && (
                             <td>
-                              <span className="course-name-text">
-                                {getCourseName(assignment)}
-                              </span>
+                              {isEditing ? (
+                                editInput("courseName")
+                              ) : (
+                                <span className="course-name-text">
+                                  {getCourseName(assignment)}
+                                </span>
+                              )}
                             </td>
                           )}
 
                           {/* Professor */}
                           {visibleColumns.professor && (
                             <td>
-                              <div className="professor-cell">
-                                <span className="professor-dot" />
+                              {isEditing ? (
+                                editInput("professorName")
+                              ) : (
+                                <div className="professor-cell">
+                                  <span className="professor-dot" />
 
-                                <span>{getProfessorName(assignment)}</span>
-                              </div>
+                                  <span>{getProfessorName(assignment)}</span>
+                                </div>
+                              )}
                             </td>
                           )}
 
+                          {/* Phone */}
                           {visibleColumns.phone && (
                             <td>
-                              <span className="phone-text" dir="ltr">
-                                {getPhone(assignment)}
-                              </span>
+                              {isEditing ? (
+                                editInput("phone", { dir: "ltr" })
+                              ) : (
+                                <span className="phone-text" dir="ltr">
+                                  {getPhone(assignment)}
+                                </span>
+                              )}
                             </td>
                           )}
 
+                          {/* Room */}
                           {visibleColumns.room && (
                             <td>
                               {isEditing ? (
@@ -3372,45 +3401,68 @@ export default function PlanResult() {
                           {/* Date */}
                           {visibleColumns.date && (
                             <td>
-                              <span className="date-badge">
-                                {formatDate(assignment.date)}
-                              </span>
+                              {isEditing ? (
+                                editInput("date", { type: "date" })
+                              ) : (
+                                <span className="date-badge">
+                                  {formatDate(assignment.date)}
+                                </span>
+                              )}
                             </td>
                           )}
 
                           {/* Period */}
                           {visibleColumns.period && (
                             <td>
-                              <span className="period-badge">
-                                {getPeriod(assignment)}
-                              </span>
+                              {isEditing ? (
+                                editInput("period", {
+                                  list: "period-options",
+                                })
+                              ) : (
+                                <span className="period-badge">
+                                  {getPeriod(assignment)}
+                                </span>
+                              )}
                             </td>
                           )}
 
                           {/* From */}
                           {visibleColumns.timeFrom && (
                             <td>
-                              <span className="time-badge">
-                                {formatTime(getTimeFrom(assignment))}
-                              </span>
+                              {isEditing ? (
+                                editInput("timeFrom", {
+                                  dir: "ltr",
+                                  placeholder: "08:30 AM",
+                                })
+                              ) : (
+                                <span className="time-badge">
+                                  {formatTime(getTimeFrom(assignment))}
+                                </span>
+                              )}
                             </td>
                           )}
 
                           {/* To */}
                           {visibleColumns.timeTo && (
                             <td>
-                              <span className="time-badge">
-                                {formatTime(getTimeTo(assignment))}
-                              </span>
+                              {isEditing ? (
+                                editInput("timeTo", {
+                                  dir: "ltr",
+                                  placeholder: "10:00 AM",
+                                })
+                              ) : (
+                                <span className="time-badge">
+                                  {formatTime(getTimeTo(assignment))}
+                                </span>
+                              )}
                             </td>
                           )}
+
                           {/* Supervisor */}
                           {visibleColumns.supervisor && (
                             <td>
                               {isEditing ? (
                                 <div>
-                                  {/* ✅ زر التبديل */}
-
                                   <button
                                     type="button"
                                     className="toggle-supervisor-scope-btn"
@@ -3437,15 +3489,9 @@ export default function PlanResult() {
                                   <select
                                     className="edit-supervisor-select"
                                     value={editingSupervisor ?? ""}
-                                    onChange={(e) => {
-                                      console.log(
-                                        "🔵 SELECT CHANGED:",
-                                        e.target.value,
-                                        typeof e.target.value,
-                                      );
-
-                                      setEditingSupervisor(e.target.value);
-                                    }}
+                                    onChange={(e) =>
+                                      setEditingSupervisor(e.target.value)
+                                    }
                                     disabled={isSaving}
                                   >
                                     <option value="">اختر المشرف</option>
@@ -3570,10 +3616,7 @@ export default function PlanResult() {
                 </tbody>
               </table>
 
-              {/* =================================================
-                PRINT TABLE
-                Session Group removed
-            ================================================= */}
+              {/* PRINT TABLE */}
               <div className="print-only-table">
                 <table className="assignments-table print-table">
                   <colgroup>
@@ -3657,7 +3700,7 @@ export default function PlanResult() {
                       })
                     ) : (
                       <tr>
-                        <td colSpan="8" className="print-no-results">
+                        <td colSpan="10" className="print-no-results">
                           No assignments found.
                         </td>
                       </tr>
@@ -3670,10 +3713,7 @@ export default function PlanResult() {
             <div className="no-plan-data">⚠️ No assignments found.</div>
           )}
 
-          {/* =================================================
-            PLAN ACTIONS
-            الأزرار أسفل جدول الخطة
-        ================================================= */}
+          {/* PLAN ACTIONS */}
           <div className="plan-bottom-actions">
             {/* Accept */}
             <button
@@ -3737,8 +3777,8 @@ export default function PlanResult() {
         </section>
 
         {/* =================================================
-    Rooms Occupancy (يظهر بعد قبول الخطة فقط)
-================================================= */}
+          Rooms Occupancy (يظهر بعد قبول الخطة فقط)
+        ================================================= */}
         {planStatus === "accepted" && (
           <section className="panel rooms-occupancy-panel">
             <div className="rooms-print-header">
@@ -3837,9 +3877,7 @@ export default function PlanResult() {
           </section>
         )}
 
-        {/* =================================================
-          Conflicts
-      ================================================= */}
+        {/* Conflicts */}
         <section className="panel conflicts-panel">
           <div className="panel-heading">
             <div>
