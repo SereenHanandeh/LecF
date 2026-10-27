@@ -9,7 +9,7 @@ import {
   setInitialSupervisorStat,
 } from "../api.js";
 
-import SupervisorReports from "../components/SupervisorReports.jsx";
+import SupervisorReports from "../components/Supervisorreports.jsx";
 
 import "../assets/Plan.css";
 
