@@ -8,6 +8,8 @@ import Supervisors from "./components/Supervisors.jsx";
 import Settings from "./components/Settings.jsx";
 import SupervisorReport from "./components/SupervisorReport.jsx";
 import RoomsPage from "./components/RoomsPage.jsx";
+import SupervisorStats from "./pages/SupervisorStats.jsx";
+
 
 
 function App() {
@@ -24,6 +26,7 @@ function App() {
             path="/supervisor-report/:supervisorId"
             element={<SupervisorReport />}
           />
+          <Route path="/supervisor-stats" element={<SupervisorStats />} />
           <Route path="/rooms" element={<RoomsPage />} />
         </Routes>
       </Router>

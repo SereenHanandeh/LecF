@@ -73,6 +73,9 @@ export const getPlans = () =>
 export const getStats = (planId) =>
   api.get(`/plan/${planId}/stats`).then((res) => res.data);
 
+export const getAssignmentsReport = () =>
+  api.get("/plan/assignments-report").then((res) => res.data);
+
 // ==============================
 // Plan Status (Accept / Reject)
 // ==============================

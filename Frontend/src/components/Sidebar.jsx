@@ -33,6 +33,12 @@ const Icons = {
     </svg>
   ),
 
+  stats: (
+    <svg viewBox="0 0 24 24">
+      <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />
+    </svg>
+  ),
+
   settings: (
     <svg viewBox="0 0 24 24">
       <circle cx="12" cy="12" r="3" />
@@ -40,7 +46,7 @@ const Icons = {
     </svg>
   ),
 
-   rooms: (
+  rooms: (
     <svg viewBox="0 0 24 24">
       <rect x="3" y="4" width="18" height="16" rx="2" />
       <path d="M3 10h18" />
@@ -132,7 +138,24 @@ export default function Sidebar() {
           <span className="sidebar-active-indicator" />
         </NavLink>
 
-          <NavLink
+        <NavLink
+          to="/supervisor-stats"
+          className={({ isActive }) =>
+            `sidebar-link ${isActive ? "active" : ""}`
+          }
+        >
+          <span className="sidebar-link-icon">
+            {Icons.stats}
+          </span>
+
+          <span className="sidebar-link-text">
+            الإحصائيات والتقارير
+          </span>
+
+          <span className="sidebar-active-indicator" />
+        </NavLink>
+
+        <NavLink
           to="/rooms"
           className={({ isActive }) =>
             `sidebar-link ${isActive ? "active" : ""}`
