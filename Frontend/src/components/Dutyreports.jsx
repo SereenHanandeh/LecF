@@ -1,5 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 
+import * as XLSX from "xlsx";
+
 import { getAssignmentsReport } from "../api.js";
 
 import "../assets/Dutyreports.css";
@@ -9,6 +11,12 @@ import "../assets/Dutyreports.css";
 // =====================================================
 
 const Icons = {
+  excel: (
+    <svg viewBox="0 0 24 24">
+      <path d="M12 3v12M7 10l5 5 5-5" />
+      <path d="M4 20h16" />
+    </svg>
+  ),
   print: (
     <svg viewBox="0 0 24 24">
       <path d="M6 9V3h12v6" />
@@ -114,6 +122,75 @@ function normalizeRow(r) {
 
 function supKey(r) {
   return String(r.supervisor_id ?? r.supervisor_name);
+}
+
+
+function esc(value) {
+  return String(value ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+// طباعة مستقلة (لا تتأثر بقواعد @media print في بقية الصفحات)
+function printHtml(title, bodyHtml) {
+  const iframe = document.createElement("iframe");
+
+  iframe.style.cssText =
+    "position:fixed;right:0;bottom:0;width:0;height:0;border:0;";
+
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow.document;
+
+  doc.open();
+  doc.write(`<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<title>${esc(title)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: Tahoma, Arial, sans-serif; color: #0f172a; margin: 24px; }
+  .head { text-align: center; margin-bottom: 18px; }
+  .head h1 { margin: 0 0 4px; font-size: 20px; }
+  .head span { color: #64748b; font-size: 12px; }
+  .meta { display: flex; gap: 24px; margin: 0 0 16px; font-size: 13px; }
+  .meta b { color: #1e40af; }
+  h3 { margin: 18px 0 6px; font-size: 15px; background: #eff6ff; padding: 7px 12px; border-radius: 6px; }
+  h3 small { color: #64748b; font-weight: 400; margin-inline-start: 8px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 13px; }
+  th, td { border: 1px solid #cbd5e1; padding: 7px 10px; text-align: right; }
+  th { background: #f1f5f9; }
+  td.n, th.n { width: 44px; text-align: center; }
+  section { break-inside: avoid; }
+  .foot { margin-top: 20px; color: #94a3b8; font-size: 11px; text-align: center; }
+  @page { size: A4; margin: 12mm; }
+  th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+</style>
+</head>
+<body>${bodyHtml}</body>
+</html>`);
+  doc.close();
+
+  setTimeout(() => {
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+
+    setTimeout(() => iframe.remove(), 1500);
+  }, 300);
+}
+
+function downloadExcel(fileName, sheetName, aoa, widths) {
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  ws["!cols"] = widths.map((wch) => ({ wch }));
+  ws["!views"] = [{ RTL: true }];
+
+  const wb = XLSX.utils.book_new();
+
+  XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31));
+  XLSX.writeFile(wb, fileName);
 }
 
 function Empty({ icon = "📋", title, text }) {
@@ -304,6 +381,115 @@ export default function DutyReports({ mode }) {
     [periodRows],
   );
 
+  // ---------- طباعة / Excel ----------
+
+  function printDay() {
+    const printed = new Date().toLocaleDateString("ar-SA");
+
+    const sections = dayGroups
+      .map(
+        (g) => `
+      <section>
+        <h3>${esc(periodTitle(g.label))}
+          <small>${esc(timeRange(g.from, g.to))} — ${g.names.length} مشرف</small>
+        </h3>
+        <table>
+          <thead><tr><th class="n">#</th><th>المشرف</th></tr></thead>
+          <tbody>
+            ${g.names
+              .map(
+                (name, i) =>
+                  `<tr><td class="n">${i + 1}</td><td>${esc(name)}</td></tr>`,
+              )
+              .join("")}
+          </tbody>
+        </table>
+      </section>`,
+      )
+      .join("");
+
+    printHtml(
+      `تقرير المشرفين — ${formatDay(day)}`,
+      `<div class="head"><h1>تقرير المشرفين — ${esc(formatDay(day))}</h1><span>LectureFlow</span></div>
+       <div class="meta">
+         <div>المشرفون المداومون: <b>${dayTotals.supervisors}</b></div>
+         <div>عدد الفترات: <b>${dayTotals.periods}</b></div>
+       </div>
+       ${sections || "<p>لا يوجد مشرفون في هذا اليوم.</p>"}
+       <div class="foot">تاريخ الطباعة: ${esc(printed)}</div>`,
+    );
+  }
+
+  function exportDay() {
+    const aoa = [["الفترة", "الوقت", "#", "المشرف"]];
+
+    dayGroups.forEach((g) => {
+      g.names.forEach((name, i) => {
+        aoa.push([
+          periodTitle(g.label),
+          timeRange(g.from, g.to),
+          i + 1,
+          name,
+        ]);
+      });
+    });
+
+    downloadExcel(`تقرير_يوم_${day}.xlsx`, "تقرير يوم", aoa, [18, 16, 6, 32]);
+  }
+
+  function printPeriod() {
+    const printed = new Date().toLocaleDateString("ar-SA");
+    const range = currentPeriod
+      ? timeRange(currentPeriod.from, currentPeriod.to)
+      : "";
+
+    const rowsHtml = periodRows
+      .map(
+        (r, i) => `<tr>
+          <td class="n">${i + 1}</td>
+          <td>${esc(r.name)}</td>
+          <td class="n">${r.days.length}</td>
+          <td>${esc(r.days.map((d) => formatDay(d, false)).join("، "))}</td>
+        </tr>`,
+      )
+      .join("");
+
+    printHtml(
+      `تقرير ${periodTitle(period)}`,
+      `<div class="head"><h1>تقرير ${esc(periodTitle(period))}${range ? ` (${esc(range)})` : ""}</h1><span>LectureFlow</span></div>
+       <div class="meta">
+         <div>المشرفون المداومون: <b>${periodRows.length}</b></div>
+         <div>عدد الأيام: <b>${periodTotalDays}</b></div>
+         ${dateFrom || dateTo ? `<div>النطاق: <b>${esc(dateFrom || "…")} → ${esc(dateTo || "…")}</b></div>` : ""}
+       </div>
+       <table>
+         <thead><tr><th class="n">#</th><th>المشرف</th><th class="n">الأيام</th><th>تواريخ الدوام</th></tr></thead>
+         <tbody>${rowsHtml}</tbody>
+       </table>
+       <div class="foot">تاريخ الطباعة: ${esc(printed)}</div>`,
+    );
+  }
+
+  function exportPeriod() {
+    const aoa = [["#", "المشرف", "عدد الأيام", "تواريخ الدوام"]];
+
+    periodRows.forEach((r, i) => {
+      aoa.push([
+        i + 1,
+        r.name,
+        r.days.length,
+        r.days.map((d) => formatDay(d, false)).join("، "),
+      ]);
+    });
+
+    downloadExcel(
+      `تقرير_${periodTitle(period)}.xlsx`.replace(/\s+/g, "_"),
+      periodTitle(period),
+      aoa,
+      [6, 32, 12, 70],
+    );
+  }
+
   // ---------- Render ----------
 
   if (loading) {
@@ -349,7 +535,7 @@ export default function DutyReports({ mode }) {
 
         <div className="sr-toolbar">
           <label className="sr-field">
-            اختاري اليوم
+            اختار اليوم
             <input
               type="date"
               value={day}
@@ -363,8 +549,18 @@ export default function DutyReports({ mode }) {
 
           <button
             type="button"
+            className="sr-btn"
+            onClick={exportDay}
+            disabled={dayGroups.length === 0}
+          >
+            {Icons.excel}
+            تنزيل Excel
+          </button>
+
+          <button
+            type="button"
             className="sr-btn primary"
-            onClick={() => window.print()}
+            onClick={printDay}
           >
             {Icons.print}
             طباعة التقرير
@@ -494,8 +690,18 @@ export default function DutyReports({ mode }) {
 
         <button
           type="button"
+          className="sr-btn"
+          onClick={exportPeriod}
+          disabled={periodRows.length === 0}
+        >
+          {Icons.excel}
+          تنزيل Excel
+        </button>
+
+        <button
+          type="button"
           className="sr-btn primary"
-          onClick={() => window.print()}
+          onClick={printPeriod}
         >
           {Icons.print}
           طباعة التقرير

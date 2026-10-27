@@ -530,3 +530,8 @@
     print-color-adjust: exact;
   }
 }
+
+.sr-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
