@@ -26,6 +26,8 @@ const Icons = {
   ),
 };
 
+const NO_CATEGORY = "بدون فئة";
+
 function toArray(res) {
   if (Array.isArray(res)) return res;
   if (Array.isArray(res?.data)) return res.data;
@@ -117,6 +119,12 @@ function normalizeRow(r) {
     supervisor_name:
       r.supervisor_name ?? r.supervisorName ?? r.name ?? "غير معروف",
     status: r.plan_status ?? r.status ?? "accepted",
+    category:
+      String(
+        (typeof r.category === "object" ? r.category?.name : r.category) ??
+          r.category_name ??
+          "",
+      ).trim() || NO_CATEGORY,
   };
 }
 
@@ -215,6 +223,7 @@ export default function DutyReports({ mode }) {
   const [day, setDay] = useState("");
 
   const [period, setPeriod] = useState("");
+  const [category, setCategory] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
@@ -250,6 +259,24 @@ export default function DutyReports({ mode }) {
     load();
   }, []);
 
+  // الفئات المتوفرة (مدمج / دبلوم / متطلبات ...)
+  const categories = useMemo(
+    () =>
+      [...new Set(rows.map((r) => r.category))].sort((a, b) =>
+        String(a).localeCompare(String(b), "ar"),
+      ),
+    [rows],
+  );
+
+  // في تقرير الفترة: نفلتر التعيينات حسب الفئة المختارة ("" = كل الفئات)
+  const scopedRows = useMemo(
+    () =>
+      mode === "period" && category
+        ? rows.filter((r) => r.category === category)
+        : rows,
+    [rows, mode, category],
+  );
+
   const dates = useMemo(
     () => [...new Set(rows.map((r) => r.date))].sort(),
     [rows],
@@ -259,7 +286,7 @@ export default function DutyReports({ mode }) {
   const periods = useMemo(() => {
     const map = new Map();
 
-    rows.forEach((r) => {
+    scopedRows.forEach((r) => {
       const current = map.get(r.period);
 
       if (!current) {
@@ -276,7 +303,7 @@ export default function DutyReports({ mode }) {
         String(a.from).localeCompare(String(b.from)) ||
         String(a.label).localeCompare(String(b.label), "ar", { numeric: true }),
     );
-  }, [rows]);
+  }, [scopedRows]);
 
   useEffect(() => {
     if (!day && dates.length) setDay(dates[dates.length - 1]);
@@ -346,7 +373,7 @@ export default function DutyReports({ mode }) {
   const periodRows = useMemo(() => {
     const map = new Map();
 
-    rows
+    scopedRows
       .filter(
         (r) =>
           r.period === period &&
@@ -372,7 +399,7 @@ export default function DutyReports({ mode }) {
           b.days.length - a.days.length ||
           String(a.name).localeCompare(String(b.name), "ar"),
       );
-  }, [rows, period, dateFrom, dateTo]);
+  }, [scopedRows, period, dateFrom, dateTo]);
 
   const currentPeriod = periods.find((p) => p.label === period);
 
@@ -456,10 +483,11 @@ export default function DutyReports({ mode }) {
 
     printHtml(
       `تقرير ${periodTitle(period)}`,
-      `<div class="head"><h1>تقرير ${esc(periodTitle(period))}${range ? ` (${esc(range)})` : ""}</h1><span>LectureFlow</span></div>
+      `<div class="head"><h1>تقرير ${esc(periodTitle(period))}${range ? ` (${esc(range)})` : ""}${category ? ` — ${esc(category)}` : ""}</h1><span>LectureFlow</span></div>
        <div class="meta">
          <div>المشرفون المداومون: <b>${periodRows.length}</b></div>
          <div>عدد الأيام: <b>${periodTotalDays}</b></div>
+         <div>الفئة: <b>${esc(category || "كل الفئات")}</b></div>
          ${dateFrom || dateTo ? `<div>النطاق: <b>${esc(dateFrom || "…")} → ${esc(dateTo || "…")}</b></div>` : ""}
        </div>
        <table>
@@ -471,7 +499,10 @@ export default function DutyReports({ mode }) {
   }
 
   function exportPeriod() {
-    const aoa = [["#", "المشرف", "عدد الأيام", "تواريخ الدوام"]];
+    const aoa = [
+      [`الفئة: ${category || "كل الفئات"}`],
+      ["#", "المشرف", "عدد الأيام", "تواريخ الدوام"],
+    ];
 
     periodRows.forEach((r, i) => {
       aoa.push([
@@ -483,7 +514,10 @@ export default function DutyReports({ mode }) {
     });
 
     downloadExcel(
-      `تقرير_${periodTitle(period)}.xlsx`.replace(/\s+/g, "_"),
+      `تقرير_${periodTitle(period)}${category ? `_${category}` : ""}.xlsx`.replace(
+        /\s+/g,
+        "_",
+      ),
       periodTitle(period),
       aoa,
       [6, 32, 12, 70],
@@ -638,6 +672,31 @@ export default function DutyReports({ mode }) {
         <span>LectureFlow</span>
       </div>
 
+      {categories.length > 1 && (
+        <div className="sr-cats">
+          <span className="sr-cats-label">الفئة:</span>
+
+          <button
+            type="button"
+            className={`sr-cat ${category === "" ? "active" : ""}`}
+            onClick={() => setCategory("")}
+          >
+            الكل
+          </button>
+
+          {categories.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={`sr-cat ${category === c ? "active" : ""}`}
+              onClick={() => setCategory(c)}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="sr-pills">
         {periods.map((p) => (
           <button
@@ -712,6 +771,11 @@ export default function DutyReports({ mode }) {
         <div className="sr-summary-item">
           <span>الفترة</span>
           <strong style={{ fontSize: 16 }}>{periodTitle(period)}</strong>
+        </div>
+
+        <div className="sr-summary-item">
+          <span>الفئة</span>
+          <strong style={{ fontSize: 16 }}>{category || "كل الفئات"}</strong>
         </div>
 
         <div className="sr-summary-item green">
