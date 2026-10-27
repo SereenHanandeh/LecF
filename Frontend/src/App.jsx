@@ -26,7 +26,7 @@ function App() {
             path="/supervisor-report/:supervisorId"
             element={<SupervisorReport />}
           />
-          <Route path="/supervisor-stats" element={<SupervisorStats />} />
+        <Route path="/supervisor-stats" element={<SupervisorStats />} />
           <Route path="/rooms" element={<RoomsPage />} />
         </Routes>
       </Router>
