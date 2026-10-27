@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { getAssignmentsReport } from "../api.js";
 
-import "../assets/Supervisorreports.css";
+import "../assets/DutyReports.css";
 
 // =====================================================
 // Helpers
@@ -130,7 +130,7 @@ function Empty({ icon = "📋", title, text }) {
 // Component — mode: "day" | "period"
 // =====================================================
 
-export default function SupervisorReports({ mode }) {
+export default function DutyReports({ mode }) {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");

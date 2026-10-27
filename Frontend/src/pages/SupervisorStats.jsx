@@ -9,7 +9,7 @@ import {
   setInitialSupervisorStat,
 } from "../api.js";
 
-import SupervisorReports from "../components/Supervisorreports.jsx";
+import DutyReports from "../components/Dutyreports.jsx";
 
 import "../assets/Plan.css";
 
@@ -569,7 +569,7 @@ export default function SupervisorStats() {
 
         {tab !== "stats" && (
           <section className="sr-panel">
-            <SupervisorReports key={tab} mode={tab} />
+            <DutyReports key={tab} mode={tab} />
           </section>
         )}
 
