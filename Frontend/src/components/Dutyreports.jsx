@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import { getAssignmentsReport } from "../api.js";
 
-import "./DutyReports.css";
+import "../assets/DutyReports.css";
 
 // =====================================================
 // Helpers
