@@ -2562,35 +2562,41 @@ export default function PlanResult() {
         });
         addPeriodConditionalFormatting(sheet, periodColorMap, total);
         if (LIVE) addDynamicBorders(sheet, total);
-        // ===== جلسات الأساتذة المشتركين مع مشرفين آخرين =====
-const myProfessorKeys = new Set(
-  items.map((item) => getProfessorKey(dataToExport[item.index])),
-);
+        // ===== جدول مستقل لكل دكتور مشترك أسفل جدول المشرف =====
+const doctorKeys = [];
+const seenDoctors = new Set();
 
-const sharedRows = [];
+items.forEach((item) => {
+  const key = getProfessorKey(dataToExport[item.index]);
 
-dataToExport.forEach((a, i) => {
-  const key = getProfessorKey(a);
-
-  if (
-    sharedProfessorKeys.has(key) &&
-    myProfessorKeys.has(key) &&
-    getSupervisorName(a) !== supervisorName
-  ) {
-    sharedRows.push(rowsData[i]);
+  if (sharedProfessorKeys.has(key) && !seenDoctors.has(key)) {
+    seenDoctors.add(key);
+    doctorKeys.push(key);
   }
 });
 
+let cursor = total + 2; // صف بداية الجدول التالي
 let lastPrintRow = items.length + 1;
 
-if (sharedRows.length) {
-  const titleRowNo = total + 2;
-  const headerRowNo = titleRowNo + 1;
+doctorKeys.forEach((key) => {
+  // كل جلسات الدكتور عند كل المشرفين (مرتبة أصلًا حسب From)
+  const doctorRows = [];
+  let doctorName = "";
 
-  // عنوان القسم
+  dataToExport.forEach((a, i) => {
+    if (getProfessorKey(a) === key) {
+      doctorRows.push(rowsData[i]);
+      if (!doctorName) doctorName = getProfessorName(a);
+    }
+  });
+
+  const titleRowNo = cursor;
+  const headerRowNo = cursor + 1;
+
+  // عنوان الجدول: اسم الدكتور
   sheet.mergeCells(`A${titleRowNo}:J${titleRowNo}`);
   const titleCell = sheet.getCell(`A${titleRowNo}`);
-  titleCell.value = "جلسات الأساتذة المشتركين مع مشرفين آخرين";
+  titleCell.value = `جدول الدكتور: ${doctorName}`;
   titleCell.font = { ...EXCEL_FONT, color: { argb: "FFFFFFFF" } };
   titleCell.alignment = { vertical: "middle", horizontal: "center" };
   titleCell.fill = {
@@ -2605,29 +2611,37 @@ if (sharedRows.length) {
     const cell = sheet.getRow(headerRowNo).getCell(i + 1);
     cell.value = col.header;
     cell.font = { ...EXCEL_FONT, color: { argb: "FFFFFFFF" } };
-    cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+    cell.alignment = {
+      vertical: "middle",
+      horizontal: "center",
+      wrapText: true,
+    };
     cell.fill = {
       type: "pattern",
       pattern: "solid",
-      fgColor: { argb: "FF6B7280" },
+      fgColor: { argb: "FF2563EB" },
     };
     cell.border = EXCEL_BORDER;
   });
   sheet.getRow(headerRowNo).height = EXCEL_HEADER_HEIGHT;
 
-  // البيانات (قيم ثابتة + لون الفترة)
-  sharedRows.forEach((rowData, idx) => {
+  // الصفوف
+  doctorRows.forEach((rowData, idx) => {
     const r = headerRowNo + 1 + idx;
     const row = sheet.getRow(r);
     row.height = computeRowHeight(rowData, widths);
 
     const color = periodColorMap.get(rowData.period);
 
-    keys.forEach((key, i) => {
+    keys.forEach((k, i) => {
       const cell = row.getCell(i + 1);
-      cell.value = rowData[key];
+      cell.value = rowData[k];
       cell.font = EXCEL_FONT;
-      cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+      cell.alignment = {
+        vertical: "middle",
+        horizontal: "center",
+        wrapText: true,
+      };
       cell.border = EXCEL_BORDER;
 
       if (color) {
@@ -2640,8 +2654,9 @@ if (sharedRows.length) {
     });
   });
 
-  lastPrintRow = headerRowNo + sharedRows.length;
-}
+  lastPrintRow = headerRowNo + doctorRows.length;
+  cursor = lastPrintRow + 2; // سطر فاصل ثم الدكتور التالي
+});
 
 setupPrint(sheet, lastPrintRow);
 
