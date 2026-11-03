@@ -349,6 +349,8 @@ const EXCEL_SORT_DATE_FIRST = false;
 // false = شيتات المشرفين قيم عادية قابلة للتعديل
 // true  = شيتات المشرفين معادلات مرتبطة بالشيت الرئيسي (السلوك القديم)
 const EXCEL_LIVE_SUPERVISOR_SHEETS = true;
+// true = جدول لكل دكتور عند المشرف | false = فقط الدكاترة المشتركون بين أكثر من مشرف
+const SHOW_ALL_DOCTOR_TABLES = false;
 
 const EXCEL_FONT = { name: "Calibri", size: 15, bold: true };
 
@@ -2569,7 +2571,10 @@ const seenDoctors = new Set();
 items.forEach((item) => {
   const key = getProfessorKey(dataToExport[item.index]);
 
-  if (sharedProfessorKeys.has(key) && !seenDoctors.has(key)) {
+  if (
+  (SHOW_ALL_DOCTOR_TABLES || sharedProfessorKeys.has(key)) &&
+  !seenDoctors.has(key)
+) {
     seenDoctors.add(key);
     doctorKeys.push(key);
   }
