@@ -2584,6 +2584,7 @@ export default function PlanResult() {
         const sorted = [...list].sort((x, y) => fromOf(x) - fromOf(y));
         const first = sorted[0];
         const last = sorted[sorted.length - 1];
+        const hasSingle = sorted.length === 1;
 
         return {
           sortDate: getDateValue(first.date),
@@ -2593,9 +2594,13 @@ export default function PlanResult() {
           firstPeriod: getPeriod(first),
           firstFrom: formatTime12Hour(getTimeFrom(first), getPeriod(first)),
           firstTo: formatTime12Hour(getTimeTo(first), getPeriod(first)),
-          lastPeriod: getPeriod(last),
-          lastFrom: formatTime12Hour(getTimeFrom(last), getPeriod(last)),
-          lastTo: formatTime12Hour(getTimeTo(last), getPeriod(last)),
+          lastPeriod: hasSingle ? "-" : getPeriod(last),
+          lastFrom: hasSingle
+            ? "-"
+            : formatTime12Hour(getTimeFrom(last), getPeriod(last)),
+          lastTo: hasSingle
+            ? "-"
+            : formatTime12Hour(getTimeTo(last), getPeriod(last)),
         };
       });
 
