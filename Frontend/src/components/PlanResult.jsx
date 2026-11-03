@@ -169,6 +169,8 @@ const getPhone = (assignment) =>
   assignment.phone ??
   "-";
 
+const getProfessorKey = (a) =>
+  String(a.professor_id ?? a.professorId ?? getProfessorName(a));
 // =====================================================
 // Time Helpers
 // =====================================================
@@ -2389,7 +2391,7 @@ export default function PlanResult() {
       const MAIN = "الخطة الكاملة";
       const LISTS = "المشرفون";
       const MAIN_EXTRA_ROWS = 200;
-      const SUP_EXTRA_ROWS = 50;
+      const SUP_EXTRA_ROWS = 15;
       const LIVE = EXCEL_LIVE_SUPERVISOR_SHEETS;
 
       const dataToExport = sortForExcel(planData);
@@ -2459,6 +2461,21 @@ export default function PlanResult() {
       // تجميع البيانات حسب المشرف (بعد الترتيب)
 
       const bySupervisor = new Map();
+      // الأساتذة الذين لديهم أكثر من مشرف
+      const supsByProfessor = new Map();
+
+      dataToExport.forEach((a) => {
+        const sup = getSupervisorName(a);
+        if (!sup || sup === "-") return;
+
+        const key = getProfessorKey(a);
+        if (!supsByProfessor.has(key)) supsByProfessor.set(key, new Set());
+        supsByProfessor.get(key).add(sup);
+      });
+
+      const sharedProfessorKeys = new Set(
+        [...supsByProfessor].filter(([, s]) => s.size > 1).map(([k]) => k),
+      );
 
       dataToExport.forEach((assignment, index) => {
         const name = getSupervisorName(assignment);
@@ -2545,7 +2562,88 @@ export default function PlanResult() {
         });
         addPeriodConditionalFormatting(sheet, periodColorMap, total);
         if (LIVE) addDynamicBorders(sheet, total);
-        setupPrint(sheet, items.length + 1);
+        // ===== جلسات الأساتذة المشتركين مع مشرفين آخرين =====
+const myProfessorKeys = new Set(
+  items.map((item) => getProfessorKey(dataToExport[item.index])),
+);
+
+const sharedRows = [];
+
+dataToExport.forEach((a, i) => {
+  const key = getProfessorKey(a);
+
+  if (
+    sharedProfessorKeys.has(key) &&
+    myProfessorKeys.has(key) &&
+    getSupervisorName(a) !== supervisorName
+  ) {
+    sharedRows.push(rowsData[i]);
+  }
+});
+
+let lastPrintRow = items.length + 1;
+
+if (sharedRows.length) {
+  const titleRowNo = total + 2;
+  const headerRowNo = titleRowNo + 1;
+
+  // عنوان القسم
+  sheet.mergeCells(`A${titleRowNo}:J${titleRowNo}`);
+  const titleCell = sheet.getCell(`A${titleRowNo}`);
+  titleCell.value = "جلسات الأساتذة المشتركين مع مشرفين آخرين";
+  titleCell.font = { ...EXCEL_FONT, color: { argb: "FFFFFFFF" } };
+  titleCell.alignment = { vertical: "middle", horizontal: "center" };
+  titleCell.fill = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF7C3AED" },
+  };
+  sheet.getRow(titleRowNo).height = EXCEL_HEADER_HEIGHT;
+
+  // الهيدر
+  EXCEL_COLUMNS.forEach((col, i) => {
+    const cell = sheet.getRow(headerRowNo).getCell(i + 1);
+    cell.value = col.header;
+    cell.font = { ...EXCEL_FONT, color: { argb: "FFFFFFFF" } };
+    cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF6B7280" },
+    };
+    cell.border = EXCEL_BORDER;
+  });
+  sheet.getRow(headerRowNo).height = EXCEL_HEADER_HEIGHT;
+
+  // البيانات (قيم ثابتة + لون الفترة)
+  sharedRows.forEach((rowData, idx) => {
+    const r = headerRowNo + 1 + idx;
+    const row = sheet.getRow(r);
+    row.height = computeRowHeight(rowData, widths);
+
+    const color = periodColorMap.get(rowData.period);
+
+    keys.forEach((key, i) => {
+      const cell = row.getCell(i + 1);
+      cell.value = rowData[key];
+      cell.font = EXCEL_FONT;
+      cell.alignment = { vertical: "middle", horizontal: "center", wrapText: true };
+      cell.border = EXCEL_BORDER;
+
+      if (color) {
+        cell.fill = {
+          type: "pattern",
+          pattern: "solid",
+          fgColor: { argb: color },
+        };
+      }
+    });
+  });
+
+  lastPrintRow = headerRowNo + sharedRows.length;
+}
+
+setupPrint(sheet, lastPrintRow);
 
         // عمود CRN: Bold + حجم 23 + عرض حسب المحتوى (شيتات المشرفين فقط)
         sheet.getColumn(1).width = computeCrnWidth(itemRows);
