@@ -349,8 +349,6 @@ const EXCEL_SORT_DATE_FIRST = false;
 // false = شيتات المشرفين قيم عادية قابلة للتعديل
 // true  = شيتات المشرفين معادلات مرتبطة بالشيت الرئيسي (السلوك القديم)
 const EXCEL_LIVE_SUPERVISOR_SHEETS = true;
-// true = جدول لكل دكتور عند المشرف | false = فقط الدكاترة المشتركون بين أكثر من مشرف
-const SHOW_ALL_DOCTOR_TABLES = false;
 
 const EXCEL_FONT = { name: "Calibri", size: 15, bold: true };
 
@@ -1729,7 +1727,6 @@ export default function PlanResult() {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prevOverflow;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editingId, savingId]);
 
   // =====================================================
@@ -2463,21 +2460,6 @@ export default function PlanResult() {
       // تجميع البيانات حسب المشرف (بعد الترتيب)
 
       const bySupervisor = new Map();
-      // الأساتذة الذين لديهم أكثر من مشرف
-      const supsByProfessor = new Map();
-
-      dataToExport.forEach((a) => {
-        const sup = getSupervisorName(a);
-        if (!sup || sup === "-") return;
-
-        const key = getProfessorKey(a);
-        if (!supsByProfessor.has(key)) supsByProfessor.set(key, new Set());
-        supsByProfessor.get(key).add(sup);
-      });
-
-      const sharedProfessorKeys = new Set(
-        [...supsByProfessor].filter(([, s]) => s.size > 1).map(([k]) => k),
-      );
 
       dataToExport.forEach((assignment, index) => {
         const name = getSupervisorName(assignment);
@@ -2564,106 +2546,8 @@ export default function PlanResult() {
         });
         addPeriodConditionalFormatting(sheet, periodColorMap, total);
         if (LIVE) addDynamicBorders(sheet, total);
-        // ===== جدول مستقل لكل دكتور مشترك أسفل جدول المشرف =====
-const doctorKeys = [];
-const seenDoctors = new Set();
 
-items.forEach((item) => {
-  const key = getProfessorKey(dataToExport[item.index]);
-
-  if (
-  (SHOW_ALL_DOCTOR_TABLES || sharedProfessorKeys.has(key)) &&
-  !seenDoctors.has(key)
-) {
-    seenDoctors.add(key);
-    doctorKeys.push(key);
-  }
-});
-
-let cursor = total + 2; // صف بداية الجدول التالي
-let lastPrintRow = items.length + 1;
-
-doctorKeys.forEach((key) => {
-  // كل جلسات الدكتور عند كل المشرفين (مرتبة أصلًا حسب From)
-  const doctorRows = [];
-  let doctorName = "";
-
-  dataToExport.forEach((a, i) => {
-    if (getProfessorKey(a) === key) {
-      doctorRows.push(rowsData[i]);
-      if (!doctorName) doctorName = getProfessorName(a);
-    }
-  });
-
-  const titleRowNo = cursor;
-  const headerRowNo = cursor + 1;
-
-  // عنوان الجدول: اسم الدكتور
-  sheet.mergeCells(`A${titleRowNo}:J${titleRowNo}`);
-  const titleCell = sheet.getCell(`A${titleRowNo}`);
-  titleCell.value = `جدول الدكتور: ${doctorName}`;
-  titleCell.font = { ...EXCEL_FONT, color: { argb: "FFFFFFFF" } };
-  titleCell.alignment = { vertical: "middle", horizontal: "center" };
-  titleCell.fill = {
-    type: "pattern",
-    pattern: "solid",
-    fgColor: { argb: "FF7C3AED" },
-  };
-  sheet.getRow(titleRowNo).height = EXCEL_HEADER_HEIGHT;
-
-  // الهيدر
-  EXCEL_COLUMNS.forEach((col, i) => {
-    const cell = sheet.getRow(headerRowNo).getCell(i + 1);
-    cell.value = col.header;
-    cell.font = { ...EXCEL_FONT, color: { argb: "FFFFFFFF" } };
-    cell.alignment = {
-      vertical: "middle",
-      horizontal: "center",
-      wrapText: true,
-    };
-    cell.fill = {
-      type: "pattern",
-      pattern: "solid",
-      fgColor: { argb: "FF2563EB" },
-    };
-    cell.border = EXCEL_BORDER;
-  });
-  sheet.getRow(headerRowNo).height = EXCEL_HEADER_HEIGHT;
-
-  // الصفوف
-  doctorRows.forEach((rowData, idx) => {
-    const r = headerRowNo + 1 + idx;
-    const row = sheet.getRow(r);
-    row.height = computeRowHeight(rowData, widths);
-
-    const color = periodColorMap.get(rowData.period);
-
-    keys.forEach((k, i) => {
-      const cell = row.getCell(i + 1);
-      cell.value = rowData[k];
-      cell.font = EXCEL_FONT;
-      cell.alignment = {
-        vertical: "middle",
-        horizontal: "center",
-        wrapText: true,
-      };
-      cell.border = EXCEL_BORDER;
-
-      if (color) {
-        cell.fill = {
-          type: "pattern",
-          pattern: "solid",
-          fgColor: { argb: color },
-        };
-      }
-    });
-  });
-
-  lastPrintRow = headerRowNo + doctorRows.length;
-  cursor = lastPrintRow + 2; // سطر فاصل ثم الدكتور التالي
-});
-
-setupPrint(sheet, lastPrintRow);
+        setupPrint(sheet, items.length + 1);
 
         // عمود CRN: Bold + حجم 23 + عرض حسب المحتوى (شيتات المشرفين فقط)
         sheet.getColumn(1).width = computeCrnWidth(itemRows);
@@ -2674,6 +2558,114 @@ setupPrint(sheet, lastPrintRow);
           row.getCell(1).font = CRN_FONT;
         }
       }
+
+      // ===== شيت الأساتذة: أول وآخر فترة لكل أستاذ =====
+      const doctorsSheet = workbook.addWorksheet(
+        sanitizeSheetName("الأساتذة"),
+        {
+          views: [{ rightToLeft: true }],
+        },
+      );
+
+      // تجميع حسب الأستاذ + التاريخ
+      const doctorGroups = new Map();
+
+      dataToExport.forEach((a) => {
+        const key = `${getProfessorKey(a)}|${getDateValue(a.date)}`;
+        if (!doctorGroups.has(key)) doctorGroups.set(key, []);
+        doctorGroups.get(key).push(a);
+      });
+
+      const doctorsRows = [...doctorGroups.values()].map((list) => {
+        const fromOf = (x) => timeToMinutes(getTimeFrom(x), getPeriod(x));
+        const toOf = (x) => timeToMinutes(getTimeTo(x), getPeriod(x));
+
+        const first = [...list].sort((x, y) => fromOf(x) - fromOf(y))[0];
+        const last = [...list].sort((x, y) => toOf(x) - toOf(y)).at(-1);
+
+        const firstPeriod = getPeriod(first);
+        const lastPeriod = getPeriod(last);
+
+        return {
+          sortDate: getDateValue(first.date),
+          sortFrom: fromOf(first),
+          professor: getProfessorName(first),
+          date: formatDate(first.date),
+          period:
+            firstPeriod === lastPeriod
+              ? firstPeriod
+              : `${firstPeriod} - ${lastPeriod}`,
+          from: formatTime12Hour(getTimeFrom(first), firstPeriod),
+          to: formatTime12Hour(getTimeTo(last), lastPeriod),
+        };
+      });
+
+      doctorsRows.sort(
+        (a, b) =>
+          a.sortDate.localeCompare(b.sortDate) || a.sortFrom - b.sortFrom,
+      );
+
+      const DOCTOR_COLUMNS = [
+        { header: "Professor", key: "professor" },
+        { header: "Date", key: "date" },
+        { header: "Period", key: "period" },
+        { header: "From", key: "from" },
+        { header: "To", key: "to" },
+      ];
+
+      doctorsSheet.columns = DOCTOR_COLUMNS.map((col) => {
+        const maxLen = doctorsRows.reduce(
+          (max, row) => Math.max(max, String(row[col.key] ?? "").length),
+          col.header.length,
+        );
+
+        return {
+          ...col,
+          width: Math.min(60, Math.max(14, Math.ceil(maxLen * 1.6) + 4)),
+        };
+      });
+
+      doctorsRows.forEach((row) => doctorsSheet.addRow(row));
+
+      const doctorsLastRow = doctorsRows.length + 1;
+
+      for (let r = 1; r <= doctorsLastRow; r++) {
+        const row = doctorsSheet.getRow(r);
+        row.height = r === 1 ? EXCEL_HEADER_HEIGHT : EXCEL_ROW_HEIGHT;
+
+        for (let c = 1; c <= DOCTOR_COLUMNS.length; c++) {
+          const cell = row.getCell(c);
+
+          cell.font =
+            r === 1
+              ? { ...EXCEL_FONT, color: { argb: "FFFFFFFF" } }
+              : EXCEL_FONT;
+          cell.alignment = {
+            vertical: "middle",
+            horizontal: "center",
+            wrapText: true,
+          };
+          cell.border = EXCEL_BORDER;
+
+          if (r === 1) {
+            cell.fill = {
+              type: "pattern",
+              pattern: "solid",
+              fgColor: { argb: "FF2563EB" },
+            };
+          }
+        }
+      }
+
+      doctorsSheet.pageSetup = {
+        paperSize: 9,
+        orientation: "landscape",
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        printTitlesRow: "1:1",
+        horizontalCentered: true,
+      };
 
       // شيت مخفي بأسماء المشرفين + قائمة منسدلة
 
