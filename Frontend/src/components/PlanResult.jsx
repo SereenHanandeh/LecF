@@ -2393,7 +2393,7 @@ export default function PlanResult() {
       const MAIN = "الخطة الكاملة";
       const LISTS = "المشرفون";
       const MAIN_EXTRA_ROWS = 200;
-      const SUP_EXTRA_ROWS = 15;
+      const SUP_EXTRA_ROWS = 4;
       const LIVE = EXCEL_LIVE_SUPERVISOR_SHEETS;
 
       const dataToExport = sortForExcel(planData);
