@@ -2560,6 +2560,7 @@ export default function PlanResult() {
       }
 
       // ===== شيت الأساتذة: أول وآخر فترة لكل أستاذ =====
+      // ===== شيت الأساتذة: أول فترة وآخر فترة لكل أستاذ =====
       const doctorsSheet = workbook.addWorksheet(
         sanitizeSheetName("الأساتذة"),
         {
@@ -2578,25 +2579,23 @@ export default function PlanResult() {
 
       const doctorsRows = [...doctorGroups.values()].map((list) => {
         const fromOf = (x) => timeToMinutes(getTimeFrom(x), getPeriod(x));
-        const toOf = (x) => timeToMinutes(getTimeTo(x), getPeriod(x));
 
-        const first = [...list].sort((x, y) => fromOf(x) - fromOf(y))[0];
-        const last = [...list].sort((x, y) => toOf(x) - toOf(y)).at(-1);
-
-        const firstPeriod = getPeriod(first);
-        const lastPeriod = getPeriod(last);
+        // الترتيب حسب وقت البداية: الأولى أبكر، والأخيرة أبعد
+        const sorted = [...list].sort((x, y) => fromOf(x) - fromOf(y));
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
 
         return {
           sortDate: getDateValue(first.date),
           sortFrom: fromOf(first),
           professor: getProfessorName(first),
           date: formatDate(first.date),
-          period:
-            firstPeriod === lastPeriod
-              ? firstPeriod
-              : `${firstPeriod} - ${lastPeriod}`,
-          from: formatTime12Hour(getTimeFrom(first), firstPeriod),
-          to: formatTime12Hour(getTimeTo(last), lastPeriod),
+          firstPeriod: getPeriod(first),
+          firstFrom: formatTime12Hour(getTimeFrom(first), getPeriod(first)),
+          firstTo: formatTime12Hour(getTimeTo(first), getPeriod(first)),
+          lastPeriod: getPeriod(last),
+          lastFrom: formatTime12Hour(getTimeFrom(last), getPeriod(last)),
+          lastTo: formatTime12Hour(getTimeTo(last), getPeriod(last)),
         };
       });
 
@@ -2608,9 +2607,12 @@ export default function PlanResult() {
       const DOCTOR_COLUMNS = [
         { header: "Professor", key: "professor" },
         { header: "Date", key: "date" },
-        { header: "Period", key: "period" },
-        { header: "From", key: "from" },
-        { header: "To", key: "to" },
+        { header: "First Period", key: "firstPeriod" },
+        { header: "From", key: "firstFrom" },
+        { header: "To", key: "firstTo" },
+        { header: "Last Period", key: "lastPeriod" },
+        { header: "From", key: "lastFrom" },
+        { header: "To", key: "lastTo" },
       ];
 
       doctorsSheet.columns = DOCTOR_COLUMNS.map((col) => {
