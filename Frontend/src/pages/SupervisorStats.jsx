@@ -10,6 +10,7 @@ import {
   getPlans,
   getPlan,
 } from "../api.js";
+import ExcelJS from "exceljs";
 
 import DutyReports from "../components/Dutyreports.jsx";
 
@@ -235,7 +236,8 @@ function WeekdayReport() {
           const data = res?.data;
           if (!data || data.status !== "accepted") return;
 
-          const planName = data.name ?? plans[i]?.name ?? `خطة #${plans[i]?.id}`;
+          const planName =
+            data.name ?? plans[i]?.name ?? `خطة #${plans[i]?.id}`;
           const groups = Array.isArray(data.groups) ? data.groups : [];
           const groupsMap = new Map(
             groups.map((g) => [String(g.id ?? g.session_group_id), g]),
@@ -253,9 +255,14 @@ function WeekdayReport() {
             const date = toDateKey(a.date ?? group?.date);
             const supervisor =
               a.supervisor_name ?? a.supervisorName ?? a.supervisor ?? "";
-            const supervisorId = a.supervisor_id ?? a.supervisorId ?? supervisor;
+            const supervisorId =
+              a.supervisor_id ?? a.supervisorId ?? supervisor;
             const period =
-              a.period_label ?? a.period ?? group?.period_label ?? group?.period ?? "";
+              a.period_label ??
+              a.period ??
+              group?.period_label ??
+              group?.period ??
+              "";
 
             if (!date || !supervisor) return;
 
@@ -348,6 +355,128 @@ function WeekdayReport() {
 
   const label = WEEKDAYS.find((d) => d.value === weekday)?.label;
 
+  const downloadExcel = async () => {
+    try {
+      if (!byDate.length) {
+        alert("لا توجد بيانات لتنزيلها.");
+        return;
+      }
+
+      const FONT = { name: "Calibri", size: 14, bold: true };
+      const SIDE = { style: "thin", color: { argb: "FF000000" } };
+      const BORDER = { top: SIDE, bottom: SIDE, left: SIDE, right: SIDE };
+
+      const styleSheet = (sheet, colCount) => {
+        sheet.eachRow((row, rowNumber) => {
+          row.height = rowNumber === 1 ? 34 : 28;
+
+          for (let c = 1; c <= colCount; c++) {
+            const cell = row.getCell(c);
+            cell.border = BORDER;
+            cell.alignment = {
+              vertical: "middle",
+              horizontal: "center",
+              wrapText: true,
+            };
+
+            if (rowNumber === 1) {
+              cell.font = { ...FONT, color: { argb: "FFFFFFFF" } };
+              cell.fill = {
+                type: "pattern",
+                pattern: "solid",
+                fgColor: { argb: "FF2563EB" },
+              };
+            } else {
+              cell.font = FONT;
+            }
+          }
+        });
+      };
+
+      const fitWidths = (sheet, rowsData, columns) => {
+        sheet.columns = columns.map((col) => {
+          const maxLen = rowsData.reduce(
+            (max, row) => Math.max(max, String(row[col.key] ?? "").length),
+            col.header.length,
+          );
+
+          return {
+            ...col,
+            width: Math.min(60, Math.max(14, Math.ceil(maxLen * 1.5) + 4)),
+          };
+        });
+      };
+
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = "Lecture Supervisor System";
+      workbook.created = new Date();
+
+      // ===== شيت التقرير =====
+      const reportColumns = [
+        { header: "اليوم", key: "weekday" },
+        { header: "التاريخ", key: "date" },
+        { header: "المشرف", key: "supervisor" },
+        { header: "الفترات", key: "periods" },
+        { header: "الخطة", key: "plans" },
+      ];
+
+      const reportRows = byDate.flatMap(({ date, supervisors }) =>
+        supervisors.map((s) => ({
+          weekday: label,
+          date: formatDate(date),
+          supervisor: s.name,
+          periods: [...s.periods].join("، ") || "-",
+          plans: [...s.plans].join("، "),
+        })),
+      );
+
+      const reportSheet = workbook.addWorksheet("التقرير", {
+        views: [{ rightToLeft: true }],
+      });
+
+      fitWidths(reportSheet, reportRows, reportColumns);
+      reportRows.forEach((row) => reportSheet.addRow(row));
+      styleSheet(reportSheet, reportColumns.length);
+
+      // ===== شيت الملخص =====
+      const summaryColumns = [
+        { header: "المشرف", key: "name" },
+        { header: "عدد الأيام", key: "days" },
+        { header: "عدد الفترات", key: "periods" },
+      ];
+
+      const summarySheet = workbook.addWorksheet("الملخص", {
+        views: [{ rightToLeft: true }],
+      });
+
+      fitWidths(summarySheet, summary, summaryColumns);
+      summary.forEach((row) => summarySheet.addRow(row));
+      styleSheet(summarySheet, summaryColumns.length);
+
+      // ===== تنزيل الملف =====
+      const buffer = await workbook.xlsx.writeBuffer();
+
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+
+      link.href = url;
+      link.download = `تقرير_يوم_${label}.xlsx`;
+
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("❌ Weekday Excel error:", err);
+      alert("حدث خطأ أثناء إنشاء ملف Excel.");
+    }
+  };
+
   return (
     <section className="sup-stats-card">
       <div className="sup-stats-head">
@@ -381,6 +510,18 @@ function WeekdayReport() {
         ))}
       </div>
 
+      {byDate.length > 0 && (
+        <div className="sup-print-bar no-print">
+          <button
+            type="button"
+            className="sup-print-btn"
+            onClick={downloadExcel}
+          >
+            📥 تنزيل Excel
+          </button>
+        </div>
+      )}
+
       {loading && (
         <div className="plans-loading">
           <div className="loading-spinner" />
@@ -388,7 +529,9 @@ function WeekdayReport() {
         </div>
       )}
 
-      {!loading && error && <div className="supervisor-stats-empty">{error}</div>}
+      {!loading && error && (
+        <div className="supervisor-stats-empty">{error}</div>
+      )}
 
       {!loading && !error && byDate.length === 0 && (
         <div className="supervisor-stats-empty">
