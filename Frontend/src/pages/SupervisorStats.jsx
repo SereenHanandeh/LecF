@@ -203,6 +203,19 @@ function toDateKey(value) {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+// 2026-10-11 -> 11/10/2026
+function formatDateClear(dateKey) {
+  if (!dateKey) return "-";
+  const [y, m, d] = dateKey.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+// 2026-10-11 -> Date (UTC) ليُكتب في الإكسل كتاريخ حقيقي بدون انزياح يوم
+function dateKeyToExcelDate(dateKey) {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d));
+}
+
 function weekdayOf(dateKey) {
   const [y, m, d] = dateKey.split("-").map(Number);
   return new Date(y, m - 1, d).getDay();
@@ -417,16 +430,14 @@ function WeekdayReport() {
         { header: "التاريخ", key: "date" },
         { header: "المشرف", key: "supervisor" },
         { header: "الفترات", key: "periods" },
-        { header: "الخطة", key: "plans" },
       ];
 
       const reportRows = byDate.flatMap(({ date, supervisors }) =>
         supervisors.map((s) => ({
           weekday: label,
-          date: formatDate(date),
+          date: dateKeyToExcelDate(date),
           supervisor: s.name,
           periods: [...s.periods].join("، ") || "-",
-          plans: [...s.plans].join("، "),
         })),
       );
 
@@ -435,22 +446,30 @@ function WeekdayReport() {
       });
 
       fitWidths(reportSheet, reportRows, reportColumns);
+      reportSheet.getColumn(2).width = 18;
       reportRows.forEach((row) => reportSheet.addRow(row));
       styleSheet(reportSheet, reportColumns.length);
+      // عرض التاريخ بصيغة واضحة
+      reportSheet.getColumn(2).eachCell((cell, rowNumber) => {
+        if (rowNumber > 1) {
+          cell.numFmt = "dd/mm/yyyy";
+          cell.alignment = { vertical: "middle", horizontal: "center" };
+        }
+      });
 
       // دمج خلايا اليوم والتاريخ للتاريخ المكرر
-let startRow = 2; // الصف الأول للبيانات (الصف 1 هو الهيدر)
+      let startRow = 2; // الصف الأول للبيانات (الصف 1 هو الهيدر)
 
-byDate.forEach(({ supervisors }) => {
-  const endRow = startRow + supervisors.length - 1;
+      byDate.forEach(({ supervisors }) => {
+        const endRow = startRow + supervisors.length - 1;
 
-  if (endRow > startRow) {
-    reportSheet.mergeCells(`A${startRow}:A${endRow}`); // اليوم
-    reportSheet.mergeCells(`B${startRow}:B${endRow}`); // التاريخ
-  }
+        if (endRow > startRow) {
+          reportSheet.mergeCells(`A${startRow}:A${endRow}`); // اليوم
+          reportSheet.mergeCells(`B${startRow}:B${endRow}`); // التاريخ
+        }
 
-  startRow = endRow + 1;
-});
+        startRow = endRow + 1;
+      });
 
       // ===== شيت الملخص =====
       const summaryColumns = [
@@ -525,16 +544,15 @@ byDate.forEach(({ supervisors }) => {
       </div>
 
       {byDate.length > 0 && (
-        <div className="sup-print-bar no-print">
-          <button
-            type="button"
-            className="sup-print-btn"
-            onClick={downloadExcel}
-          >
-            📥 تنزيل Excel
-          </button>
-        </div>
-      )}
+  <div className="sr-excel-bar no-print">
+    <button type="button" className="sr-excel-btn" onClick={downloadExcel}>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+      </svg>
+      <span>تنزيل Excel</span>
+    </button>
+  </div>
+)}
 
       {loading && (
         <div className="plans-loading">
@@ -562,6 +580,7 @@ byDate.forEach(({ supervisors }) => {
                   <th>التاريخ</th>
                   <th>المشرف</th>
                   <th>الفترات</th>
+                  <th>الخطة</th>
                 </tr>
               </thead>
 
@@ -571,11 +590,12 @@ byDate.forEach(({ supervisors }) => {
                     <tr key={`${date}-${s.name}`}>
                       {i === 0 && (
                         <td rowSpan={supervisors.length}>
-                          <strong>{formatDate(date)}</strong>
+                          <strong dir="ltr">{formatDateClear(date)}</strong>
                         </td>
                       )}
                       <td>{s.name}</td>
                       <td>{[...s.periods].join("، ") || "-"}</td>
+                      <td>{[...s.plans].join("، ")}</td>
                     </tr>
                   )),
                 )}

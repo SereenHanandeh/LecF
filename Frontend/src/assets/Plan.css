@@ -1532,6 +1532,46 @@ input:focus-visible {
   .sup-category-head { flex-direction: column; gap: 2px; }
 }
 
+.sr-excel-bar {
+  display: flex;
+  justify-content: flex-start;
+  margin: 14px 0;
+}
+
+.sr-excel-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 22px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #16a34a, #15803d);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.28);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.sr-excel-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.sr-excel-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(22, 163, 74, 0.36);
+}
+
+.sr-excel-btn:active {
+  transform: translateY(0);
+}
 /* ---------- عنوان الطباعة ---------- */
 
 .sup-print-title {
