@@ -7,6 +7,8 @@ import {
   getAcceptedSupervisorStats,
   getInitialSupervisorStats,
   setInitialSupervisorStat,
+  getPlans,
+  getPlan,
 } from "../api.js";
 
 import DutyReports from "../components/Dutyreports.jsx";
@@ -31,11 +33,18 @@ const TabIcons = {
       <path d="M12 7v5l3 2" />
     </svg>
   ),
+  weekday: (
+    <svg viewBox="0 0 24 24">
+      <rect x="3" y="4" width="18" height="17" rx="2" />
+      <path d="M16 2v4M8 2v4M3 9h18M8 14h3" />
+    </svg>
+  ),
 };
 
 const TABS = [
   { key: "stats", label: "الإحصائيات" },
   { key: "day", label: "تقرير يوم محدد" },
+  { key: "weekday", label: "تقرير حسب اليوم" },
   { key: "period", label: "تقرير حسب الفترة" },
 ];
 
@@ -167,6 +176,287 @@ function getInitialDays(count) {
   const n = Number(count) || 0;
   if (n <= 0) return 0;
   return n > INITIAL_DAYS_THRESHOLD ? 2 : 1;
+}
+
+const WEEKDAYS = [
+  { value: 0, label: "الأحد" },
+  { value: 1, label: "الاثنين" },
+  { value: 2, label: "الثلاثاء" },
+  { value: 3, label: "الأربعاء" },
+  { value: 4, label: "الخميس" },
+  { value: 5, label: "الجمعة" },
+  { value: 6, label: "السبت" },
+];
+
+// يرجّع YYYY-MM-DD بالتوقيت المحلي
+function toDateKey(value) {
+  if (!value) return "";
+  if (typeof value === "string") {
+    const v = value.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(v)) return v;
+  }
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "";
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+
+function weekdayOf(dateKey) {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return new Date(y, m - 1, d).getDay();
+}
+
+function WeekdayReport() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [rows, setRows] = useState([]); // { date, supervisorId, supervisor, period, plan }
+  const [weekday, setWeekday] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setError("");
+
+        const plansRes = await getPlans();
+        const plans = toArray(plansRes);
+
+        const results = await Promise.all(
+          plans.map((p) => getPlan(p.id).catch(() => null)),
+        );
+
+        const collected = [];
+        const seen = new Set();
+
+        results.forEach((res, i) => {
+          const data = res?.data;
+          if (!data || data.status !== "accepted") return;
+
+          const planName = data.name ?? plans[i]?.name ?? `خطة #${plans[i]?.id}`;
+          const groups = Array.isArray(data.groups) ? data.groups : [];
+          const groupsMap = new Map(
+            groups.map((g) => [String(g.id ?? g.session_group_id), g]),
+          );
+
+          const assignments = Array.isArray(data.assignments)
+            ? data.assignments
+            : [];
+
+          assignments.forEach((a) => {
+            const group = groupsMap.get(
+              String(a.session_group_id ?? a.sessionGroupId ?? a.group_id),
+            );
+
+            const date = toDateKey(a.date ?? group?.date);
+            const supervisor =
+              a.supervisor_name ?? a.supervisorName ?? a.supervisor ?? "";
+            const supervisorId = a.supervisor_id ?? a.supervisorId ?? supervisor;
+            const period =
+              a.period_label ?? a.period ?? group?.period_label ?? group?.period ?? "";
+
+            if (!date || !supervisor) return;
+
+            const key = `${data.id ?? i}|${date}|${supervisorId}|${period}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+
+            collected.push({
+              date,
+              supervisorId: String(supervisorId),
+              supervisor,
+              period,
+              plan: planName,
+            });
+          });
+        });
+
+        if (!cancelled) setRows(collected);
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err?.response?.data?.error ?? err?.message ?? "تعذر تحميل التقرير.",
+          );
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // الصفوف الخاصة باليوم المختار
+  const dayRows = useMemo(
+    () => rows.filter((r) => weekdayOf(r.date) === weekday),
+    [rows, weekday],
+  );
+
+  // تاريخ -> مشرف -> فترات
+  const byDate = useMemo(() => {
+    const map = new Map();
+
+    dayRows.forEach((r) => {
+      if (!map.has(r.date)) map.set(r.date, new Map());
+      const sups = map.get(r.date);
+
+      if (!sups.has(r.supervisorId)) {
+        sups.set(r.supervisorId, {
+          name: r.supervisor,
+          periods: new Set(),
+          plans: new Set(),
+        });
+      }
+
+      const entry = sups.get(r.supervisorId);
+      if (r.period) entry.periods.add(r.period);
+      entry.plans.add(r.plan);
+    });
+
+    return [...map.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, sups]) => ({
+        date,
+        supervisors: [...sups.values()].sort((a, b) =>
+          a.name.localeCompare(b.name, "ar"),
+        ),
+      }));
+  }, [dayRows]);
+
+  // ملخص: كم يوم اشتغل كل مشرف في هذا اليوم من الأسبوع
+  const summary = useMemo(() => {
+    const map = new Map();
+
+    byDate.forEach(({ supervisors }) => {
+      supervisors.forEach((s) => {
+        const cur = map.get(s.name) ?? { name: s.name, days: 0, periods: 0 };
+        cur.days += 1;
+        cur.periods += s.periods.size;
+        map.set(s.name, cur);
+      });
+    });
+
+    return [...map.values()].sort(
+      (a, b) => b.days - a.days || a.name.localeCompare(b.name, "ar"),
+    );
+  }, [byDate]);
+
+  const label = WEEKDAYS.find((d) => d.value === weekday)?.label;
+
+  return (
+    <section className="sup-stats-card">
+      <div className="sup-stats-head">
+        <div>
+          <h2>تقرير حسب اليوم</h2>
+          <p>كل تواريخ اليوم المختار في الخطط المقبولة ومن اشتغل فيها.</p>
+        </div>
+
+        <div className="sup-stats-chips">
+          <div className="sup-chip">
+            <span>عدد التواريخ</span>
+            <strong>{byDate.length}</strong>
+          </div>
+          <div className="sup-chip">
+            <span>المشرفون</span>
+            <strong>{summary.length}</strong>
+          </div>
+        </div>
+      </div>
+
+      <div className="sr-tabs no-print">
+        {WEEKDAYS.map((d) => (
+          <button
+            key={d.value}
+            type="button"
+            className={`sr-tab ${weekday === d.value ? "active" : ""}`}
+            onClick={() => setWeekday(d.value)}
+          >
+            {d.label}
+          </button>
+        ))}
+      </div>
+
+      {loading && (
+        <div className="plans-loading">
+          <div className="loading-spinner" />
+          <span>جاري تحميل التقرير...</span>
+        </div>
+      )}
+
+      {!loading && error && <div className="supervisor-stats-empty">{error}</div>}
+
+      {!loading && !error && byDate.length === 0 && (
+        <div className="supervisor-stats-empty">
+          لا توجد تعيينات يوم {label} في الخطط المقبولة.
+        </div>
+      )}
+
+      {!loading && !error && byDate.length > 0 && (
+        <>
+          <div className="sup-stats-table-wrap">
+            <table className="sup-stats-table">
+              <thead>
+                <tr>
+                  <th>التاريخ</th>
+                  <th>المشرف</th>
+                  <th>الفترات</th>
+                  <th>الخطة</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {byDate.flatMap(({ date, supervisors }) =>
+                  supervisors.map((s, i) => (
+                    <tr key={`${date}-${s.name}`}>
+                      {i === 0 && (
+                        <td rowSpan={supervisors.length}>
+                          <strong>{formatDate(date)}</strong>
+                        </td>
+                      )}
+                      <td>{s.name}</td>
+                      <td>{[...s.periods].join("، ") || "-"}</td>
+                      <td>{[...s.plans].join("، ")}</td>
+                    </tr>
+                  )),
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="sup-category-block">
+            <div className="sup-category-head">
+              <h3>ملخص أيام {label}</h3>
+              <span>عدد المرات التي اشتغل فيها كل مشرف في هذا اليوم</span>
+            </div>
+
+            <table className="sup-category-table">
+              <thead>
+                <tr>
+                  <th>المشرف</th>
+                  <th>عدد الأيام</th>
+                  <th>عدد الفترات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {summary.map((s) => (
+                  <tr key={s.name}>
+                    <td>{s.name}</td>
+                    <td>{s.days}</td>
+                    <td>{s.periods}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </section>
+  );
 }
 
 // =====================================================
@@ -536,9 +826,7 @@ export default function SupervisorStats() {
 
             <h1>إحصائيات المشرفين</h1>
 
-            <p>
-              إجمالي الفترات والأيام والتعيينات لكل مشرف في الخطط المقبولة.
-            </p>
+            <p>إجمالي الفترات والأيام والتعيينات لكل مشرف في الخطط المقبولة.</p>
           </div>
 
           <button
@@ -567,11 +855,13 @@ export default function SupervisorStats() {
           ))}
         </div>
 
-        {tab !== "stats" && (
+        {(tab === "day" || tab === "period") && (
           <section className="sr-panel">
             <DutyReports key={tab} mode={tab} />
           </section>
         )}
+
+        {tab === "weekday" && <WeekdayReport />}
 
         {tab === "stats" && loading && (
           <section className="plans-table-card">
@@ -605,9 +895,7 @@ export default function SupervisorStats() {
             <div className="sup-stats-head">
               <div>
                 <h2>إحصائيات المشرفين</h2>
-                <p>
-                  شاملةً رصيده الابتدائي (خطة 0). اضغط على الاسم لعرض خططه.
-                </p>
+                <p>شاملةً رصيده الابتدائي (خطة 0). اضغط على الاسم لعرض خططه.</p>
               </div>
 
               {mergedSupervisorStats.length > 0 && (
