@@ -575,11 +575,6 @@ function WeekdayReport({ allSupervisors = [] }) {
         <div className="supervisor-stats-empty">{error}</div>
       )}
 
-      {!loading && !error && byDate.length > 0 && (
-        <div className="supervisor-stats-empty">
-          لا توجد تعيينات يوم {label} في الخطط المقبولة.
-        </div>
-      )}
 
       {!loading && !error && byDate.length > 0 && (
         <>
