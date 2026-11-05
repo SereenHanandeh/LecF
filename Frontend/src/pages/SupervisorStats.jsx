@@ -438,6 +438,20 @@ function WeekdayReport() {
       reportRows.forEach((row) => reportSheet.addRow(row));
       styleSheet(reportSheet, reportColumns.length);
 
+      // دمج خلايا اليوم والتاريخ للتاريخ المكرر
+let startRow = 2; // الصف الأول للبيانات (الصف 1 هو الهيدر)
+
+byDate.forEach(({ supervisors }) => {
+  const endRow = startRow + supervisors.length - 1;
+
+  if (endRow > startRow) {
+    reportSheet.mergeCells(`A${startRow}:A${endRow}`); // اليوم
+    reportSheet.mergeCells(`B${startRow}:B${endRow}`); // التاريخ
+  }
+
+  startRow = endRow + 1;
+});
+
       // ===== شيت الملخص =====
       const summaryColumns = [
         { header: "المشرف", key: "name" },
@@ -548,7 +562,6 @@ function WeekdayReport() {
                   <th>التاريخ</th>
                   <th>المشرف</th>
                   <th>الفترات</th>
-                  <th>الخطة</th>
                 </tr>
               </thead>
 
@@ -563,7 +576,6 @@ function WeekdayReport() {
                       )}
                       <td>{s.name}</td>
                       <td>{[...s.periods].join("، ") || "-"}</td>
-                      <td>{[...s.plans].join("، ")}</td>
                     </tr>
                   )),
                 )}
@@ -574,7 +586,7 @@ function WeekdayReport() {
           <div className="sup-category-block">
             <div className="sup-category-head">
               <h3>ملخص أيام {label}</h3>
-              <span>عدد المرات التي اشتغل فيها كل مشرف في هذا اليوم</span>
+              <span>عدد المرات التي عمل فيها كل مشرف في هذا اليوم</span>
             </div>
 
             <table className="sup-category-table">
