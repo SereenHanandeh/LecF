@@ -2590,6 +2590,8 @@ export default function PlanResult() {
           sortDate: getDateValue(first.date),
           sortFrom: fromOf(first),
           professor: getProfessorName(first),
+          room: getRoomNumber(first),
+
           date: formatDate(first.date),
           firstPeriod: getPeriod(first),
           firstFrom: formatTime12Hour(getTimeFrom(first), getPeriod(first)),
@@ -2611,6 +2613,7 @@ export default function PlanResult() {
 
       const DOCTOR_COLUMNS = [
         { header: "Professor", key: "professor" },
+         { header: "Studio", key: "room" },
         { header: "Date", key: "date" },
         { header: "First Period", key: "firstPeriod" },
         { header: "From", key: "firstFrom" },

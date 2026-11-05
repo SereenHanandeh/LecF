@@ -221,7 +221,7 @@ function weekdayOf(dateKey) {
   return new Date(y, m - 1, d).getDay();
 }
 
-function WeekdayReport() {
+function WeekdayReport({ allSupervisors = [] }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [rows, setRows] = useState([]); // { date, supervisorId, supervisor, period, plan }
@@ -349,28 +349,38 @@ function WeekdayReport() {
   }, [dayRows]);
 
   // ملخص: كم يوم اشتغل كل مشرف في هذا اليوم من الأسبوع
-  const summary = useMemo(() => {
-    const map = new Map();
+ const summary = useMemo(() => {
+  const map = new Map();
 
-    byDate.forEach(({ supervisors }) => {
-      supervisors.forEach((s) => {
-        const cur = map.get(s.name) ?? { name: s.name, days: 0, periods: 0 };
-        cur.days += 1;
-        cur.periods += s.periods.size;
-        map.set(s.name, cur);
-      });
+  // الجميع أولًا بقيمة 0
+  allSupervisors.forEach((s) => {
+    if (!s.name) return;
+    map.set(normalizeName(s.name), { name: s.name, days: 0, periods: 0 });
+  });
+
+  byDate.forEach(({ supervisors }) => {
+    supervisors.forEach((s) => {
+      const key = normalizeName(s.name);
+      const cur = map.get(key) ?? { name: s.name, days: 0, periods: 0 };
+      cur.days += 1;
+      cur.periods += s.periods.size;
+      map.set(key, cur);
     });
+  });
 
-    return [...map.values()].sort(
-      (a, b) => b.days - a.days || a.name.localeCompare(b.name, "ar"),
-    );
-  }, [byDate]);
+  return [...map.values()].sort(
+    (a, b) =>
+      b.days - a.days ||
+      b.periods - a.periods ||
+      a.name.localeCompare(b.name, "ar"),
+  );
+}, [byDate, allSupervisors]);
 
   const label = WEEKDAYS.find((d) => d.value === weekday)?.label;
 
   const downloadExcel = async () => {
     try {
-      if (!byDate.length) {
+      if (!byDate.length && !summary.length) {
         alert("لا توجد بيانات لتنزيلها.");
         return;
       }
@@ -565,7 +575,7 @@ function WeekdayReport() {
         <div className="supervisor-stats-empty">{error}</div>
       )}
 
-      {!loading && !error && byDate.length === 0 && (
+      {!loading && !error && summary.length > 0 && (
         <div className="supervisor-stats-empty">
           لا توجد تعيينات يوم {label} في الخطط المقبولة.
         </div>
@@ -1036,7 +1046,14 @@ export default function SupervisorStats() {
           </section>
         )}
 
-        {tab === "weekday" && <WeekdayReport />}
+       {tab === "weekday" && (
+  <WeekdayReport
+    allSupervisors={mergedSupervisorStats.map((s) => ({
+      id: String(s.supervisor_id),
+      name: s.supervisor_name,
+    }))}
+  />
+)}
 
         {tab === "stats" && loading && (
           <section className="plans-table-card">
