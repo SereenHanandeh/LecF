@@ -28,6 +28,53 @@ const Icons = {
 
 const NO_CATEGORY = "بدون فئة";
 
+const PERIOD_WORDS = [
+  "الأولى", "الثانية", "الثالثة", "الرابعة", "الخامسة",
+  "السادسة", "السابعة", "الثامنة", "التاسعة", "العاشرة",
+];
+
+const PERIOD_STEMS = [
+  "اول", "ثان", "ثالث", "رابع", "خامس",
+  "سادس", "سابع", "ثامن", "تاسع", "عاشر",
+];
+
+function periodIndex(value) {
+  const text = String(value ?? "")
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .trim();
+
+  if (!text) return null;
+
+  if (!text.includes(":")) {
+    const num = text.match(/\d+/);
+    if (num) return Number(num[0]);
+  }
+
+  const norm = text.replace(/[أإآ]/g, "ا").replace(/ة/g, "ه");
+  const i = PERIOD_STEMS.findIndex((stem) => norm.includes(stem));
+  return i >= 0 ? i + 1 : null;
+}
+
+// "1" / "فترة 1" / "الفترة الأولى" -> "الأولى"
+function normalizePeriod(value) {
+  const idx = periodIndex(value);
+  if (idx && idx <= PERIOD_WORDS.length) return PERIOD_WORDS[idx - 1];
+  return String(value ?? "").trim();
+}
+
+// أبكر/أبعد وقت عند دمج أسماء الفترة الواحدة
+function minTime(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  return shortTime(a) <= shortTime(b) ? a : b;
+}
+
+function maxTime(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  return shortTime(a) >= shortTime(b) ? a : b;
+}
+
 function toArray(res) {
   if (Array.isArray(res)) return res;
   if (Array.isArray(res?.data)) return res.data;
@@ -95,9 +142,7 @@ function periodTitle(label) {
 }
 
 function periodBadge(label, index) {
-  const m = String(label ?? "").match(/\d+/);
-
-  return m ? m[0] : String(index + 1);
+  return String(periodIndex(label) ?? index + 1);
 }
 
 function initial(name) {
@@ -110,9 +155,9 @@ function normalizeRow(r) {
     date: toISODate(
       r.date ?? r.assignment_date ?? r.assignmentDate ?? r.day ?? null,
     ),
-    period: String(
-      r.period_label ?? r.periodLabel ?? r.period ?? r.period_number ?? "",
-    ).trim(),
+ period: normalizePeriod(
+  r.period_label ?? r.periodLabel ?? r.period ?? r.period_number ?? "",
+),
     time_from: r.time_from ?? r.timeFrom ?? "",
     time_to: r.time_to ?? r.timeTo ?? "",
     supervisor_id: r.supervisor_id ?? r.supervisorId ?? null,
@@ -286,17 +331,20 @@ export default function DutyReports({ mode }) {
   const periods = useMemo(() => {
     const map = new Map();
 
-    scopedRows.forEach((r) => {
-      const current = map.get(r.period);
+  scopedRows.forEach((r) => {
+  const current = map.get(r.period);
 
-      if (!current) {
-        map.set(r.period, {
-          label: r.period,
-          from: r.time_from,
-          to: r.time_to,
-        });
-      }
+  if (!current) {
+    map.set(r.period, {
+      label: r.period,
+      from: r.time_from,
+      to: r.time_to,
     });
+  } else {
+    current.from = minTime(current.from, r.time_from);
+    current.to = maxTime(current.to, r.time_to);
+  }
+});
 
     return [...map.values()].sort(
       (a, b) =>
@@ -322,22 +370,23 @@ export default function DutyReports({ mode }) {
 
     rows
       .filter((r) => r.date === day)
-      .forEach((r) => {
-        const group = byPeriod.get(r.period) ?? {
-          label: r.period,
-          from: r.time_from,
-          to: r.time_to,
-          sups: new Map(),
-        };
+     .forEach((r) => {
+  const group = byPeriod.get(r.period) ?? {
+    label: r.period,
+    from: r.time_from,
+    to: r.time_to,
+    sups: new Map(),
+  };
 
-        // نفس المشرف في نفس الفترة يُحسب مرة واحدة
-        if (!group.sups.has(supKey(r))) {
-          group.sups.set(supKey(r), r.supervisor_name);
-        }
+  group.from = minTime(group.from, r.time_from);
+  group.to = maxTime(group.to, r.time_to);
 
-        byPeriod.set(r.period, group);
-      });
+  if (!group.sups.has(supKey(r))) {
+    group.sups.set(supKey(r), r.supervisor_name);
+  }
 
+  byPeriod.set(r.period, group);
+});
     return [...byPeriod.values()]
       .sort(
         (a, b) =>
