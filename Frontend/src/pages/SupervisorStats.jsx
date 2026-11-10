@@ -203,6 +203,65 @@ function toDateKey(value) {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+const PERIOD_WORDS = [
+  "الأولى",
+  "الثانية",
+  "الثالثة",
+  "الرابعة",
+  "الخامسة",
+  "السادسة",
+  "السابعة",
+  "الثامنة",
+  "التاسعة",
+  "العاشرة",
+];
+
+const PERIOD_STEMS = [
+  "اول",
+  "ثان",
+  "ثالث",
+  "رابع",
+  "خامس",
+  "سادس",
+  "سابع",
+  "ثامن",
+  "تاسع",
+  "عاشر",
+];
+
+// رقم الفترة (1 = الأولى) أو null إذا لم تُفهم
+function periodIndex(value) {
+  const text = String(value ?? "")
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .trim();
+
+  if (!text) return null;
+
+  // ساعات مثل 08:30 ليست رقم فترة
+  if (!text.includes(":")) {
+    const num = text.match(/\d+/);
+    if (num) return Number(num[0]);
+  }
+
+  const norm = text.replace(/[أإآ]/g, "ا").replace(/ة/g, "ه");
+  const i = PERIOD_STEMS.findIndex((stem) => norm.includes(stem));
+  return i >= 0 ? i + 1 : null;
+}
+
+// "فترة 1" / "1" / "الفترة الأولى" -> "الأولى"
+function normalizePeriod(value) {
+  const idx = periodIndex(value);
+  if (idx && idx <= PERIOD_WORDS.length) return PERIOD_WORDS[idx - 1];
+  return String(value ?? "").trim();
+}
+
+// ترتيب الفترات حسب رقمها
+function sortedPeriods(set) {
+  return [...set].sort(
+    (a, b) => (periodIndex(a) ?? 99) - (periodIndex(b) ?? 99),
+  );
+}
+
 // 2026-10-11 -> 11/10/2026
 function formatDateClear(dateKey) {
   if (!dateKey) return "-";
@@ -270,12 +329,13 @@ function WeekdayReport({ allSupervisors = [] }) {
               a.supervisor_name ?? a.supervisorName ?? a.supervisor ?? "";
             const supervisorId =
               a.supervisor_id ?? a.supervisorId ?? supervisor;
-            const period =
+            const period = normalizePeriod(
               a.period_label ??
-              a.period ??
-              group?.period_label ??
-              group?.period ??
-              "";
+                a.period ??
+                group?.period_label ??
+                group?.period ??
+                "",
+            );
 
             if (!date || !supervisor) return;
 
@@ -349,32 +409,32 @@ function WeekdayReport({ allSupervisors = [] }) {
   }, [dayRows]);
 
   // ملخص: كم يوم اشتغل كل مشرف في هذا اليوم من الأسبوع
- const summary = useMemo(() => {
-  const map = new Map();
+  const summary = useMemo(() => {
+    const map = new Map();
 
-  // الجميع أولًا بقيمة 0
-  allSupervisors.forEach((s) => {
-    if (!s.name) return;
-    map.set(normalizeName(s.name), { name: s.name, days: 0, periods: 0 });
-  });
-
-  byDate.forEach(({ supervisors }) => {
-    supervisors.forEach((s) => {
-      const key = normalizeName(s.name);
-      const cur = map.get(key) ?? { name: s.name, days: 0, periods: 0 };
-      cur.days += 1;
-      cur.periods += s.periods.size;
-      map.set(key, cur);
+    // الجميع أولًا بقيمة 0
+    allSupervisors.forEach((s) => {
+      if (!s.name) return;
+      map.set(normalizeName(s.name), { name: s.name, days: 0, periods: 0 });
     });
-  });
 
-  return [...map.values()].sort(
-    (a, b) =>
-      b.days - a.days ||
-      b.periods - a.periods ||
-      a.name.localeCompare(b.name, "ar"),
-  );
-}, [byDate, allSupervisors]);
+    byDate.forEach(({ supervisors }) => {
+      supervisors.forEach((s) => {
+        const key = normalizeName(s.name);
+        const cur = map.get(key) ?? { name: s.name, days: 0, periods: 0 };
+        cur.days += 1;
+        cur.periods += s.periods.size;
+        map.set(key, cur);
+      });
+    });
+
+    return [...map.values()].sort(
+      (a, b) =>
+        b.days - a.days ||
+        b.periods - a.periods ||
+        a.name.localeCompare(b.name, "ar"),
+    );
+  }, [byDate, allSupervisors]);
 
   const label = WEEKDAYS.find((d) => d.value === weekday)?.label;
 
@@ -447,7 +507,7 @@ function WeekdayReport({ allSupervisors = [] }) {
           weekday: label,
           date: dateKeyToExcelDate(date),
           supervisor: s.name,
-          periods: [...s.periods].join("، ") || "-",
+          periods: sortedPeriods(s.periods).join("، ") || "-",
         })),
       );
 
@@ -554,15 +614,19 @@ function WeekdayReport({ allSupervisors = [] }) {
       </div>
 
       {byDate.length > 0 && (
-  <div className="sr-excel-bar no-print">
-    <button type="button" className="sr-excel-btn" onClick={downloadExcel}>
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
-      </svg>
-      <span>تنزيل Excel</span>
-    </button>
-  </div>
-)}
+        <div className="sr-excel-bar no-print">
+          <button
+            type="button"
+            className="sr-excel-btn"
+            onClick={downloadExcel}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+            </svg>
+            <span>تنزيل Excel</span>
+          </button>
+        </div>
+      )}
 
       {loading && (
         <div className="plans-loading">
@@ -574,7 +638,6 @@ function WeekdayReport({ allSupervisors = [] }) {
       {!loading && error && (
         <div className="supervisor-stats-empty">{error}</div>
       )}
-
 
       {!loading && !error && byDate.length > 0 && (
         <>
@@ -599,7 +662,7 @@ function WeekdayReport({ allSupervisors = [] }) {
                         </td>
                       )}
                       <td>{s.name}</td>
-                      <td>{[...s.periods].join("، ") || "-"}</td>
+                      <td>{sortedPeriods(s.periods).join("، ") || "-"}</td>
                       <td>{[...s.plans].join("، ")}</td>
                     </tr>
                   )),
@@ -1041,14 +1104,14 @@ export default function SupervisorStats() {
           </section>
         )}
 
-       {tab === "weekday" && (
-  <WeekdayReport
-    allSupervisors={mergedSupervisorStats.map((s) => ({
-      id: String(s.supervisor_id),
-      name: s.supervisor_name,
-    }))}
-  />
-)}
+        {tab === "weekday" && (
+          <WeekdayReport
+            allSupervisors={mergedSupervisorStats.map((s) => ({
+              id: String(s.supervisor_id),
+              name: s.supervisor_name,
+            }))}
+          />
+        )}
 
         {tab === "stats" && loading && (
           <section className="plans-table-card">
