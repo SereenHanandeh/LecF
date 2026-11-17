@@ -2560,9 +2560,8 @@ export default function PlanResult() {
       }
 
       // ===== شيت الأساتذة: أول وآخر فترة لكل أستاذ =====
-      // ===== شيت الأساتذة: أول فترة وآخر فترة لكل أستاذ =====
       const doctorsSheet = workbook.addWorksheet(
-        sanitizeSheetName("الأساتذة"),
+        sanitizeSheetName("instructures"),
         {
           views: [{ rightToLeft: true }],
         },
@@ -2590,6 +2589,7 @@ export default function PlanResult() {
           sortDate: getDateValue(first.date),
           sortFrom: fromOf(first),
           professor: getProfessorName(first),
+          phone: String(getPhone(first)),
           room: getRoomNumber(first),
 
           date: formatDate(first.date),
@@ -2613,7 +2613,8 @@ export default function PlanResult() {
 
       const DOCTOR_COLUMNS = [
         { header: "Professor", key: "professor" },
-         { header: "Studio", key: "room" },
+        { header: "Phone", key: "phone" },
+        { header: "Studio", key: "room" },
         { header: "Date", key: "date" },
         { header: "First Period", key: "firstPeriod" },
         { header: "From", key: "firstFrom" },
@@ -2666,6 +2667,21 @@ export default function PlanResult() {
           }
         }
       }
+
+      // عمود الهاتف: اتجاه من اليسار لليمين + نص + توسيط
+      const phoneColIndex =
+        DOCTOR_COLUMNS.findIndex((c) => c.key === "phone") + 1;
+
+      doctorsSheet.getColumn(phoneColIndex).eachCell((cell, rowNumber) => {
+        cell.alignment = {
+          vertical: "middle",
+          horizontal: "center",
+          wrapText: true,
+          readingOrder: "ltr",
+        };
+
+        if (rowNumber > 1) cell.numFmt = "@"; // تنسيق نص
+      });
 
       doctorsSheet.pageSetup = {
         paperSize: 9,
