@@ -3402,9 +3402,7 @@ useEffect(() => {
                     {availablePlans.map((plan) => (
                       <option key={plan.id} value={plan.id}>
                         {plan.name ?? `خطة #${plan.id}`}
-                        {plan.date_from
-                          ? ` (${formatDate(plan.date_from)})`
-                          : ""}
+                        
                       </option>
                     ))}
                   </select>
