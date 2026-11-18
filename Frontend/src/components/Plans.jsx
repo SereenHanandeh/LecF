@@ -654,7 +654,7 @@ export default function Plans() {
         <div style={tabStyles.wrap}>
           <button
             type="button"
-            style={tabStyles.tab(!isDeletedTab, false)}
+            style={tabStyles.tab(!isDeletedTab && !isDraftTab, false)}
             onClick={() => switchTab(TAB_ACCEPTED)}
           >
             الخطط المقبولة
