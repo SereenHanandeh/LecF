@@ -2,7 +2,13 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import Sidebar from "../components/Sidebar.jsx";
-import { getPlans, deletePlan, getAcceptedSupervisorStats } from "../api.js";
+import {
+  getPlans,
+  deletePlan,
+  getAcceptedSupervisorStats,
+  getDeletedPlans,
+  restorePlan,
+} from "../api.js";
 
 import "../assets/Plan.css";
 
@@ -65,6 +71,20 @@ const Icons = {
       <path d="M10 11v6M14 11v6" />
     </svg>
   ),
+
+  restore: (
+    <svg viewBox="0 0 24 24">
+      <path d="M3 12a9 9 0 1 0 3-6.7" />
+      <path d="M3 4v5h5" />
+    </svg>
+  ),
+
+  eye: (
+    <svg viewBox="0 0 24 24">
+      <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
 };
 
 // =====================================================
@@ -72,6 +92,62 @@ const Icons = {
 // =====================================================
 
 const NO_CATEGORY = "بدون فئة";
+
+const TAB_ACCEPTED = "accepted";
+const TAB_DELETED = "deleted";
+
+const tabStyles = {
+  wrap: {
+    display: "flex",
+    gap: 8,
+    margin: "0 0 14px",
+    flexWrap: "wrap",
+  },
+  tab: (active, danger) => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 8,
+    padding: "9px 18px",
+    border: `1px solid ${
+      active ? (danger ? "#dc2626" : "#2563eb") : "#cbd5e1"
+    }`,
+    borderRadius: 10,
+    background: active ? (danger ? "#fef2f2" : "#eff6ff") : "#fff",
+    color: active ? (danger ? "#b91c1c" : "#1d4ed8") : "#475569",
+    font: "inherit",
+    fontSize: 14,
+    fontWeight: 700,
+    cursor: "pointer",
+  }),
+  count: {
+    minWidth: 22,
+    padding: "1px 8px",
+    borderRadius: 999,
+    background: "#e2e8f0",
+    color: "#334155",
+    fontSize: 12,
+    textAlign: "center",
+  },
+  restoreBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    padding: "7px 12px",
+    border: "1px solid #16a34a",
+    borderRadius: 10,
+    background: "#f0fdf4",
+    color: "#15803d",
+    font: "inherit",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+  },
+  icon: {
+    width: 16,
+    height: 16,
+    display: "inline-flex",
+  },
+};
 
 const dateFilterStyles = {
   wrap: {
@@ -216,6 +292,21 @@ function planTime(plan) {
   return Number.isNaN(t) ? 0 : t;
 }
 
+function deletedTime(plan) {
+  const t = new Date(plan.deleted_at ?? plan.created_at ?? 0).getTime();
+
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function getErrorMessage(err, fallback) {
+  return (
+    err?.response?.data?.error ??
+    err?.response?.data?.message ??
+    err?.message ??
+    fallback
+  );
+}
+
 // =====================================================
 // Plans Page
 // =====================================================
@@ -224,6 +315,9 @@ export default function Plans() {
   const navigate = useNavigate();
 
   const [plans, setPlans] = useState([]);
+  const [deletedPlans, setDeletedPlans] = useState([]);
+  const [activeTab, setActiveTab] = useState(TAB_ACCEPTED);
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
@@ -234,9 +328,12 @@ export default function Plans() {
   const [showAllPlans, setShowAllPlans] = useState(false);
 
   const [deletingPlanId, setDeletingPlanId] = useState(null);
+  const [restoringPlanId, setRestoringPlanId] = useState(null);
 
   // يُستخدم فقط لحساب عدد المشرفين/التعيينات لكل خطة
   const [supervisorStats, setSupervisorStats] = useState([]);
+
+  const isDeletedTab = activeTab === TAB_DELETED;
 
   // ===================================================
   // Load Plans
@@ -264,23 +361,25 @@ export default function Plans() {
         statsResponse = { data: [] };
       }
 
+      let deletedResponse = null;
+
+      try {
+        deletedResponse = await getDeletedPlans();
+      } catch (deletedError) {
+        console.error("⚠️ Failed to load deleted plans:", deletedError);
+
+        deletedResponse = { data: [] };
+      }
+
       setPlans(toArray(response));
       setSupervisorStats(toArray(statsResponse));
+      setDeletedPlans(toArray(deletedResponse));
     } catch (err) {
       console.error("🔴 ERROR LOADING PLANS:", err);
 
-      let errorMessage = "تعذر تحميل الخطط المقبولة.";
-
-      if (err?.response?.data?.error) {
-        errorMessage = err.response.data.error;
-      } else if (err?.response?.data?.message) {
-        errorMessage = err.response.data.message;
-      } else if (err?.message) {
-        errorMessage = err.message;
-      }
-
-      setError(errorMessage);
+      setError(getErrorMessage(err, "تعذر تحميل الخطط المقبولة."));
       setPlans([]);
+      setDeletedPlans([]);
       setSupervisorStats([]);
     } finally {
       setLoading(false);
@@ -292,6 +391,14 @@ export default function Plans() {
     loadPlans();
   }, []);
 
+  function switchTab(tab) {
+    setActiveTab(tab);
+    setShowAllPlans(false);
+    setSearch("");
+    setDateFrom("");
+    setDateTo("");
+  }
+
   // ===================================================
   // Accepted Plans Only
   // ===================================================
@@ -299,6 +406,9 @@ export default function Plans() {
   const acceptedPlans = useMemo(() => {
     return plans.filter((plan) => getPlanStatus(plan) === "accepted");
   }, [plans]);
+
+  // القائمة الحالية حسب التبويب
+  const sourcePlans = isDeletedTab ? deletedPlans : acceptedPlans;
 
   // ===================================================
   // Sequential Plan Numbers (خطة 1، خطة 2 ...)
@@ -337,7 +447,7 @@ export default function Plans() {
     const from = dateFrom ? new Date(`${dateFrom}T00:00:00`) : null;
     const to = dateTo ? new Date(`${dateTo}T23:59:59.999`) : null;
 
-    return acceptedPlans
+    return sourcePlans
       .filter((plan) => {
         const name = String(plan.name || "").toLowerCase();
         const id = String(plan.id || "").toLowerCase();
@@ -367,13 +477,15 @@ export default function Plans() {
         return true;
       })
       .sort((a, b) => {
-        const diff = planTime(b) - planTime(a);
+        const diff = isDeletedTab
+          ? deletedTime(b) - deletedTime(a)
+          : planTime(b) - planTime(a);
 
         if (diff !== 0) return diff;
 
         return Number(b.id) - Number(a.id);
       });
-  }, [acceptedPlans, search, dateFrom, dateTo, planNumbers]);
+  }, [sourcePlans, search, dateFrom, dateTo, planNumbers, isDeletedTab]);
 
   const visiblePlans = useMemo(() => {
     if (hasFilters || showAllPlans) return filteredPlans;
@@ -388,7 +500,7 @@ export default function Plans() {
     setDateTo("");
   }
 
-  const totalPlans = acceptedPlans.length;
+  const totalPlans = sourcePlans.length;
 
   // عدد المشرفين/التعيينات لكل خطة
   const planSupervisorCounts = useMemo(() => {
@@ -424,7 +536,7 @@ export default function Plans() {
 
   const handleDeletePlan = async (planId) => {
     const confirmed = window.confirm(
-      "هل أنت متأكد من حذف هذه الخطة؟\n\nلا يمكن التراجع عن عملية الحذف.",
+      "هل أنت متأكد من حذف هذه الخطة؟\n\nستنتقل الخطة إلى «الخطط المحذوفة» ويمكنك استرجاعها لاحقًا.",
     );
 
     if (!confirmed) return;
@@ -439,16 +551,40 @@ export default function Plans() {
     } catch (err) {
       console.error("🔴 DELETE PLAN ERROR:", err);
 
-      const errorMessage =
-        err?.response?.data?.error ??
-        err?.response?.data?.message ??
-        err?.message ??
-        "تعذر حذف الخطة.";
+      const errorMessage = getErrorMessage(err, "تعذر حذف الخطة.");
 
       setError(errorMessage);
       alert(errorMessage);
     } finally {
       setDeletingPlanId(null);
+    }
+  };
+
+  // ===================================================
+  // Restore Plan
+  // ===================================================
+
+  const handleRestorePlan = async (planId) => {
+    const confirmed = window.confirm("هل تريد استرجاع هذه الخطة؟");
+
+    if (!confirmed) return;
+
+    try {
+      setRestoringPlanId(planId);
+      setError("");
+
+      await restorePlan(planId);
+
+      await loadPlans(true);
+    } catch (err) {
+      console.error("🔴 RESTORE PLAN ERROR:", err);
+
+      const errorMessage = getErrorMessage(err, "تعذر استرجاع الخطة.");
+
+      setError(errorMessage);
+      alert(errorMessage);
+    } finally {
+      setRestoringPlanId(null);
     }
   };
 
@@ -466,12 +602,16 @@ export default function Plans() {
             <div className="plans-breadcrumb">
               LectureFlow
               <span>/</span>
-              الخطط المقبولة
+              {isDeletedTab ? "الخطط المحذوفة" : "الخطط المقبولة"}
             </div>
 
-            <h1>الخطط المقبولة</h1>
+            <h1>{isDeletedTab ? "الخطط المحذوفة" : "الخطط المقبولة"}</h1>
 
-            <p>عرض وإدارة جميع خطط توزيع المشرفين التي تم قبولها.</p>
+            <p>
+              {isDeletedTab
+                ? "عرض الخطط المحذوفة ويمكنك استرجاع أي خطة منها."
+                : "عرض وإدارة جميع خطط توزيع المشرفين التي تم قبولها."}
+            </p>
           </div>
 
           <button className="new-plan-button" onClick={() => navigate("/")}>
@@ -480,12 +620,34 @@ export default function Plans() {
           </button>
         </header>
 
+        <div style={tabStyles.wrap}>
+          <button
+            type="button"
+            style={tabStyles.tab(!isDeletedTab, false)}
+            onClick={() => switchTab(TAB_ACCEPTED)}
+          >
+            الخطط المقبولة
+            <span style={tabStyles.count}>{acceptedPlans.length}</span>
+          </button>
+
+          <button
+            type="button"
+            style={tabStyles.tab(isDeletedTab, true)}
+            onClick={() => switchTab(TAB_DELETED)}
+          >
+            الخطط المحذوفة
+            <span style={tabStyles.count}>{deletedPlans.length}</span>
+          </button>
+        </div>
+
         <section className="plans-stat-grid">
           <div className="plan-stat-card">
             <div className="plan-stat-icon blue">{Icons.assignments}</div>
 
             <div>
-              <span>إجمالي الخطط المقبولة</span>
+              <span>
+                {isDeletedTab ? "إجمالي الخطط المحذوفة" : "إجمالي الخطط المقبولة"}
+              </span>
 
               <strong>{totalPlans}</strong>
             </div>
@@ -570,7 +732,7 @@ export default function Plans() {
           </div>
         </section>
 
-        {!loading && !error && acceptedPlans.length > PLANS_PREVIEW_LIMIT && (
+        {!loading && !error && sourcePlans.length > PLANS_PREVIEW_LIMIT && (
           <p style={dateFilterStyles.hint}>
             {hasFilters
               ? "تظهر كل الخطط المطابقة للبحث أو التاريخ، الأحدث أولًا."
@@ -585,7 +747,7 @@ export default function Plans() {
             <div className="plans-loading">
               <div className="loading-spinner" />
 
-              <span>جاري تحميل الخطط المقبولة...</span>
+              <span>جاري تحميل الخطط...</span>
             </div>
           )}
 
@@ -605,21 +767,25 @@ export default function Plans() {
 
           {!loading && !error && filteredPlans.length === 0 && (
             <div className="plans-empty">
-              <div className="empty-icon">📋</div>
+              <div className="empty-icon">{isDeletedTab ? "🗑️" : "📋"}</div>
 
               <h2>
-                {acceptedPlans.length === 0
-                  ? "لا توجد خطط مقبولة حتى الآن"
+                {sourcePlans.length === 0
+                  ? isDeletedTab
+                    ? "لا توجد خطط محذوفة"
+                    : "لا توجد خطط مقبولة حتى الآن"
                   : "لا توجد نتائج مطابقة"}
               </h2>
 
               <p>
-                {acceptedPlans.length === 0
-                  ? "عند قبول أي خطة ستظهر هنا."
+                {sourcePlans.length === 0
+                  ? isDeletedTab
+                    ? "عند حذف أي خطة ستظهر هنا ويمكنك استرجاعها."
+                    : "عند قبول أي خطة ستظهر هنا."
                   : "جربي تغيير كلمة البحث أو نطاق التاريخ."}
               </p>
 
-              {acceptedPlans.length === 0 && (
+              {sourcePlans.length === 0 && !isDeletedTab && (
                 <button onClick={() => navigate("/")}>إنشاء خطة جديدة</button>
               )}
             </div>
@@ -635,7 +801,7 @@ export default function Plans() {
                     <th>المشرفون</th>
                     <th>التعيينات</th>
                     <th>الحالة</th>
-                    <th>تاريخ الإنشاء</th>
+                    <th>{isDeletedTab ? "تاريخ الحذف" : "تاريخ الإنشاء"}</th>
                     <th>الإجراءات</th>
                   </tr>
                 </thead>
@@ -664,6 +830,9 @@ export default function Plans() {
                     const isDeleting =
                       Number(deletingPlanId) === Number(plan.id);
 
+                    const isRestoring =
+                      Number(restoringPlanId) === Number(plan.id);
+
                     const planNumber =
                       planNumbers.get(String(plan.id)) ?? plan.id;
 
@@ -676,7 +845,11 @@ export default function Plans() {
                             </div>
 
                             <div>
-                              <strong>خطة {planNumber}</strong>
+                              <strong>
+                                {isDeletedTab
+                                  ? `خطة #${plan.id}`
+                                  : `خطة ${planNumber}`}
+                              </strong>
 
                               <span className="plan-name-date">
                                 {formatDateRange(plan.date_from, plan.date_to)}
@@ -730,34 +903,70 @@ export default function Plans() {
 
                         <td>
                           <span className="created-date">
-                            {formatDate(plan.created_at)}
+                            {isDeletedTab
+                              ? formatDate(plan.deleted_at)
+                              : formatDate(plan.created_at)}
                           </span>
                         </td>
 
                         <td>
                           <div className="plan-actions">
-                            <button
-                              className="action-view"
-                              onClick={() => openPlan(plan.id)}
-                              title="فتح الخطة"
-                            >
-                              {Icons.users}
+                            {isDeletedTab ? (
+                              <>
+                                <button
+                                  className="action-view"
+                                  onClick={() => openPlan(plan.id)}
+                                  title="عرض الخطة"
+                                >
+                                  {Icons.eye}
 
-                              <span>تعديل</span>
-                            </button>
+                                  <span>عرض</span>
+                                </button>
 
-                            <button
-                              className="action-delete"
-                              onClick={() => handleDeletePlan(plan.id)}
-                              disabled={isDeleting}
-                              title="حذف الخطة"
-                            >
-                              {Icons.trash}
+                                <button
+                                  type="button"
+                                  style={tabStyles.restoreBtn}
+                                  onClick={() => handleRestorePlan(plan.id)}
+                                  disabled={isRestoring}
+                                  title="استرجاع الخطة"
+                                >
+                                  <span style={tabStyles.icon}>
+                                    {Icons.restore}
+                                  </span>
 
-                              <span>
-                                {isDeleting ? "جاري الحذف..." : "حذف"}
-                              </span>
-                            </button>
+                                  <span>
+                                    {isRestoring
+                                      ? "جاري الاسترجاع..."
+                                      : "استرجاع"}
+                                  </span>
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  className="action-view"
+                                  onClick={() => openPlan(plan.id)}
+                                  title="فتح الخطة"
+                                >
+                                  {Icons.users}
+
+                                  <span>تعديل</span>
+                                </button>
+
+                                <button
+                                  className="action-delete"
+                                  onClick={() => handleDeletePlan(plan.id)}
+                                  disabled={isDeleting}
+                                  title="حذف الخطة"
+                                >
+                                  {Icons.trash}
+
+                                  <span>
+                                    {isDeleting ? "جاري الحذف..." : "حذف"}
+                                  </span>
+                                </button>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -800,7 +1009,8 @@ export default function Plans() {
         {!loading && !error && visiblePlans.length > 0 && (
           <div className="plans-footer">
             <span>
-              عرض {visiblePlans.length} من {acceptedPlans.length} خطة مقبولة
+              عرض {visiblePlans.length} من {sourcePlans.length}{" "}
+              {isDeletedTab ? "خطة محذوفة" : "خطة مقبولة"}
             </span>
 
             <span>LectureFlow</span>

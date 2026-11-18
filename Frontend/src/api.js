@@ -67,6 +67,17 @@ export const getPlan = async (planId) => {
   }
 };
 
+
+export const getDeletedPlans = () =>
+  api.get("/plan/deleted").then((res) => res.data);
+
+export const restorePlan = (planId) => {
+  if (!planId || typeof planId !== "string") {
+    return Promise.reject(new Error("معرف الخطة غير صحيح."));
+  }
+  return api.post(`/plan/${planId}/restore`).then((res) => res.data);
+};
+
 export const getPlans = () =>
   api.get("/plan").then((res) => res.data);
 
