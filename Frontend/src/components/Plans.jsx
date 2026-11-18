@@ -847,7 +847,7 @@ export default function Plans() {
                             <div>
                               <strong>
                                 {isDeletedTab
-                                  ? `خطة #${plan.id}`
+                                  ? plan.name || `خطة ${String(plan.id).slice(0, 8)}`
                                   : `خطة ${planNumber}`}
                               </strong>
 
