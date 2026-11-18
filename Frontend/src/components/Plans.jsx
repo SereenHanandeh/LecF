@@ -95,6 +95,7 @@ const NO_CATEGORY = "بدون فئة";
 
 const TAB_ACCEPTED = "accepted";
 const TAB_DELETED = "deleted";
+const TAB_DRAFT = "draft";
 
 const tabStyles = {
   wrap: {
@@ -343,6 +344,13 @@ export default function Plans() {
   const [supervisorStats, setSupervisorStats] = useState([]);
 
   const isDeletedTab = activeTab === TAB_DELETED;
+  const isDraftTab = activeTab === TAB_DRAFT;
+
+  const tabTitle = isDeletedTab
+    ? "الخطط المحذوفة"
+    : isDraftTab
+      ? "المسودات"
+      : "الخطط المقبولة";
 
   // ===================================================
   // Load Plans
@@ -416,8 +424,20 @@ export default function Plans() {
     return plans.filter((plan) => getPlanStatus(plan) === "accepted");
   }, [plans]);
 
+  // ===================================================
+  // Draft Plans Only
+  // ===================================================
+
+  const draftPlans = useMemo(() => {
+    return plans.filter((plan) => getPlanStatus(plan) === "draft");
+  }, [plans]);
+
   // القائمة الحالية حسب التبويب
-  const sourcePlans = isDeletedTab ? deletedPlans : acceptedPlans;
+  const sourcePlans = isDeletedTab
+    ? deletedPlans
+    : isDraftTab
+      ? draftPlans
+      : acceptedPlans;
 
   // ===================================================
   // Sequential Plan Numbers (خطة 1، خطة 2 ...)
@@ -611,15 +631,17 @@ export default function Plans() {
             <div className="plans-breadcrumb">
               LectureFlow
               <span>/</span>
-              {isDeletedTab ? "الخطط المحذوفة" : "الخطط المقبولة"}
+              {tabTitle}
             </div>
 
-            <h1>{isDeletedTab ? "الخطط المحذوفة" : "الخطط المقبولة"}</h1>
+            <h1>{tabTitle}</h1>
 
             <p>
               {isDeletedTab
                 ? "عرض الخطط المحذوفة ويمكنك استرجاع أي خطة منها."
-                : "عرض وإدارة جميع خطط توزيع المشرفين التي تم قبولها."}
+                : isDraftTab
+                  ? "الخطط التي لم يتم قبولها أو رفضها بعد، يمكنك فتحها لإكمالها."
+                  : "عرض وإدارة جميع خطط توزيع المشرفين التي تم قبولها."}
             </p>
           </div>
 
@@ -641,6 +663,15 @@ export default function Plans() {
 
           <button
             type="button"
+            style={tabStyles.tab(isDraftTab, false)}
+            onClick={() => switchTab(TAB_DRAFT)}
+          >
+            المسودات
+            <span style={tabStyles.count}>{draftPlans.length}</span>
+          </button>
+
+          <button
+            type="button"
             style={tabStyles.tab(isDeletedTab, true)}
             onClick={() => switchTab(TAB_DELETED)}
           >
@@ -655,7 +686,11 @@ export default function Plans() {
 
             <div>
               <span>
-                {isDeletedTab ? "إجمالي الخطط المحذوفة" : "إجمالي الخطط المقبولة"}
+                {isDeletedTab
+                  ? "إجمالي الخطط المحذوفة"
+                  : isDraftTab
+                    ? "إجمالي المسودات"
+                    : "إجمالي الخطط المقبولة"}
               </span>
 
               <strong>{totalPlans}</strong>
@@ -776,13 +811,17 @@ export default function Plans() {
 
           {!loading && !error && filteredPlans.length === 0 && (
             <div className="plans-empty">
-              <div className="empty-icon">{isDeletedTab ? "🗑️" : "📋"}</div>
+              <div className="empty-icon">
+                {isDeletedTab ? "🗑️" : isDraftTab ? "📝" : "📋"}
+              </div>
 
               <h2>
                 {sourcePlans.length === 0
                   ? isDeletedTab
                     ? "لا توجد خطط محذوفة"
-                    : "لا توجد خطط مقبولة حتى الآن"
+                    : isDraftTab
+                      ? "لا توجد مسودات"
+                      : "لا توجد خطط مقبولة حتى الآن"
                   : "لا توجد نتائج مطابقة"}
               </h2>
 
@@ -790,7 +829,9 @@ export default function Plans() {
                 {sourcePlans.length === 0
                   ? isDeletedTab
                     ? "عند حذف أي خطة ستظهر هنا ويمكنك استرجاعها."
-                    : "عند قبول أي خطة ستظهر هنا."
+                    : isDraftTab
+                      ? "الخطط التي تنشئينها وتبقى بدون قبول أو رفض ستظهر هنا."
+                      : "عند قبول أي خطة ستظهر هنا."
                   : "جربي تغيير كلمة البحث أو نطاق التاريخ."}
               </p>
 
@@ -855,7 +896,7 @@ export default function Plans() {
 
                             <div>
                               <strong>
-                                {isDeletedTab
+                                {isDeletedTab || isDraftTab
                                   ? getPlanDisplayName(
                                       plan,
                                       String(plan.id).slice(0, 8),
@@ -1022,7 +1063,7 @@ export default function Plans() {
           <div className="plans-footer">
             <span>
               عرض {visiblePlans.length} من {sourcePlans.length}{" "}
-              {isDeletedTab ? "خطة محذوفة" : "خطة مقبولة"}
+              {isDeletedTab ? "خطة محذوفة" : isDraftTab ? "مسودة" : "خطة مقبولة"}
             </span>
 
             <span>LectureFlow</span>
