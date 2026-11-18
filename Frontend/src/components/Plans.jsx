@@ -307,6 +307,15 @@ function getErrorMessage(err, fallback) {
   );
 }
 
+// الاسم الجديد: "20/11/2026 دبلوم" — الخطط القديمة (Plan 123...) تبقى بالترقيم
+function getPlanDisplayName(plan, fallbackNumber) {
+  const name = String(plan.name ?? "").trim();
+
+  if (name && !/^Plan \d+$/i.test(name)) return name;
+
+  return `خطة ${fallbackNumber}`;
+}
+
 // =====================================================
 // Plans Page
 // =====================================================
@@ -847,8 +856,11 @@ export default function Plans() {
                             <div>
                               <strong>
                                 {isDeletedTab
-                                  ? plan.name || `خطة ${String(plan.id).slice(0, 8)}`
-                                  : `خطة ${planNumber}`}
+                                  ? getPlanDisplayName(
+                                      plan,
+                                      String(plan.id).slice(0, 8),
+                                    )
+                                  : getPlanDisplayName(plan, planNumber)}
                               </strong>
 
                               <span className="plan-name-date">

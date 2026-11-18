@@ -753,20 +753,26 @@ export default function PlanResult() {
       });
   }, []);
 
-  useEffect(() => {
-    getPlans()
-      .then((res) => {
-        const list = res?.data ?? res?.plans ?? res ?? [];
-        const filtered = Array.isArray(list)
-          ? list.filter((p) => String(p.id) !== String(planId))
-          : [];
-        setAvailablePlans(filtered);
-      })
-      .catch((err) => {
-        console.error("❌ Failed to load plans list:", err);
-        setAvailablePlans([]);
-      });
-  }, [planId]);
+useEffect(() => {
+  getPlans()
+    .then((res) => {
+      const list = res?.data ?? res?.plans ?? res ?? [];
+
+      const filtered = Array.isArray(list)
+        ? list.filter(
+            (p) =>
+              String(p.id) !== String(planId) &&
+              (p.status ?? p.plan_status ?? p.planStatus) === "accepted",
+          )
+        : [];
+
+      setAvailablePlans(filtered);
+    })
+    .catch((err) => {
+      console.error("❌ Failed to load plans list:", err);
+      setAvailablePlans([]);
+    });
+}, [planId]);
 
   // =====================================================
   // Load Plan
